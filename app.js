@@ -1,6 +1,6 @@
 /* ZenMux Chat —— 现代化边缘 AI 对话站
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
-   多模态：客户端 Canvas 自适应重采样与压缩、剪贴板粘贴、文件拖拽、灯箱大图预览
+   多模态：客户端 Canvas 自适应重采样与压缩、剪贴板粘贴、文件拖拽、灯箱大图预览、输入模态自适应
 */
 (function () {
   'use strict';
@@ -423,6 +423,13 @@
 
   function handleIncomingFiles(fileList) {
     if (!fileList || !fileList.length) return;
+
+    var m = state.modelMeta[state.model];
+    if (m && !hasVision(m)) {
+      toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
+      return;
+    }
+
     var files = Array.prototype.slice.call(fileList).filter(function (f) {
       return f.type && f.type.indexOf('image/') === 0;
     });
@@ -452,6 +459,11 @@
   }
 
   el.attachBtn.addEventListener('click', function () {
+    var m = state.modelMeta[state.model];
+    if (m && !hasVision(m)) {
+      toast('当前选中的模型不支持图片输入');
+      return;
+    }
     el.fileInput.click();
   });
 
@@ -473,6 +485,11 @@
     }
     if (pastedImages.length > 0) {
       e.preventDefault();
+      var m = state.modelMeta[state.model];
+      if (m && !hasVision(m)) {
+        toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
+        return;
+      }
       handleIncomingFiles(pastedImages);
     }
   });
@@ -503,6 +520,11 @@
     dragCounter = 0;
     el.dropOverlay.classList.remove('active');
     if (e.dataTransfer && e.dataTransfer.files) {
+      var m = state.modelMeta[state.model];
+      if (m && !hasVision(m)) {
+        toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
+        return;
+      }
       handleIncomingFiles(e.dataTransfer.files);
     }
   });
@@ -688,6 +710,10 @@
      ========================================================================== */
   function hasVision(m) {
     if (!m) return false;
+    // 优先依据 ZenMux 返回的 input_modalities 数组判断
+    if (Array.isArray(m.input_modalities)) {
+      return m.input_modalities.indexOf('image') !== -1;
+    }
     if (m.capabilities && m.capabilities.vision) return true;
     var id = (m.id || '').toLowerCase();
     return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
@@ -735,6 +761,27 @@
     });
   }
 
+  function syncVision() {
+    var m = state.modelMeta[state.model];
+    var can = hasVision(m);
+    var unknown = !m;
+    var enabled = can || unknown;
+    el.attachBtn.disabled = !enabled;
+    el.fileInput.disabled = !enabled;
+    if (enabled) {
+      el.attachBtn.classList.remove('disabled');
+      el.attachBtn.title = '添加图片（支持点击、拖拽、剪贴板粘贴）';
+    } else {
+      el.attachBtn.classList.add('disabled');
+      el.attachBtn.title = '当前模型不支持图片输入';
+      if (state.pendingImages.length > 0) {
+        state.pendingImages = [];
+        renderAttachments();
+        toast('已切换至不支持图片输入的模型，已清空图片附件');
+      }
+    }
+  }
+
   function syncEffort() {
     var m = state.modelMeta[state.model];
     var can = !!(m && m.capabilities && m.capabilities.reasoning);
@@ -743,6 +790,11 @@
     el.effort.title = can
       ? '推理强度：ZenMux 不传此参数时默认 medium'
       : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
+  }
+
+  function syncModelCapabilities() {
+    syncVision();
+    syncEffort();
   }
 
   function loadModels() {
@@ -761,7 +813,7 @@
         }
         el.model.value = state.model;
         localStorage.setItem(LS.model, state.model);
-        syncEffort();
+        syncModelCapabilities();
         renderThread();
       })
       .catch(function (e) {
@@ -807,7 +859,8 @@
 
     var meta = state.modelMeta[state.model];
     if (images.length && meta && !hasVision(meta)) {
-      toast('提示：当前模型 "' + (meta.display_name || state.model) + '" 可能不支持视觉，已尝试发送');
+      toast('当前模型不支持图片输入，请先切换至支持视觉的模型');
+      return;
     }
 
     var c = state.currentConv;
@@ -827,9 +880,18 @@
       c.title = (text || (images.length ? '[图片分析]' : '新对话')).slice(0, 28);
     }
 
+    // 移除空白提示
+    var emptyNode = el.threadInner.querySelector('.empty');
+    if (emptyNode) {
+      emptyNode.parentNode.removeChild(emptyNode);
+    }
+
+    // 直接追加 User 气泡到活跃 DOM，绝不在流式开始前重写 innerHTML
+    el.threadInner.appendChild(bubble('user', text, images, ''));
+
+    // 后台异步保存至 IndexedDB 并更新左侧会话标题
     ZenMuxDB.putConversation(c).then(function () {
       renderConvList();
-      renderThread();
     });
 
     // 清空输入与附件
@@ -839,7 +901,10 @@
     autoGrow();
     syncSend();
 
+    // 追加 Assistant 气泡并获取正文引用
     var body = appendBubble('assistant');
+    toBottom();
+
     var acc = '';
     var reasonAcc = '';
     var stick = true;
@@ -1011,7 +1076,7 @@
         }
         el.model.value = state.model;
         localStorage.setItem(LS.model, state.model);
-        syncEffort();
+        syncModelCapabilities();
         renderThread();
         syncSend();
       })
@@ -1057,7 +1122,7 @@
     state.model = el.model.value.trim();
     localStorage.setItem(LS.model, state.model);
     syncSend();
-    syncEffort();
+    syncModelCapabilities();
     renderThread();
   });
 
@@ -1086,7 +1151,7 @@
   el.model.value = state.model;
   el.effort.value = state.effort;
   el.ctx.value = String(state.ctxN);
-  syncEffort();
+  syncModelCapabilities();
   autoGrow();
   syncSend();
 

@@ -176,9 +176,15 @@
   .composer-icon-btn{
     flex:0 0 auto;background:transparent;border:0;color:var(--fg-dim);border-radius:9px;
     width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:color .15s,background .15s;margin-bottom:1px;
+    transition:color .15s,background .15s,opacity .15s;margin-bottom:1px;
   }
   .composer-icon-btn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
+  .composer-icon-btn:disabled,.composer-icon-btn.disabled{
+    opacity:.28;cursor:not-allowed;pointer-events:auto;
+  }
+  .composer-icon-btn:disabled:hover,.composer-icon-btn.disabled:hover{
+    color:var(--fg-dim);background:transparent;
+  }
   #input{
     flex:1;background:transparent;border:0;color:var(--fg);resize:none;
     font:inherit;line-height:1.55;max-height:200px;padding:6px 0;outline:none;
