@@ -1122,7 +1122,7 @@
       container.appendChild(usageCard);
     }
 
-    // 4. 朗读按钮与专属下拉音频播放器
+    // 4. 朗读按钮与专属下拉音频播放器 (Web Speech API 零依赖全平台引擎)
     var ttsBtn = document.createElement('button');
     ttsBtn.className = 'msg-action-btn tts-btn';
     ttsBtn.title = '展开语音朗读播放器';
@@ -1131,10 +1131,14 @@
     var playerDrawer = document.createElement('div');
     playerDrawer.className = 'msg-tts-player hide';
 
-    var audioInst = null;
-    var currentVoice = 'zh-CN-XiaoxiaoNeural';
     var currentSpeed = 1.0;
-    var isAudioLoading = false;
+    var currentVoiceURI = '';
+    var utter = null;
+    var isSpeaking = false;
+    var isPaused = false;
+    var progressTimer = null;
+    var currentProgressSeconds = 0;
+    var estimatedDurationSeconds = 1;
 
     playerDrawer.innerHTML =
       '<div class="tts-main-row">' +
@@ -1151,13 +1155,7 @@
       '<div class="tts-controls-row">' +
         '<div class="tts-ctrl-group">' +
           '<span>音色:</span>' +
-          '<select class="tts-voice-select">' +
-            '<option value="zh-CN-XiaoxiaoNeural">晓晓 (自然女声)</option>' +
-            '<option value="zh-CN-YunxiNeural">云希 (沉稳男声)</option>' +
-            '<option value="zh-CN-YunjianNeural">云健 (影视解说)</option>' +
-            '<option value="zh-CN-XiaoyiNeural">晓伊 (电台女声)</option>' +
-            '<option value="en-US-JennyNeural">Jenny (美式英语)</option>' +
-          '</select>' +
+          '<select class="tts-voice-select"><option value="">系统自然人声</option></select>' +
         '</div>' +
         '<div class="tts-ctrl-group">' +
           '<span>倍速:</span>' +
@@ -1177,6 +1175,39 @@
     var voiceSelect = playerDrawer.querySelector('.tts-voice-select');
     var speedBtns = playerDrawer.querySelectorAll('.tts-speed-btn');
 
+    function populateVoices() {
+      if (!('speechSynthesis' in window)) return;
+      var all = window.speechSynthesis.getVoices() || [];
+      var zhAndEn = all.filter(function (v) {
+        return v.lang && (/^(zh|cmn|yue|en)/i.test(v.lang) || /chinese|mandarin|english/i.test(v.name));
+      });
+      var voices = zhAndEn.length ? zhAndEn : all;
+      voiceSelect.innerHTML = '';
+      if (!voices.length) {
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '系统默认语音';
+        voiceSelect.appendChild(opt);
+        return;
+      }
+      voices.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        var label = v.name.replace(/Microsoft|Google|Apple|Desktop|Online \(Natural\)/gi, '').trim();
+        opt.textContent = (label || v.name) + ' (' + v.lang + ')';
+        if (!currentVoiceURI && (v.default || /zh-CN|cmn|xiaoxiao|yunxi|tingting/i.test(v.name + v.lang))) {
+          currentVoiceURI = v.voiceURI;
+        }
+        voiceSelect.appendChild(opt);
+      });
+      if (currentVoiceURI) voiceSelect.value = currentVoiceURI;
+    }
+
+    populateVoices();
+    if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+    }
+
     function updatePlayIcon(isPlaying) {
       if (isPlaying) {
         playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
@@ -1187,113 +1218,116 @@
       }
     }
 
-    function initOrGetAudio(autoPlay) {
-      var rawText = cleanTextForTTS(msg.content || '');
-      if (!rawText) {
+    function stopSpeech() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      clearInterval(progressTimer);
+      isSpeaking = false;
+      isPaused = false;
+      currentProgressSeconds = 0;
+      updatePlayIcon(false);
+      slider.value = 0;
+      curTimeSpan.textContent = '00:00';
+    }
+
+    function startSpeech(startIndex) {
+      if (!('speechSynthesis' in window)) {
+        toast('当前浏览器不支持 Web Speech API', 'error');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      clearInterval(progressTimer);
+
+      var fullText = cleanTextForTTS(msg.content || '');
+      if (!fullText) {
         toast('回复内容为空，无法朗读', 'info');
         return;
       }
-      var cacheKey = (msg.id || ('idx_' + msgIndex)) + '_' + currentVoice;
 
-      if (audioBlobCache[cacheKey]) {
-        attachAudio(audioBlobCache[cacheKey], autoPlay);
-        return;
+      var textToRead = fullText;
+      if (startIndex && startIndex > 0 && startIndex < fullText.length) {
+        textToRead = fullText.slice(startIndex);
       }
 
-      if (isAudioLoading) return;
-      isAudioLoading = true;
-      playBtn.classList.add('loading');
-      playBtn.innerHTML = '<span class="attachment-spinner"></span>';
+      estimatedDurationSeconds = Math.max(1, Math.round(fullText.length / (4.2 * currentSpeed)));
+      durTimeSpan.textContent = formatAudioTime(estimatedDurationSeconds);
 
-      fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
-        body: JSON.stringify({ text: rawText, voice: currentVoice }),
-      })
-        .then(function (res) {
-          if (!res.ok) {
-            return res.json().then(function (j) {
-              throw new Error(j.error || ('HTTP ' + res.status));
-            });
-          }
-          return res.blob();
-        })
-        .then(function (blob) {
-          var audioUrl = URL.createObjectURL(blob);
-          audioBlobCache[cacheKey] = audioUrl;
-          attachAudio(audioUrl, autoPlay);
-        })
-        .catch(function (err) {
-          toast('语音合成失败: ' + err.message, 'error');
-        })
-        .then(function () {
-          isAudioLoading = false;
-          playBtn.classList.remove('loading');
-          updatePlayIcon(audioInst && !audioInst.paused);
-        });
-    }
+      utter = new SpeechSynthesisUtterance(textToRead);
+      utter.rate = currentSpeed;
+      utter.pitch = 1.0;
 
-    function attachAudio(url, autoPlay) {
-      if (audioInst) {
-        audioInst.pause();
-        audioInst.src = '';
+      var voices = window.speechSynthesis.getVoices() || [];
+      if (currentVoiceURI) {
+        var found = voices.find(function (v) { return v.voiceURI === currentVoiceURI; });
+        if (found) utter.voice = found;
       }
-      audioInst = new Audio(url);
-      audioInst.playbackRate = currentSpeed;
 
-      audioInst.addEventListener('loadedmetadata', function () {
-        durTimeSpan.textContent = formatAudioTime(audioInst.duration);
-      });
-
-      audioInst.addEventListener('timeupdate', function () {
-        if (!audioInst || isNaN(audioInst.duration)) return;
-        curTimeSpan.textContent = formatAudioTime(audioInst.currentTime);
-        slider.value = (audioInst.currentTime / audioInst.duration) * 100;
-      });
-
-      audioInst.addEventListener('ended', function () {
-        updatePlayIcon(false);
-        slider.value = 0;
-        curTimeSpan.textContent = '00:00';
-      });
-
-      audioInst.addEventListener('play', function () {
-        if (currentGlobalAudio && currentGlobalAudio !== audioInst) {
-          currentGlobalAudio.pause();
-          if (currentGlobalPlayBtn) currentGlobalPlayBtn(false);
-        }
-        currentGlobalAudio = audioInst;
-        currentGlobalPlayBtn = updatePlayIcon;
+      utter.onstart = function () {
+        isSpeaking = true;
+        isPaused = false;
         updatePlayIcon(true);
-      });
+        progressTimer = setInterval(function () {
+          if (isSpeaking && !isPaused) {
+            currentProgressSeconds += 0.25;
+            if (currentProgressSeconds > estimatedDurationSeconds) {
+              currentProgressSeconds = estimatedDurationSeconds;
+            }
+            curTimeSpan.textContent = formatAudioTime(currentProgressSeconds);
+            slider.value = (currentProgressSeconds / estimatedDurationSeconds) * 100;
+          }
+        }, 250);
+      };
 
-      audioInst.addEventListener('pause', function () {
-        updatePlayIcon(false);
-      });
+      utter.onboundary = function (e) {
+        if (e.charIndex !== undefined && fullText.length) {
+          var charIdx = (startIndex || 0) + e.charIndex;
+          var pct = Math.min(100, Math.max(0, (charIdx / fullText.length) * 100));
+          slider.value = pct;
+          currentProgressSeconds = (pct / 100) * estimatedDurationSeconds;
+          curTimeSpan.textContent = formatAudioTime(currentProgressSeconds);
+        }
+      };
 
-      if (autoPlay) {
-        audioInst.play().catch(function () {});
-      }
+      utter.onend = function () {
+        stopSpeech();
+      };
+
+      utter.onerror = function (e) {
+        if (e && e.error !== 'canceled' && e.error !== 'interrupted') {
+          toast('朗读已停止', 'info');
+        }
+        stopSpeech();
+      };
+
+      window.speechSynthesis.speak(utter);
     }
 
     playBtn.addEventListener('click', function () {
-      if (isAudioLoading) return;
-      if (!audioInst) {
-        initOrGetAudio(true);
+      if (!isSpeaking) {
+        startSpeech(0);
       } else {
-        if (audioInst.paused) {
-          audioInst.play().catch(function () {});
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+          isPaused = false;
+          updatePlayIcon(true);
         } else {
-          audioInst.pause();
+          window.speechSynthesis.pause();
+          isPaused = true;
+          updatePlayIcon(false);
         }
       }
     });
 
     slider.addEventListener('input', function () {
-      if (!audioInst || isNaN(audioInst.duration)) return;
-      var targetTime = (slider.value / 100) * audioInst.duration;
-      audioInst.currentTime = targetTime;
-      curTimeSpan.textContent = formatAudioTime(targetTime);
+      var fullText = cleanTextForTTS(msg.content || '');
+      var pct = parseFloat(slider.value) || 0;
+      var targetCharIndex = Math.floor((pct / 100) * fullText.length);
+      currentProgressSeconds = (pct / 100) * estimatedDurationSeconds;
+      curTimeSpan.textContent = formatAudioTime(currentProgressSeconds);
+      if (isSpeaking) {
+        startSpeech(targetCharIndex);
+      }
     });
 
     speedBtns.forEach(function (btn) {
@@ -1301,23 +1335,27 @@
         speedBtns.forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         currentSpeed = parseFloat(btn.getAttribute('data-speed')) || 1.0;
-        if (audioInst) {
-          audioInst.playbackRate = currentSpeed;
+        if (isSpeaking) {
+          var fullText = cleanTextForTTS(msg.content || '');
+          var pct = parseFloat(slider.value) || 0;
+          var targetCharIndex = Math.floor((pct / 100) * fullText.length);
+          startSpeech(targetCharIndex);
         }
       });
     });
 
     voiceSelect.addEventListener('change', function () {
-      currentVoice = voiceSelect.value;
-      if (audioInst) {
-        audioInst.pause();
-        audioInst = null;
+      currentVoiceURI = voiceSelect.value;
+      if (isSpeaking) {
+        var fullText = cleanTextForTTS(msg.content || '');
+        var pct = parseFloat(slider.value) || 0;
+        var targetCharIndex = Math.floor((pct / 100) * fullText.length);
+        startSpeech(targetCharIndex);
       }
-      initOrGetAudio(true);
     });
 
     function closePlayer() {
-      if (audioInst) audioInst.pause();
+      stopSpeech();
       playerDrawer.classList.add('hide');
       ttsBtn.classList.remove('active');
     }
@@ -1329,9 +1367,8 @@
       if (isHidden) {
         playerDrawer.classList.remove('hide');
         ttsBtn.classList.add('active');
-        if (!audioInst) {
-          initOrGetAudio(true);
-        }
+        populateVoices();
+        startSpeech(0);
       } else {
         closePlayer();
       }
