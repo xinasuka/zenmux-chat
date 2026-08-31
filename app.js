@@ -116,6 +116,38 @@
     document.body.removeChild(ta);
   }
 
+  var currentGlobalAudio = null;
+  var currentGlobalPlayBtn = null;
+  var audioBlobCache = {};
+
+  function cleanTextForTTS(md) {
+    if (!md) return '';
+    var s = String(md);
+    // 移除代码块
+    s = s.replace(/```[\s\S]*?```/g, ' 代码块已忽略 ');
+    // 移除行内代码
+    s = s.replace(/`([^`]+)`/g, '$1');
+    // 移除链接 [text](url) -> text
+    s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    // 移除图片 ![alt](url) -> ''
+    s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+    // 移除标题标记与粗体
+    s = s.replace(/#{1,6}\s+/g, '');
+    s = s.replace(/[*_~]{1,3}/g, '');
+    // 移除表格线
+    s = s.replace(/\|/g, ' ');
+    // 移除引用符号
+    s = s.replace(/^\s*>\s?/gm, '');
+    return s.trim().slice(0, 4000);
+  }
+
+  function formatAudioTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return '00:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  }
+
   /* ==========================================================================
      1. IndexedDB 存储引擎 (ZenMuxDB)
      ========================================================================== */
@@ -1087,11 +1119,227 @@
       });
 
       bar.appendChild(infoBtn);
-      container.appendChild(bar);
       container.appendChild(usageCard);
-    } else {
-      container.appendChild(bar);
     }
+
+    // 4. 朗读按钮与专属下拉音频播放器
+    var ttsBtn = document.createElement('button');
+    ttsBtn.className = 'msg-action-btn tts-btn';
+    ttsBtn.title = '展开语音朗读播放器';
+    ttsBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg> 朗读';
+
+    var playerDrawer = document.createElement('div');
+    playerDrawer.className = 'msg-tts-player hide';
+
+    var audioInst = null;
+    var currentVoice = 'zh-CN-XiaoxiaoNeural';
+    var currentSpeed = 1.0;
+    var isAudioLoading = false;
+
+    playerDrawer.innerHTML =
+      '<div class="tts-main-row">' +
+        '<button class="tts-play-btn" title="播放 / 暂停">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>' +
+        '</button>' +
+        '<div class="tts-progress-wrap">' +
+          '<span class="tts-time tts-cur-time">00:00</span>' +
+          '<input type="range" class="tts-slider" min="0" max="100" value="0" step="0.1">' +
+          '<span class="tts-time tts-dur-time">00:00</span>' +
+        '</div>' +
+        '<button class="tts-close-btn" title="关闭播放器">✕</button>' +
+      '</div>' +
+      '<div class="tts-controls-row">' +
+        '<div class="tts-ctrl-group">' +
+          '<span>音色:</span>' +
+          '<select class="tts-voice-select">' +
+            '<option value="zh-CN-XiaoxiaoNeural">晓晓 (自然女声)</option>' +
+            '<option value="zh-CN-YunxiNeural">云希 (沉稳男声)</option>' +
+            '<option value="zh-CN-YunjianNeural">云健 (影视解说)</option>' +
+            '<option value="zh-CN-XiaoyiNeural">晓伊 (电台女声)</option>' +
+            '<option value="en-US-JennyNeural">Jenny (美式英语)</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="tts-ctrl-group">' +
+          '<span>倍速:</span>' +
+          '<button class="tts-speed-btn" data-speed="0.75">0.75x</button>' +
+          '<button class="tts-speed-btn active" data-speed="1.0">1.0x</button>' +
+          '<button class="tts-speed-btn" data-speed="1.25">1.25x</button>' +
+          '<button class="tts-speed-btn" data-speed="1.5">1.5x</button>' +
+          '<button class="tts-speed-btn" data-speed="2.0">2.0x</button>' +
+        '</div>' +
+      '</div>';
+
+    var playBtn = playerDrawer.querySelector('.tts-play-btn');
+    var curTimeSpan = playerDrawer.querySelector('.tts-cur-time');
+    var durTimeSpan = playerDrawer.querySelector('.tts-dur-time');
+    var slider = playerDrawer.querySelector('.tts-slider');
+    var closeBtn = playerDrawer.querySelector('.tts-close-btn');
+    var voiceSelect = playerDrawer.querySelector('.tts-voice-select');
+    var speedBtns = playerDrawer.querySelectorAll('.tts-speed-btn');
+
+    function updatePlayIcon(isPlaying) {
+      if (isPlaying) {
+        playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+        playBtn.title = '暂停';
+      } else {
+        playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+        playBtn.title = '播放';
+      }
+    }
+
+    function initOrGetAudio(autoPlay) {
+      var rawText = cleanTextForTTS(msg.content || '');
+      if (!rawText) {
+        toast('回复内容为空，无法朗读', 'info');
+        return;
+      }
+      var cacheKey = (msg.id || ('idx_' + msgIndex)) + '_' + currentVoice;
+
+      if (audioBlobCache[cacheKey]) {
+        attachAudio(audioBlobCache[cacheKey], autoPlay);
+        return;
+      }
+
+      if (isAudioLoading) return;
+      isAudioLoading = true;
+      playBtn.classList.add('loading');
+      playBtn.innerHTML = '<span class="attachment-spinner"></span>';
+
+      fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
+        body: JSON.stringify({ text: rawText, voice: currentVoice }),
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.json().then(function (j) {
+              throw new Error(j.error || ('HTTP ' + res.status));
+            });
+          }
+          return res.blob();
+        })
+        .then(function (blob) {
+          var audioUrl = URL.createObjectURL(blob);
+          audioBlobCache[cacheKey] = audioUrl;
+          attachAudio(audioUrl, autoPlay);
+        })
+        .catch(function (err) {
+          toast('语音合成失败: ' + err.message, 'error');
+        })
+        .then(function () {
+          isAudioLoading = false;
+          playBtn.classList.remove('loading');
+          updatePlayIcon(audioInst && !audioInst.paused);
+        });
+    }
+
+    function attachAudio(url, autoPlay) {
+      if (audioInst) {
+        audioInst.pause();
+        audioInst.src = '';
+      }
+      audioInst = new Audio(url);
+      audioInst.playbackRate = currentSpeed;
+
+      audioInst.addEventListener('loadedmetadata', function () {
+        durTimeSpan.textContent = formatAudioTime(audioInst.duration);
+      });
+
+      audioInst.addEventListener('timeupdate', function () {
+        if (!audioInst || isNaN(audioInst.duration)) return;
+        curTimeSpan.textContent = formatAudioTime(audioInst.currentTime);
+        slider.value = (audioInst.currentTime / audioInst.duration) * 100;
+      });
+
+      audioInst.addEventListener('ended', function () {
+        updatePlayIcon(false);
+        slider.value = 0;
+        curTimeSpan.textContent = '00:00';
+      });
+
+      audioInst.addEventListener('play', function () {
+        if (currentGlobalAudio && currentGlobalAudio !== audioInst) {
+          currentGlobalAudio.pause();
+          if (currentGlobalPlayBtn) currentGlobalPlayBtn(false);
+        }
+        currentGlobalAudio = audioInst;
+        currentGlobalPlayBtn = updatePlayIcon;
+        updatePlayIcon(true);
+      });
+
+      audioInst.addEventListener('pause', function () {
+        updatePlayIcon(false);
+      });
+
+      if (autoPlay) {
+        audioInst.play().catch(function () {});
+      }
+    }
+
+    playBtn.addEventListener('click', function () {
+      if (isAudioLoading) return;
+      if (!audioInst) {
+        initOrGetAudio(true);
+      } else {
+        if (audioInst.paused) {
+          audioInst.play().catch(function () {});
+        } else {
+          audioInst.pause();
+        }
+      }
+    });
+
+    slider.addEventListener('input', function () {
+      if (!audioInst || isNaN(audioInst.duration)) return;
+      var targetTime = (slider.value / 100) * audioInst.duration;
+      audioInst.currentTime = targetTime;
+      curTimeSpan.textContent = formatAudioTime(targetTime);
+    });
+
+    speedBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        speedBtns.forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        currentSpeed = parseFloat(btn.getAttribute('data-speed')) || 1.0;
+        if (audioInst) {
+          audioInst.playbackRate = currentSpeed;
+        }
+      });
+    });
+
+    voiceSelect.addEventListener('change', function () {
+      currentVoice = voiceSelect.value;
+      if (audioInst) {
+        audioInst.pause();
+        audioInst = null;
+      }
+      initOrGetAudio(true);
+    });
+
+    function closePlayer() {
+      if (audioInst) audioInst.pause();
+      playerDrawer.classList.add('hide');
+      ttsBtn.classList.remove('active');
+    }
+
+    closeBtn.addEventListener('click', closePlayer);
+
+    ttsBtn.addEventListener('click', function () {
+      var isHidden = playerDrawer.classList.contains('hide');
+      if (isHidden) {
+        playerDrawer.classList.remove('hide');
+        ttsBtn.classList.add('active');
+        if (!audioInst) {
+          initOrGetAudio(true);
+        }
+      } else {
+        closePlayer();
+      }
+    });
+
+    bar.appendChild(ttsBtn);
+    container.insertBefore(bar, container.firstChild);
+    container.appendChild(playerDrawer);
 
     return container;
   }
