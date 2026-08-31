@@ -1,6 +1,7 @@
 /* ZenMux Chat —— 现代化边缘 AI 对话站
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
    多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
+   会话管理：双阶启发式智能标题提炼 + 侧边栏内联手动重命名
 */
 (function () {
   'use strict';
@@ -232,7 +233,7 @@
      3. 源码与文档就地文本提取引擎 (FileTextExtractor)
      ========================================================================== */
   var FileTextExtractor = {
-    MAX_CHARS: 100000, // 字符上限（约 25,000~30,000 Token）
+    MAX_CHARS: 100000,
     MAX_FILE_SIZE_MB: 10,
 
     isImageFile: function (file) {
@@ -350,7 +351,64 @@
   };
 
   /* ==========================================================================
-     4. Markdown 渲染引擎
+     4. 智能标题提取与降噪引擎 (TitleExtractor)
+     ========================================================================== */
+  var TitleExtractor = {
+    cleanUserPrompt: function (text, files, images) {
+      if (files && files.length) {
+        return (files[0].name + (files.length > 1 ? ' 等' + files.length + '个文件' : '')).slice(0, 24);
+      }
+      if (images && images.length && (!text || !text.trim())) {
+        return ('[图片] ' + (images[0].name || '视觉分析')).slice(0, 24);
+      }
+      var raw = (text || '').trim();
+      if (!raw) return '新对话';
+
+      // 过滤冗余前缀与礼貌词
+      var cleaned = raw.replace(/^(?:(?:请问|请帮我|麻烦帮我|我想了解|帮我写一个|帮我写|帮我做|帮我分析|请分析|请解释|请教|你好|您好|hi|hello|如何|怎么|怎样|如何实现|怎么写|能否|可以帮我|想问下|我想问)[\s，,：:、]*)+/i, '').trim();
+      cleaned = cleaned.replace(/^[？?！!，,。.\s]+/, '').trim();
+
+      var result = cleaned || raw;
+      if (images && images.length) {
+        result = '[图] ' + result;
+      }
+      return result.slice(0, 24);
+    },
+
+    sniffAssistantTitle: function (content) {
+      if (!content || typeof content !== 'string') return null;
+      var text = content.trim();
+
+      // 1. 优先嗅探一级/二级 Markdown 标题: # 标题 / ## 标题
+      var headMatch = text.match(/(?:^|\n)#{1,3}\s+([^\n#`]{3,30})/);
+      if (headMatch && headMatch[1]) {
+        var h = headMatch[1].trim()
+          .replace(/^[\d+.\s、]+/, '') // 去除开头的 1. 或 1、
+          .replace(/[：:。!！?？]+$/, '')
+          .trim();
+        if (h.length >= 2 && h.length <= 26 && !/^(引言|简介|概述|分析|总结|解答|步骤|方案|说明)$/.test(h)) {
+          return h;
+        }
+      }
+
+      // 2. 嗅探加粗主题: **核心概念/方案名**
+      var boldMatch = text.match(/(?:^|\n)\*\*([^*\n]{3,24})\*\*/);
+      if (boldMatch && boldMatch[1]) {
+        var b = boldMatch[1].trim()
+          .replace(/^[\d+.\s、]+/, '')
+          .replace(/[：:。!！?？]+$/, '')
+          .trim();
+        if (b.length >= 2 && b.length <= 24 && !/^(注意|提示|警告|总结|说明|步骤|方案)$/.test(b)) {
+          return b;
+        }
+      }
+
+      return null;
+    }
+  };
+
+  /* ==========================================================================
+     5. Markdown 渲染引擎
      ========================================================================== */
   var SENT = String.fromCharCode(1);
 
@@ -483,7 +541,7 @@
   }
 
   /* ==========================================================================
-     5. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
+     6. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
      ========================================================================== */
   var toastTimer = null;
   function toast(msg) {
@@ -515,7 +573,7 @@
   });
 
   /* ==========================================================================
-     6. 统一附件管理与文件添加 (Attachments Management)
+     7. 统一附件管理与文件添加 (Attachments Management)
      ========================================================================== */
   function renderAttachments() {
     el.attachmentsTray.innerHTML = '';
@@ -669,7 +727,7 @@
   });
 
   /* ==========================================================================
-     7. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
+     8. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
      ========================================================================== */
   function loadAllConversations() {
     return ZenMuxDB.getAllConversations().then(function (list) {
@@ -717,15 +775,75 @@
       var row = document.createElement('div');
       row.className = 'conv' + (c.id === state.currentId ? ' active' : '');
 
+      var isEditing = false;
+
       var txt = document.createElement('span');
       txt.className = 'txt';
-      txt.textContent = c.title;
+      txt.textContent = c.title || '新对话';
+      txt.title = '双击可修改标题';
 
-      var del = document.createElement('span');
-      del.className = 'del';
-      del.textContent = '\u00d7';
-      del.title = '删除';
-      del.addEventListener('click', function (e) {
+      var actions = document.createElement('span');
+      actions.className = 'actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'conv-btn edit';
+      editBtn.textContent = '✏️';
+      editBtn.title = '重命名';
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'conv-btn del';
+      delBtn.textContent = '×';
+      delBtn.title = '删除对话';
+
+      function startEdit() {
+        if (isEditing || state.busy) return;
+        isEditing = true;
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'conv-edit-input';
+        input.value = c.title || '';
+
+        function commitEdit() {
+          if (!isEditing) return;
+          isEditing = false;
+          var val = input.value.trim();
+          if (val && val !== c.title) {
+            c.title = val;
+            c.customTitle = true;
+            ZenMuxDB.putConversation(c);
+          }
+          renderConvList();
+        }
+
+        function cancelEdit() {
+          if (!isEditing) return;
+          isEditing = false;
+          renderConvList();
+        }
+
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+          else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+        });
+        input.addEventListener('blur', commitEdit);
+        input.addEventListener('click', function (e) { e.stopPropagation(); });
+
+        row.innerHTML = '';
+        row.appendChild(input);
+        setTimeout(function () { input.focus(); input.select(); }, 20);
+      }
+
+      editBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        startEdit();
+      });
+
+      txt.addEventListener('dblclick', function (e) {
+        e.stopPropagation();
+        startEdit();
+      });
+
+      delBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (state.busy) return;
         ZenMuxDB.deleteConversation(c.id).then(function () {
@@ -748,10 +866,13 @@
         });
       });
 
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
       row.appendChild(txt);
-      row.appendChild(del);
+      row.appendChild(actions);
+
       row.addEventListener('click', function () {
-        if (state.busy || state.currentId === c.id) return;
+        if (state.busy || state.currentId === c.id || isEditing) return;
         state.currentId = c.id;
         state.currentConv = c;
         localStorage.setItem(LS.cur, c.id);
@@ -870,7 +991,7 @@
   }
 
   /* ==========================================================================
-     8. 模型列表与能力检测 (Models & Capabilities)
+     9. 模型列表与能力检测 (Models & Capabilities)
      ========================================================================== */
   function hasVision(m) {
     if (!m) return false;
@@ -985,7 +1106,7 @@
   }
 
   /* ==========================================================================
-     9. 消息发送与多模态/文件上下文流式响应 (Message Dispatch & Streaming)
+     10. 消息发送与多模态/文件上下文流式响应 (Message Dispatch & Streaming)
      ========================================================================== */
   function syncSend() {
     var hasContent = !!el.input.value.trim() || state.pendingAttachments.length > 0;
@@ -1037,8 +1158,11 @@
     };
     c.messages.push(userMsg);
     c.updatedAt = Date.now();
-    if (first) {
-      c.title = (text || (files.length ? files[0].name : (images.length ? '[图片分析]' : '新对话'))).slice(0, 28);
+
+    // 阶段 1: 初次发言智能初拟标题
+    if (first && !c.customTitle) {
+      c.title = TitleExtractor.cleanUserPrompt(text, files, images);
+      c.autoTitled = true;
     }
 
     var emptyNode = el.threadInner.querySelector('.empty');
@@ -1049,7 +1173,7 @@
     // 追加用户气泡至活跃 DOM
     el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text));
 
-    // 后台持久化
+    // 后台持久化并更新会话列表
     ZenMuxDB.putConversation(c).then(function () {
       renderConvList();
     });
@@ -1135,7 +1259,18 @@
           };
           c.messages.push(asstMsg);
           c.updatedAt = Date.now();
-          ZenMuxDB.putConversation(c);
+
+          // 阶段 2: 智能嗅探 AI 回复中的标题进行润色 (仅在初拟标题且用户未手动修改时)
+          if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
+            var refined = TitleExtractor.sniffAssistantTitle(acc);
+            if (refined && refined !== c.title) {
+              c.title = refined;
+            }
+          }
+
+          ZenMuxDB.putConversation(c).then(function () {
+            renderConvList();
+          });
         }
         body.innerHTML = renderParts(reasonAcc, acc);
       })
@@ -1204,7 +1339,7 @@
   }
 
   /* ==========================================================================
-     10. 门禁验证 (Access Gate)
+     11. 门禁验证 (Access Gate)
      ========================================================================== */
   function showGate(err) {
     el.gate.classList.remove('hide');
@@ -1245,7 +1380,7 @@
   }
 
   /* ==========================================================================
-     11. 界面事件监听与初始化 (UI & Startup)
+     12. 界面事件监听与初始化 (UI & Startup)
      ========================================================================== */
   function autoGrow() {
     el.input.style.height = 'auto';
