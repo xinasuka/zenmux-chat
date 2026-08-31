@@ -112,12 +112,13 @@ git add -A && git commit -m "说明" && git push
 2. 填入域名。**强烈建议用子域名**，如 `chat.example.com`（根域 CNAME 会与 MX 记录冲突）
 3. 弹窗会给出**两条**需要去注册商添加的记录，**两条都加，别只加 CNAME**：
 
-   | 顺序 | 类型 | 主机记录 | 记录值 |
+   | 顺序 | 类型 | 主机记录 / 记录名称 | 记录值 |
    |---|---|---|---|
-   | ① | **TXT**（所有权校验） | 控制台指定，通常 `_eo-verify` 或带域名前缀 | 控制台给的校验串 |
-   | ② | **CNAME** | `chat` | 平台给的形如 `a4285573.xxxx.dns.edgeone.site.` |
+   | ① | **TXT**（所有权校验） | EdgeOne 弹窗里 `Host` 字段去掉当前域名（例：EdgeOne 给 `edgeonereclaim.zenchat.cc.cd.` 当前域为 `zenchat.cc.cd`，则填 **`edgeonereclaim`**） | 复制弹窗里 `Value` 后面的整串 `reclaim-...`（**用拷按钮，别手敲**，长度 30+） |
+   | ② | **CNAME** | 同上，去掉当前域名后的前缀 | 平台给的形如 `a4285573.xxxx.dns.edgeone.site.` |
 
    > 顺序无所谓，但**必须先加 TXT 并通过校验**，域名状态才会从 Pending 往前走。
+   > 各家控制台"主机记录"字段叫法：DNSPod/腾讯云叫**记录名称**，阿里云叫**主机记录**，Cloudflare 叫**Name**——都是一个意思，只填**子域名前缀**（不要带当前域名、不要带 `@`、不要加根域）。
 4. 回到控制台点 **Verify** / 等待状态变为 **Activated**。
    DNS 生效通常几分钟，最长 48 小时（TTL 决定）。
 
