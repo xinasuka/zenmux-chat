@@ -3,6 +3,7 @@
    多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
    会话管理：双阶启发式智能标题提炼 + 侧边栏内联手动重命名
    联网检索：全模型前置实时全网检索增强 (RAG Grounding) + 检索深度多档位控制 + 引用来源溯源
+   消息操作：一键复制 + Token 消耗精确计量徽标 + 历史回答重新生成 + 会话总消耗看板
 */
 (function () {
   'use strict';
@@ -79,6 +80,40 @@
       case 'standard':
       default: return 5;
     }
+  }
+
+  function calculateSessionTokens(conv) {
+    if (!conv || !conv.messages) return 0;
+    return conv.messages.reduce(function (sum, m) {
+      return sum + ((m.usage && m.usage.total_tokens) || 0);
+    }, 0);
+  }
+
+  function updateSidebarFooter() {
+    var footer = $('sidebar-footer-text');
+    if (!footer) return;
+    var total = calculateSessionTokens(state.currentConv);
+    if (total > 0) {
+      footer.textContent = '会话仅存于本机 · 消耗 ' + total.toLocaleString() + ' Tokens';
+    } else {
+      footer.textContent = '会话仅存于本机浏览器';
+    }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      toast('已复制到剪贴板', 'info');
+    } catch (e) {
+      toast('复制失败，请手动长按复制', 'error');
+    }
+    document.body.removeChild(ta);
   }
 
   /* ==========================================================================
@@ -613,7 +648,7 @@
     el.toast.className = (type === 'error' ? 'error' : 'info');
     el.toast.style.display = 'block';
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.toast.style.display = 'none'; }, 3500);
+    toastTimer = setTimeout(function () { el.toast.style.display = 'none'; }, 4000);
   }
 
   function openLightbox(src) {
@@ -973,6 +1008,88 @@
   }
   function toBottom() { el.thread.scrollTop = el.thread.scrollHeight; }
 
+  function createActionsToolbar(msg, msgIndex) {
+    var bar = document.createElement('div');
+    bar.className = 'msg-actions';
+
+    // 1. 复制按钮
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'msg-action-btn copy';
+    copyBtn.title = '复制回复内容';
+    copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 复制';
+    copyBtn.addEventListener('click', function () {
+      var textToCopy = msg.content || '';
+      if (!textToCopy) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(function () {
+          toast('已复制到剪贴板', 'info');
+        }).catch(function () {
+          fallbackCopy(textToCopy);
+        });
+      } else {
+        fallbackCopy(textToCopy);
+      }
+    });
+    bar.appendChild(copyBtn);
+
+    // 2. 重新生成按钮
+    var regenBtn = document.createElement('button');
+    regenBtn.className = 'msg-action-btn regen';
+    regenBtn.title = '使用当前模型重新生成回答';
+    regenBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> 重新生成';
+    regenBtn.addEventListener('click', function () {
+      if (state.busy) {
+        toast('AI 正在回答中，请稍候…', 'info');
+        return;
+      }
+      regenerateFrom(msgIndex);
+    });
+    bar.appendChild(regenBtn);
+
+    // 3. Token 消耗审计徽章
+    if (msg.usage && msg.usage.total_tokens) {
+      var u = msg.usage;
+      var badge = document.createElement('button');
+      badge.className = 'usage-badge';
+      badge.title = '点击查看本轮及会话 Token 消耗明细';
+      badge.innerHTML = '⚡ ' + u.total_tokens.toLocaleString() + ' Tokens';
+      badge.addEventListener('click', function () {
+        var sessTotal = calculateSessionTokens(state.currentConv);
+        var modelName = msg.model || state.model || '大模型';
+        var promptT = (u.prompt_tokens || 0).toLocaleString();
+        var compT = (u.completion_tokens || 0).toLocaleString();
+        var totalT = (u.total_tokens || 0).toLocaleString();
+        var sessT = sessTotal.toLocaleString();
+
+        toast('【Token 消耗明细】输入: ' + promptT + ' · 输出: ' + compT + ' · 本轮: ' + totalT + ' · 当前对话累计: ' + sessT + ' (' + modelName + ')', 'info');
+      });
+      bar.appendChild(badge);
+    }
+
+    return bar;
+  }
+
+  function regenerateFrom(asstIndex) {
+    var c = state.currentConv;
+    if (!c || !c.messages || state.busy) return;
+
+    var userIndex = asstIndex - 1;
+    while (userIndex >= 0 && c.messages[userIndex].role !== 'user') {
+      userIndex--;
+    }
+    if (userIndex < 0) {
+      toast('未找到上一轮提问', 'info');
+      return;
+    }
+
+    var userMsg = c.messages[userIndex];
+    c.messages = c.messages.slice(0, userIndex + 1);
+    ZenMuxDB.putConversation(c).then(function () {
+      renderThread();
+      executeAssistantStream(userMsg);
+    });
+  }
+
   function renderThread() {
     var c = state.currentConv;
     el.threadInner.innerHTML = '';
@@ -983,16 +1100,18 @@
       empty.innerHTML = '<div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>' +
         '<span>' + (state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '请先在上方选择模型') + '</span>';
       el.threadInner.appendChild(empty);
+      updateSidebarFooter();
       return;
     }
 
-    c.messages.forEach(function (m) {
-      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources));
+    c.messages.forEach(function (m, idx) {
+      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources, m.usage, m.model, idx));
     });
+    updateSidebarFooter();
     toBottom();
   }
 
-  function bubble(role, content, images, reasoning, files, displayContent, sources) {
+  function bubble(role, content, images, reasoning, files, displayContent, sources, usage, model, msgIndex) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
 
@@ -1097,13 +1216,19 @@
     }
     col.appendChild(textNode);
 
+    // 5. 操作工具栏（仅对已生成完毕的 Assistant 消息）
+    if (role === 'assistant' && (content || reasoning)) {
+      var actionsBar = createActionsToolbar({ content: content, usage: usage, model: model }, msgIndex);
+      col.appendChild(actionsBar);
+    }
+
     wrap.appendChild(avatar);
     wrap.appendChild(col);
     return wrap;
   }
 
   function appendBubble(role) {
-    var wrap = bubble(role, '', null, '', null, '', null);
+    var wrap = bubble(role, '', null, '', null, '', null, null, null, null);
     el.threadInner.appendChild(wrap);
     return wrap.querySelector('.msg-text');
   }
@@ -1231,6 +1356,153 @@
     el.send.disabled = state.busy || !hasContent || !state.model;
   }
 
+  function executeAssistantStream(userMsg) {
+    var c = state.currentConv;
+    if (!c) return;
+
+    var meta = state.modelMeta[state.model];
+    var body = appendBubble('assistant');
+    toBottom();
+
+    state.busy = true;
+    el.send.style.display = 'none';
+    el.stop.style.display = 'flex';
+    state.controller = new AbortController();
+
+    // 格式化上下文历史为 OpenAI Multimodal 规范
+    var hist = c.messages.filter(function (m) { return m.content || (m.images && m.images.length); });
+    var sliced = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist);
+
+    var history = sliced.map(function (m) {
+      if (m.role === 'user' && m.images && m.images.length) {
+        var parts = [];
+        if (m.content && m.content.trim()) {
+          parts.push({ type: 'text', text: m.content });
+        } else {
+          parts.push({ type: 'text', text: '请分析上述内容' });
+        }
+        m.images.forEach(function (img) {
+          parts.push({
+            type: 'image_url',
+            image_url: { url: img.dataUrl, detail: 'auto' }
+          });
+        });
+        return { role: 'user', content: parts };
+      }
+      return { role: m.role, content: m.content || '' };
+    });
+
+    var payload = { model: state.model, messages: history };
+    var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
+    if (canReason && state.effort) {
+      if (state.effort === 'off') payload.reasoning = { enabled: false };
+      else payload.reasoning_effort = state.effort;
+    }
+
+    var acc = '';
+    var reasonAcc = '';
+    var stick = true;
+    var capturedUsage = null;
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
+      body: JSON.stringify(payload),
+      signal: state.controller.signal,
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.text().then(function (t) {
+            throw new Error(explainError(t, res.status));
+          });
+        }
+        if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
+
+        body.innerHTML = '<span class="caret"></span>';
+
+        return pump(res, function (cDelta, rDelta, done, lastUsage) {
+          if (rDelta) reasonAcc += rDelta;
+          if (cDelta) acc += cDelta;
+          if (lastUsage) capturedUsage = lastUsage;
+          if (stick && nearBottom()) toBottom();
+          body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
+          if (!done && nearBottom()) toBottom();
+        });
+      })
+      .then(function () {
+        if (acc || reasonAcc) {
+          var asstMsg = {
+            id: uid(),
+            role: 'assistant',
+            content: acc,
+            reasoning: reasonAcc || undefined,
+            usage: capturedUsage || undefined,
+            model: state.model || undefined,
+            createdAt: Date.now()
+          };
+          c.messages.push(asstMsg);
+          c.updatedAt = Date.now();
+
+          // 阶段 2: 智能嗅探 AI 回复中的标题进行润色
+          if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
+            var refined = TitleExtractor.sniffAssistantTitle(acc);
+            if (refined && refined !== c.title) {
+              c.title = refined;
+            }
+          }
+
+          ZenMuxDB.putConversation(c).then(function () {
+            renderConvList();
+          });
+
+          // 挂载消息底部操作栏
+          if (body && body.parentNode) {
+            var actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1);
+            body.parentNode.appendChild(actionsBar);
+          }
+          updateSidebarFooter();
+        }
+        body.innerHTML = renderParts(reasonAcc, acc);
+      })
+      .catch(function (e) {
+        if (e.name === 'AbortError') {
+          if (acc || reasonAcc) {
+            var partialMsg = {
+              id: uid(),
+              role: 'assistant',
+              content: acc,
+              reasoning: reasonAcc || undefined,
+              usage: capturedUsage || undefined,
+              model: state.model || undefined,
+              createdAt: Date.now()
+            };
+            c.messages.push(partialMsg);
+            c.updatedAt = Date.now();
+            ZenMuxDB.putConversation(c);
+            if (body && body.parentNode) {
+              var actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1);
+              body.parentNode.appendChild(actionsBar);
+            }
+            updateSidebarFooter();
+          }
+          body.innerHTML = renderParts(reasonAcc, acc);
+          return;
+        }
+        toast(e.message || String(e), 'error');
+        if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
+          body.parentNode.parentNode.removeChild(body.parentNode);
+        }
+      })
+      .then(function () {
+        state.busy = false;
+        state.controller = null;
+        el.stop.style.display = 'none';
+        el.send.style.display = 'flex';
+        syncSend();
+        toBottom();
+      });
+  }
+
   function send() {
     var text = el.input.value.trim();
     var atts = state.pendingAttachments.slice();
@@ -1284,21 +1556,10 @@
       c.autoTitled = true;
     }
 
-    // 挂载用户气泡
-    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text, null));
-
-    var body = appendBubble('assistant');
-    toBottom();
-
-    state.busy = true;
-    el.send.style.display = 'none';
-    el.stop.style.display = 'flex';
-    state.controller = new AbortController();
-
     // 异步执行实时联网检索（若开启）
     var searchPromise = Promise.resolve(null);
     if (state.webSearch && text) {
-      body.innerHTML = '<div class="search-status"><span class="attachment-spinner"></span> 正在检索实时网络事实…</div>';
+      toast('正在检索实时网络事实…', 'info');
       var searchCount = getSearchCountByDepth(state.searchDepth);
       searchPromise = WebSearchService.search(text, state.token, searchCount).catch(function (err) {
         if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
@@ -1326,6 +1587,7 @@
         displayContent: text,
         images: images.length ? images : undefined,
         files: files.length ? files : undefined,
+        sources: activeSources || undefined,
         createdAt: Date.now()
       };
       c.messages.push(userMsg);
@@ -1335,171 +1597,22 @@
         renderConvList();
       });
 
-      // 格式化上下文历史为 OpenAI Multimodal 规范
-      var hist = c.messages.filter(function (m) { return m.content || (m.images && m.images.length); });
-      var sliced = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist);
+      // 挂载用户气泡
+      el.threadInner.appendChild(bubble('user', finalPrompt, images, '', files, text, activeSources, null, null, c.messages.length - 1));
 
-      var history = sliced.map(function (m) {
-        if (m.role === 'user' && m.images && m.images.length) {
-          var parts = [];
-          if (m.content && m.content.trim()) {
-            parts.push({ type: 'text', text: m.content });
-          } else {
-            parts.push({ type: 'text', text: '请分析上述内容' });
-          }
-          m.images.forEach(function (img) {
-            parts.push({
-              type: 'image_url',
-              image_url: { url: img.dataUrl, detail: 'auto' }
-            });
-          });
-          return { role: 'user', content: parts };
-        }
-        return { role: m.role, content: m.content || '' };
-      });
-
-      var payload = { model: state.model, messages: history };
-      var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
-      if (canReason && state.effort) {
-        if (state.effort === 'off') payload.reasoning = { enabled: false };
-        else payload.reasoning_effort = state.effort;
-      }
-
-      var acc = '';
-      var reasonAcc = '';
-      var stick = true;
-
-      return fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
-        body: JSON.stringify(payload),
-        signal: state.controller.signal,
-      })
-        .then(function (res) {
-          if (!res.ok) {
-            return res.text().then(function (t) {
-              throw new Error(explainError(t, res.status));
-            });
-          }
-          if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
-
-          // 如果存在搜索来源，挂载参考来源折叠组件
-          if (activeSources && body.parentNode) {
-            var srcBox = document.createElement('details');
-            srcBox.className = 'msg-sources';
-            var srcSummary = document.createElement('summary');
-            srcSummary.innerHTML = '🌐 <strong>参考来源</strong> (' + activeSources.length + ' 个网页)';
-
-            var list = document.createElement('div');
-            list.className = 'sources-list';
-            activeSources.forEach(function (s, idx) {
-              var link = document.createElement('a');
-              link.className = 'source-item';
-              link.href = s.url;
-              link.target = '_blank';
-              link.rel = 'noopener noreferrer';
-
-              var idxSpan = document.createElement('span');
-              idxSpan.className = 'source-index';
-              idxSpan.textContent = '[' + (idx + 1) + ']';
-
-              var titleSpan = document.createElement('span');
-              titleSpan.className = 'source-title';
-              titleSpan.textContent = s.title || s.url;
-              titleSpan.title = s.title;
-
-              var domSpan = document.createElement('span');
-              domSpan.className = 'source-domain';
-              domSpan.textContent = getHostname(s.url);
-
-              link.appendChild(idxSpan);
-              link.appendChild(titleSpan);
-              link.appendChild(domSpan);
-              list.appendChild(link);
-            });
-
-            srcBox.appendChild(srcSummary);
-            srcBox.appendChild(list);
-            body.parentNode.insertBefore(srcBox, body);
-          }
-
-          body.innerHTML = '<span class="caret"></span>';
-
-          return pump(res, function (cDelta, rDelta, done) {
-            if (rDelta) reasonAcc += rDelta;
-            if (cDelta) acc += cDelta;
-            if (stick && nearBottom()) toBottom();
-            body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
-            if (!done && nearBottom()) toBottom();
-          });
-        })
-        .then(function () {
-          if (acc || reasonAcc) {
-            var asstMsg = {
-              id: uid(),
-              role: 'assistant',
-              content: acc,
-              reasoning: reasonAcc || undefined,
-              sources: activeSources || undefined,
-              createdAt: Date.now()
-            };
-            c.messages.push(asstMsg);
-            c.updatedAt = Date.now();
-
-            // 阶段 2: 智能嗅探 AI 回复中的标题进行润色
-            if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
-              var refined = TitleExtractor.sniffAssistantTitle(acc);
-              if (refined && refined !== c.title) {
-                c.title = refined;
-              }
-            }
-
-            ZenMuxDB.putConversation(c).then(function () {
-              renderConvList();
-            });
-          }
-          body.innerHTML = renderParts(reasonAcc, acc);
-        })
-        .catch(function (e) {
-          if (e.name === 'AbortError') {
-            if (acc || reasonAcc) {
-              c.messages.push({
-                id: uid(),
-                role: 'assistant',
-                content: acc,
-                reasoning: reasonAcc || undefined,
-                sources: activeSources || undefined,
-                createdAt: Date.now()
-              });
-              c.updatedAt = Date.now();
-              ZenMuxDB.putConversation(c);
-            }
-            body.innerHTML = renderParts(reasonAcc, acc);
-            return;
-          }
-          toast(e.message || String(e), 'error');
-          if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
-            body.parentNode.parentNode.removeChild(body.parentNode);
-          }
-        });
-    })
-      .then(function () {
-        state.busy = false;
-        state.controller = null;
-        el.stop.style.display = 'none';
-        el.send.style.display = 'flex';
-        syncSend();
-        toBottom();
-      });
+      // 执行 Assistant 回答流
+      executeAssistantStream(userMsg);
+    });
   }
 
   function pump(res, onChunk) {
     var reader = res.body.getReader();
     var dec = new TextDecoder('utf-8');
     var buf = '';
+    var lastUsage = null;
 
     return reader.read().then(function step(part) {
-      if (part.done) { onChunk('', '', true); return; }
+      if (part.done) { onChunk('', '', true, lastUsage); return; }
       buf += dec.decode(part.value, { stream: true });
 
       var lines = buf.split('\n');
@@ -1514,6 +1627,13 @@
         if (!data || data === '[DONE]') continue;
         try {
           var j = JSON.parse(data);
+          if (j.usage) {
+            lastUsage = {
+              prompt_tokens: j.usage.prompt_tokens || 0,
+              completion_tokens: j.usage.completion_tokens || 0,
+              total_tokens: j.usage.total_tokens || 0
+            };
+          }
           var ch = j.choices && j.choices[0];
           if (!ch) continue;
           var d = ch.delta || {};
@@ -1521,7 +1641,7 @@
           if (d.content) c += d.content;
         } catch (e) { }
       }
-      if (c || r) onChunk(c, r, false);
+      if (c || r) onChunk(c, r, false, lastUsage);
       return reader.read().then(step);
     });
   }

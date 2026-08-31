@@ -50,8 +50,9 @@ export async function onRequestPost(context) {
     return json({ error: '缺少 messages 字段' }, 400);
   }
 
-  // 强制流式：边缘节点对长连接有 120s 上限，非流式更容易撞上
+  // 强制流式与 Token 消耗审计
   payload.stream = true;
+  payload.stream_options = { include_usage: true };
 
   let upstream;
   try {
@@ -68,7 +69,7 @@ export async function onRequestPost(context) {
     return json({ error: '连接上游失败', detail: String(e && e.message) }, 502);
   }
 
-  // 边缘自愈重试：若上游因模型不支持特定参数（如 temperature / reasoning_effort）返回 400，自动剔除并就地重试
+  // 边缘自愈重试：若上游因模型不支持特定参数（如 temperature / reasoning_effort / stream_options）返回 400，自动剔除并就地重试
   if (upstream.status === 400) {
     const detail = await upstream.text().catch(() => '');
     let modified = false;
@@ -80,6 +81,10 @@ export async function onRequestPost(context) {
     if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
       delete payload.reasoning;
       delete payload.reasoning_effort;
+      modified = true;
+    }
+    if (/stream_options/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      delete payload.stream_options;
       modified = true;
     }
 

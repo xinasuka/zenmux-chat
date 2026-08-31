@@ -175,9 +175,38 @@
     color:var(--fg-dim);
   }
   .body a{color:#85b7eb;text-decoration:none}
-  .body a:hover{text-decoration:underline}
   .body table{border-collapse:collapse;margin:0 0 12px;font-size:14px}
   .body th,.body td{border:1px solid var(--line);padding:6px 10px}
+
+  /* ---------- message actions toolbar ---------- */
+  .msg-actions{
+    display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:4px;
+    user-select:none;flex-wrap:wrap;
+  }
+  .msg-action-btn{
+    background:transparent;border:1px solid transparent;color:var(--fg-faint);
+    border-radius:6px;padding:4px 8px;font-size:11.5px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:5px;line-height:1;
+    transition:background .15s,color .15s,border-color .15s,transform .1s;
+  }
+  .msg-action-btn:hover{
+    background:var(--bg-elev);border-color:var(--line);color:var(--fg);
+  }
+  .msg-action-btn:active{
+    transform:scale(.94);
+  }
+  .msg-action-btn svg{
+    display:block;pointer-events:none;
+  }
+  .usage-badge{
+    display:inline-flex;align-items:center;gap:4px;padding:3px 8px;
+    background:rgba(127,119,221,.08);border:1px solid rgba(127,119,221,.2);
+    border-radius:6px;font-size:11px;color:var(--accent);font-weight:500;
+    cursor:pointer;transition:all .15s;line-height:1;margin-left:auto;
+  }
+  .usage-badge:hover{
+    background:rgba(127,119,221,.18);border-color:rgba(127,119,221,.4);color:#fff;
+  }
   
   .empty{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
