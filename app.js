@@ -1,13 +1,11 @@
-/* ZenMux Chat —— 前端逻辑。无构建、无外部依赖。
-   后端契约：
-     GET  /api/models  头 X-Access-Token: <口令>  → OpenAI 兼容的 { data: [{id}] }
-     POST /api/chat    头 X-Access-Token + JSON {model, messages} → text/event-stream
+/* ZenMux Chat —— 现代化边缘 AI 对话站
+   存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
+   多模态：客户端 Canvas 自适应重采样与压缩、剪贴板粘贴、文件拖拽、灯箱大图预览
 */
 (function () {
   'use strict';
 
   var LS = {
-    conv: 'zm.conversations',
     cur: 'zm.current',
     model: 'zm.model',
     token: 'zm.token',
@@ -16,6 +14,10 @@
     ctx: 'zm.ctx',
   };
 
+  var DB_NAME = 'ZenMuxChatDB';
+  var DB_VERSION = 1;
+  var STORE_CONV = 'conversations';
+
   var $ = function (id) { return document.getElementById(id); };
 
   var el = {
@@ -23,6 +25,9 @@
     model: $('model'), effort: $('effort'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
+    attachBtn: $('attach-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
+    dropOverlay: $('drop-overlay'),
+    lightbox: $('lightbox'), lightboxImg: $('lightbox-img'), lightboxClose: $('lightbox-close'),
     gate: $('gate'), gateInput: $('gate-input'), gateGo: $('gate-go'), gateErr: $('gate-err'),
     toast: $('toast'),
   };
@@ -30,37 +35,196 @@
   var state = {
     token: localStorage.getItem(LS.token) || '',
     model: localStorage.getItem(LS.model) || '',
-    conversations: read(LS.conv, []),
+    conversations: [],
     currentId: localStorage.getItem(LS.cur) || null,
-    // '' = 不传参数（由 ZenMux 按模型默认，通常 medium）；'off' = 显式关闭推理
+    currentConv: null,
     effort: localStorage.getItem(LS.effort) || '',
-    // 每次请求携带的历史消息条数，0 = 全部（受模型 context_length 与 1MB 请求体上限约束）
     ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
     modelMeta: {},
+    pendingImages: [], // [{ id, name, dataUrl, width, height, size }]
     busy: false,
     controller: null,
   };
   if (isNaN(state.ctxN)) state.ctxN = 20;
 
-  /* ---------------- 存储 ---------------- */
-  function read(k, d) {
-    try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; }
-    catch (e) { return d; }
-  }
-  function store(k, v) {
-    try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
-    catch (e) {
-      var full = (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22));
-      toast(full
-        ? '本地存储空间已满（约 5MB 上限）。请删除部分旧对话或导出备份后再继续。'
-        : '本地存储写入失败，会话可能无法保留');
-    }
-  }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  /* ---------------- Markdown ---------------- */
+  /* ==========================================================================
+     1. IndexedDB 存储引擎 (ZenMuxDB)
+     ========================================================================== */
+  var ZenMuxDB = {
+    _db: null,
+    init: function () {
+      var self = this;
+      if (self._db) return Promise.resolve(self._db);
+      return new Promise(function (resolve, reject) {
+        if (!window.indexedDB) {
+          return reject(new Error('当前浏览器不支持 IndexedDB'));
+        }
+        var req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = function (e) {
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_CONV)) {
+            var store = db.createObjectStore(STORE_CONV, { keyPath: 'id' });
+            store.createIndex('updatedAt', 'updatedAt', { unique: false });
+            store.createIndex('createdAt', 'createdAt', { unique: false });
+          }
+        };
+        req.onsuccess = function (e) {
+          self._db = e.target.result;
+          resolve(self._db);
+        };
+        req.onerror = function (e) {
+          reject(e.target.error || new Error('打开 IndexedDB 数据库失败'));
+        };
+      });
+    },
+
+    getAllConversations: function () {
+      var self = this;
+      return self.init().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction([STORE_CONV], 'readonly');
+          var store = tx.objectStore(STORE_CONV);
+          var req = store.getAll();
+          req.onsuccess = function () {
+            var list = req.result || [];
+            list.sort(function (a, b) {
+              return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+            });
+            resolve(list);
+          };
+          req.onerror = function (e) { reject(e.target.error); };
+        });
+      });
+    },
+
+    getConversation: function (id) {
+      var self = this;
+      return self.init().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction([STORE_CONV], 'readonly');
+          var store = tx.objectStore(STORE_CONV);
+          var req = store.get(id);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function (e) { reject(e.target.error); };
+        });
+      });
+    },
+
+    putConversation: function (conv) {
+      var self = this;
+      return self.init().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction([STORE_CONV], 'readwrite');
+          var store = tx.objectStore(STORE_CONV);
+          var req = store.put(conv);
+          req.onsuccess = function () { resolve(conv); };
+          req.onerror = function (e) { reject(e.target.error); };
+        });
+      });
+    },
+
+    deleteConversation: function (id) {
+      var self = this;
+      return self.init().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction([STORE_CONV], 'readwrite');
+          var store = tx.objectStore(STORE_CONV);
+          var req = store.delete(id);
+          req.onsuccess = function () { resolve(); };
+          req.onerror = function (e) { reject(e.target.error); };
+        });
+      });
+    }
+  };
+
+  /* ==========================================================================
+     2. 客户端自适应图像重采样与压缩引擎 (ImageProcessor)
+     ========================================================================== */
+  var ImageProcessor = {
+    MAX_DIMENSION: 1600, // 最大宽/高限制（像素）
+    JPEG_QUALITY: 0.82,  // 压缩质量
+    MAX_FILE_SIZE_MB: 15,
+
+    processFile: function (file) {
+      var self = this;
+      return new Promise(function (resolve, reject) {
+        if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+          return reject(new Error('所选文件不是有效的图片格式'));
+        }
+        if (file.size > self.MAX_FILE_SIZE_MB * 1024 * 1024) {
+          return reject(new Error('图片大小超过 ' + self.MAX_FILE_SIZE_MB + 'MB 上限'));
+        }
+
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var img = new Image();
+          img.onload = function () {
+            var originalWidth = img.naturalWidth || img.width;
+            var originalHeight = img.naturalHeight || img.height;
+            var w = originalWidth;
+            var h = originalHeight;
+
+            // 等比缩放
+            if (w > self.MAX_DIMENSION || h > self.MAX_DIMENSION) {
+              if (w >= h) {
+                h = Math.round((h * self.MAX_DIMENSION) / w);
+                w = self.MAX_DIMENSION;
+              } else {
+                w = Math.round((w * self.MAX_DIMENSION) / h);
+                h = self.MAX_DIMENSION;
+              }
+            }
+
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(img, 0, 0, w, h);
+            }
+
+            // 保持透明小图为 PNG，其余转为高压缩比 JPEG
+            var isSmallPng = file.type === 'image/png' && file.size < 250 * 1024;
+            var mime = isSmallPng ? 'image/png' : 'image/jpeg';
+            var dataUrl = canvas.toDataURL(mime, self.JPEG_QUALITY);
+
+            var head = dataUrl.indexOf(',');
+            var b64Len = dataUrl.length - (head >= 0 ? head + 1 : 0);
+            var compSize = Math.round((b64Len * 3) / 4);
+
+            resolve({
+              id: uid(),
+              name: file.name || 'image.jpg',
+              mimeType: mime,
+              dataUrl: dataUrl,
+              width: w,
+              height: h,
+              originalSize: file.size,
+              size: compSize,
+            });
+          };
+          img.onerror = function () {
+            reject(new Error('无法解码该图片文件'));
+          };
+          img.src = e.target.result;
+        };
+        reader.onerror = function () {
+          reject(new Error('读取图片文件失败'));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  /* ==========================================================================
+     3. Markdown 渲染引擎
+     ========================================================================== */
   var SENT = String.fromCharCode(1);
 
   function esc(s) {
@@ -69,7 +233,6 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // 行内样式。入参已 esc 过。
   function inline(s) {
     s = s.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
     s = s.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
@@ -96,9 +259,8 @@
 
   function renderMd(src) {
     var blocks = [];
-    var text = String(src).replace(/\r\n?/g, '\n');
+    var text = String(src || '').replace(/\r\n?/g, '\n');
 
-    // 围栏代码块先抽出来，避免内部内容被行内规则污染
     text = text.replace(RE_FENCE, function (m, code) {
       blocks.push('<pre><code>' + esc(code.replace(/\n$/, '')) + '</code></pre>');
       return '\n' + SENT + 'B' + (blocks.length - 1) + SENT + '\n';
@@ -160,7 +322,7 @@
             items.push(lines[i].replace(RE_ITEM, ''));
             i++;
           } else if (items.length && /^\s{2,}\S/.test(lines[i]) && !RE_ITEM.test(lines[i])) {
-            items[items.length - 1] += '\n' + lines[i].trim();  // 续行
+            items[items.length - 1] += '\n' + lines[i].trim();
             i++;
           } else break;
         }
@@ -183,15 +345,6 @@
     return out.join('');
   }
 
-  // 流式过程中代码块可能尚未闭合，临时补一个围栏，避免半截代码被当正文渲染
-  function renderStream(text) {
-    var t = String(text);
-    var fences = (t.match(/```/g) || []).length;
-    if (fences % 2 === 1) t += '\n```';
-    return renderMd(t);
-  }
-
-  // 渲染「推理过程 + 正文」。reasoning 折叠显示，content 正常 Markdown。
   function renderParts(reasoning, content) {
     var html = '';
     if (reasoning && reasoning.trim()) {
@@ -202,7 +355,9 @@
     return html;
   }
 
-  /* ---------------- 提示 ---------------- */
+  /* ==========================================================================
+     4. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
+     ========================================================================== */
   var toastTimer = null;
   function toast(msg) {
     el.toast.textContent = msg;
@@ -211,24 +366,188 @@
     toastTimer = setTimeout(function () { el.toast.style.display = 'none'; }, 4000);
   }
 
-  /* ---------------- 会话 ---------------- */
-  function current() {
-    var c = null;
-    for (var i = 0; i < state.conversations.length; i++) {
-      if (state.conversations[i].id === state.currentId) { c = state.conversations[i]; break; }
-    }
-    if (!c) {
-      c = { id: uid(), title: '新对话', messages: [], createdAt: Date.now() };
-      state.conversations.unshift(c);
-      state.currentId = c.id;
-      persist();
-    }
-    return c;
+  function openLightbox(src) {
+    if (!src) return;
+    el.lightboxImg.src = src;
+    el.lightbox.classList.remove('hide');
   }
 
-  function persist() {
-    store(LS.conv, state.conversations);
-    store(LS.cur, state.currentId);
+  function closeLightbox() {
+    el.lightbox.classList.add('hide');
+    el.lightboxImg.src = '';
+  }
+
+  el.lightboxClose.addEventListener('click', closeLightbox);
+  el.lightbox.addEventListener('click', function (e) {
+    if (e.target === el.lightbox || e.target === el.lightboxClose) closeLightbox();
+  });
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !el.lightbox.classList.contains('hide')) {
+      closeLightbox();
+    }
+  });
+
+  /* ==========================================================================
+     5. 附件管理与图片添加 (Attachments & Vision Input)
+     ========================================================================== */
+  function renderAttachments() {
+    el.attachmentsTray.innerHTML = '';
+    if (!state.pendingImages.length) return;
+
+    state.pendingImages.forEach(function (img, idx) {
+      var card = document.createElement('div');
+      card.className = 'attachment-card';
+
+      var pic = document.createElement('img');
+      pic.src = img.dataUrl;
+      pic.alt = img.name;
+      pic.title = img.name + ' (' + Math.round(img.size / 1024) + ' KB)';
+      pic.addEventListener('click', function () { openLightbox(img.dataUrl); });
+
+      var del = document.createElement('button');
+      del.className = 'attachment-del';
+      del.textContent = '×';
+      del.title = '移除此图片';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.pendingImages.splice(idx, 1);
+        renderAttachments();
+        syncSend();
+      });
+
+      card.appendChild(pic);
+      card.appendChild(del);
+      el.attachmentsTray.appendChild(card);
+    });
+  }
+
+  function handleIncomingFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    var files = Array.prototype.slice.call(fileList).filter(function (f) {
+      return f.type && f.type.indexOf('image/') === 0;
+    });
+    if (!files.length) {
+      toast('仅支持添加图片格式文件 (JPEG, PNG, WebP, GIF)');
+      return;
+    }
+
+    if (state.pendingImages.length + files.length > 6) {
+      toast('单次提问最多附加 6 张图片');
+      files = files.slice(0, 6 - state.pendingImages.length);
+    }
+
+    var promises = files.map(function (file) {
+      return ImageProcessor.processFile(file).then(function (imgObj) {
+        state.pendingImages.push(imgObj);
+      }).catch(function (err) {
+        toast('处理图片 "' + file.name + '" 失败: ' + err.message);
+      });
+    });
+
+    Promise.all(promises).then(function () {
+      renderAttachments();
+      syncSend();
+      el.input.focus();
+    });
+  }
+
+  el.attachBtn.addEventListener('click', function () {
+    el.fileInput.click();
+  });
+
+  el.fileInput.addEventListener('change', function () {
+    handleIncomingFiles(el.fileInput.files);
+    el.fileInput.value = '';
+  });
+
+  // 剪贴板粘贴图片 (Paste Event)
+  window.addEventListener('paste', function (e) {
+    if (!e.clipboardData || !e.clipboardData.items) return;
+    var items = e.clipboardData.items;
+    var pastedImages = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+        var blob = items[i].getAsFile();
+        if (blob) pastedImages.push(blob);
+      }
+    }
+    if (pastedImages.length > 0) {
+      e.preventDefault();
+      handleIncomingFiles(pastedImages);
+    }
+  });
+
+  // 拖拽上传 (Drag & Drop)
+  var dragCounter = 0;
+  window.addEventListener('dragenter', function (e) {
+    e.preventDefault();
+    dragCounter++;
+    el.dropOverlay.classList.add('active');
+  });
+
+  window.addEventListener('dragover', function (e) {
+    e.preventDefault();
+  });
+
+  window.addEventListener('dragleave', function (e) {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      el.dropOverlay.classList.remove('active');
+    }
+  });
+
+  window.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dragCounter = 0;
+    el.dropOverlay.classList.remove('active');
+    if (e.dataTransfer && e.dataTransfer.files) {
+      handleIncomingFiles(e.dataTransfer.files);
+    }
+  });
+
+  /* ==========================================================================
+     6. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
+     ========================================================================== */
+  function loadAllConversations() {
+    return ZenMuxDB.getAllConversations().then(function (list) {
+      state.conversations = list;
+      if (!list.length) {
+        return createNewConversation();
+      }
+      var found = list.find(function (c) { return c.id === state.currentId; });
+      if (!found) {
+        state.currentId = list[0].id;
+        state.currentConv = list[0];
+      } else {
+        state.currentConv = found;
+      }
+      localStorage.setItem(LS.cur, state.currentId);
+      renderConvList();
+      renderThread();
+    }).catch(function (err) {
+      toast('读取 IndexedDB 会话失败: ' + err.message);
+    });
+  }
+
+  function createNewConversation() {
+    var c = {
+      id: uid(),
+      title: '新对话',
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    return ZenMuxDB.putConversation(c).then(function () {
+      state.conversations.unshift(c);
+      state.currentId = c.id;
+      state.currentConv = c;
+      localStorage.setItem(LS.cur, c.id);
+      renderConvList();
+      renderThread();
+      return c;
+    });
   }
 
   function renderConvList() {
@@ -248,20 +567,33 @@
       del.addEventListener('click', function (e) {
         e.stopPropagation();
         if (state.busy) return;
-        state.conversations = state.conversations.filter(function (x) { return x.id !== c.id; });
-        if (state.currentId === c.id) state.currentId = null;
-        persist();
-        renderConvList();
-        renderThread();
-        syncSend();
+        ZenMuxDB.deleteConversation(c.id).then(function () {
+          state.conversations = state.conversations.filter(function (x) { return x.id !== c.id; });
+          if (state.currentId === c.id) {
+            state.currentId = state.conversations.length ? state.conversations[0].id : null;
+            state.currentConv = state.conversations.length ? state.conversations[0] : null;
+            if (state.currentId) localStorage.setItem(LS.cur, state.currentId);
+            else localStorage.removeItem(LS.cur);
+          }
+          if (!state.conversations.length) {
+            createNewConversation();
+          } else {
+            renderConvList();
+            renderThread();
+          }
+          syncSend();
+        }).catch(function (err) {
+          toast('删除失败: ' + err.message);
+        });
       });
 
       row.appendChild(txt);
       row.appendChild(del);
       row.addEventListener('click', function () {
-        if (state.busy) return;
+        if (state.busy || state.currentId === c.id) return;
         state.currentId = c.id;
-        persist();
+        state.currentConv = c;
+        localStorage.setItem(LS.cur, c.id);
         renderConvList();
         renderThread();
         closeSidebar();
@@ -276,24 +608,24 @@
   function toBottom() { el.thread.scrollTop = el.thread.scrollHeight; }
 
   function renderThread() {
-    var c = current();
+    var c = state.currentConv;
     el.threadInner.innerHTML = '';
 
-    if (!c.messages.length) {
+    if (!c || !c.messages || !c.messages.length) {
       var empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = state.model ? '开始一段对话' : '先在上方填写模型 ID';
+      empty.textContent = state.model ? '开始一段对话，支持发送图片与多模态分析' : '先在上方选择模型';
       el.threadInner.appendChild(empty);
       return;
     }
 
     c.messages.forEach(function (m) {
-      el.threadInner.appendChild(bubble(m.role, m.content));
+      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning));
     });
     toBottom();
   }
 
-  function bubble(role, content) {
+  function bubble(role, content, images, reasoning) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
 
@@ -309,8 +641,34 @@
     who.textContent = role === 'user' ? '你' : 'ZenMux';
 
     var body = document.createElement('div');
-    if (role === 'user') body.textContent = content;
-    else body.innerHTML = renderMd(content);
+
+    // 若附带图片，在气泡顶部渲染图片网格
+    if (images && images.length) {
+      var grid = document.createElement('div');
+      grid.className = 'msg-images';
+      images.forEach(function (img) {
+        var thumb = document.createElement('div');
+        thumb.className = 'msg-img-thumb';
+        var imgTag = document.createElement('img');
+        imgTag.src = img.dataUrl;
+        imgTag.alt = img.name || '图片';
+        imgTag.loading = 'lazy';
+        thumb.addEventListener('click', function () {
+          openLightbox(img.dataUrl);
+        });
+        thumb.appendChild(imgTag);
+        grid.appendChild(thumb);
+      });
+      body.appendChild(grid);
+    }
+
+    var textNode = document.createElement('div');
+    if (role === 'user') {
+      textNode.textContent = content || '';
+    } else {
+      textNode.innerHTML = renderParts(reasoning, content);
+    }
+    body.appendChild(textNode);
 
     col.appendChild(who);
     col.appendChild(body);
@@ -320,38 +678,21 @@
   }
 
   function appendBubble(role) {
-    var node = bubble(role, '');
-    el.threadInner.appendChild(node);
-    return node.querySelector('.body > div:last-child');
+    var wrap = bubble(role, '', null, '');
+    el.threadInner.appendChild(wrap);
+    return wrap.querySelector('.body > div:last-child');
   }
 
-  /* ---------------- 模型列表 ---------------- */
-  function loadModels() {
-    fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
-      .then(function (r) {
-        if (!r.ok) throw new Error(r.status === 401 ? '口令不正确' : 'HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (j) {
-        var list = (j && j.data) || [];
-        if (!list.length) throw new Error('模型列表为空');
-        fillModels(list);
-        var ids = list.map(function (m) { return m.id; });
-        if (!state.model || ids.indexOf(state.model) === -1) {
-          state.model = list[0].id;
-        }
-        el.model.value = state.model;
-        store(LS.model, state.model);
-        syncEffort();
-        renderThread();
-      })
-      .catch(function (e) {
-        toast('模型列表拉取失败：' + e.message + '（可手动选择模型）');
-      });
+  /* ==========================================================================
+     7. 模型列表与能力检测 (Models & Capabilities)
+     ========================================================================== */
+  function hasVision(m) {
+    if (!m) return false;
+    if (m.capabilities && m.capabilities.vision) return true;
+    var id = (m.id || '').toLowerCase();
+    return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
   }
 
-  // 按 owned_by 分组填充模型下拉；option 显示 display_name，value 为模型 id
-  // 从 pricings 判断是否免费：prompt 与 completion 单价都为 0
   function isFree(m) {
     var p = m.pricings || {};
     function zero(arr) {
@@ -376,6 +717,7 @@
       var g = m.owned_by || '其他';
       (groups[g] = groups[g] || []).push(m);
     });
+
     Object.keys(groups).sort().forEach(function (g) {
       var og = document.createElement('optgroup');
       og.label = g;
@@ -383,6 +725,7 @@
         var o = document.createElement('option');
         o.value = m.id;
         var label = m.display_name || m.id;
+        if (hasVision(m)) label += ' ·视觉';
         if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
         if (isFree(m)) label += ' ·免费';
         o.textContent = label;
@@ -392,37 +735,55 @@
     });
   }
 
-  // 当前模型不支持推理时，禁用推理强度选择器并说明原因
   function syncEffort() {
     var m = state.modelMeta[state.model];
     var can = !!(m && m.capabilities && m.capabilities.reasoning);
-    // 模型元数据还没拉到时不要误禁用
     var unknown = !m;
     el.effort.disabled = !can && !unknown;
     el.effort.title = can
       ? '推理强度：ZenMux 不传此参数时默认 medium'
-      : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理，此项无效');
+      : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
   }
 
-  /* ---------------- 错误解释 ---------------- */
-  // 反代把上游错误包成 {error, detail}，detail 里才是真正的原因。
-  // 直接显示「上游返回 402」等于没说，这里翻成人话。
+  function loadModels() {
+    fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status === 401 ? '口令不正确' : 'HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        var list = (j && j.data) || [];
+        if (!list.length) throw new Error('模型列表为空');
+        fillModels(list);
+        var ids = list.map(function (m) { return m.id; });
+        if (!state.model || ids.indexOf(state.model) === -1) {
+          state.model = list[0].id;
+        }
+        el.model.value = state.model;
+        localStorage.setItem(LS.model, state.model);
+        syncEffort();
+        renderThread();
+      })
+      .catch(function (e) {
+        toast('模型列表拉取失败：' + e.message + '（可手动输入/选择）');
+      });
+  }
+
   function explainError(raw, status) {
     var outer = {}, inner = {};
-    try { outer = JSON.parse(raw) || {}; } catch (e) { /* 非 JSON */ }
-    try { inner = (JSON.parse(outer.detail || '{}') || {}).error || {}; } catch (e) { /* 非 JSON */ }
+    try { outer = JSON.parse(raw) || {}; } catch (e) { }
+    try { inner = (JSON.parse(outer.detail || '{}') || {}).error || {}; } catch (e) { }
     var upMsg = inner.message || '';
     var type = inner.type || '';
 
     if (status === 402 || type === 'reject_no_credit') {
-      return '该模型要求账户余额大于 0（ZenMux 的防滥用策略，不是扣费）。'
-        + '免费模型也受此限制，充一点余额即可解锁。';
+      return '该模型要求账户余额大于 0（ZenMux 的防滥用策略，不是扣费）。充一点余额即可解锁。';
     }
     if (status === 429 || type === 'rate_limit') {
       return '该模型当前访问量过大被限流，稍后重试或换一个模型。';
     }
     if (status === 401) return '访问口令不正确，请点右上角退出后重新输入。';
-    if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数不被该模型支持');
+    if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数或多模态格式不被该模型支持');
     if (status === 502) return '边缘节点连接 ZenMux 失败，稍后重试。';
     if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
       return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
@@ -430,25 +791,51 @@
     return upMsg || outer.error || raw.slice(0, 300) || ('HTTP ' + status);
   }
 
-  /* ---------------- 发送 ---------------- */
+  /* ==========================================================================
+     8. 消息发送与 SSE 多模态流式响应 (Message Dispatch & Streaming)
+     ========================================================================== */
   function syncSend() {
-    el.send.disabled = state.busy || !el.input.value.trim() || !state.model;
+    var hasContent = !!el.input.value.trim() || state.pendingImages.length > 0;
+    el.send.disabled = state.busy || !hasContent || !state.model;
   }
 
   function send() {
     var text = el.input.value.trim();
-    if (!text || state.busy) return;
-    if (!state.model) { toast('请先填写模型 ID'); el.model.focus(); return; }
+    var images = state.pendingImages.slice();
+    if ((!text && !images.length) || state.busy) return;
+    if (!state.model) { toast('请先选择模型'); el.model.focus(); return; }
 
-    var c = current();
+    var meta = state.modelMeta[state.model];
+    if (images.length && meta && !hasVision(meta)) {
+      toast('提示：当前模型 "' + (meta.display_name || state.model) + '" 可能不支持视觉，已尝试发送');
+    }
+
+    var c = state.currentConv;
+    if (!c) return;
+
     var first = c.messages.length === 0;
-    c.messages.push({ role: 'user', content: text });
-    if (first) c.title = text.slice(0, 28);
-    persist();
-    renderConvList();
-    renderThread();
+    var userMsg = {
+      id: uid(),
+      role: 'user',
+      content: text,
+      images: images.length ? images : undefined,
+      createdAt: Date.now()
+    };
+    c.messages.push(userMsg);
+    c.updatedAt = Date.now();
+    if (first) {
+      c.title = (text || (images.length ? '[图片分析]' : '新对话')).slice(0, 28);
+    }
 
+    ZenMuxDB.putConversation(c).then(function () {
+      renderConvList();
+      renderThread();
+    });
+
+    // 清空输入与附件
     el.input.value = '';
+    state.pendingImages = [];
+    renderAttachments();
     autoGrow();
     syncSend();
 
@@ -462,15 +849,30 @@
     el.stop.style.display = 'flex';
     state.controller = new AbortController();
 
-    // 这里是「多轮对话」的全部实现：Chat Completions 协议无服务端状态，
-    // 每次请求都要把历史原样重发一遍。只回传 content，不回传 reasoning
-    // （上游不需要，且会白烧 token）。
-    var hist = c.messages.filter(function (m) { return m.content; });
-    var history = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist)
-      .map(function (m) { return { role: m.role, content: m.content }; });
+    // 格式化上下文历史为 OpenAI Multimodal 规范
+    var hist = c.messages.filter(function (m) { return m.content || (m.images && m.images.length); });
+    var sliced = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist);
+
+    var history = sliced.map(function (m) {
+      if (m.role === 'user' && m.images && m.images.length) {
+        var parts = [];
+        if (m.content && m.content.trim()) {
+          parts.push({ type: 'text', text: m.content });
+        } else {
+          parts.push({ type: 'text', text: '请分析上述图片' });
+        }
+        m.images.forEach(function (img) {
+          parts.push({
+            type: 'image_url',
+            image_url: { url: img.dataUrl, detail: 'auto' }
+          });
+        });
+        return { role: 'user', content: parts };
+      }
+      return { role: m.role, content: m.content || '' };
+    });
 
     var payload = { model: state.model, messages: history, temperature: 0.7 };
-    var meta = state.modelMeta[state.model];
     var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
     if (canReason && state.effort) {
       if (state.effort === 'off') payload.reasoning = { enabled: false };
@@ -499,20 +901,40 @@
         });
       })
       .then(function () {
-        if (acc) {
-          c.messages.push({ role: 'assistant', content: acc });
-          persist();
+        if (acc || reasonAcc) {
+          var asstMsg = {
+            id: uid(),
+            role: 'assistant',
+            content: acc,
+            reasoning: reasonAcc || undefined,
+            createdAt: Date.now()
+          };
+          c.messages.push(asstMsg);
+          c.updatedAt = Date.now();
+          ZenMuxDB.putConversation(c);
         }
         body.innerHTML = renderParts(reasonAcc, acc);
       })
       .catch(function (e) {
         if (e.name === 'AbortError') {
-          if (acc) { c.messages.push({ role: 'assistant', content: acc }); persist(); }
+          if (acc || reasonAcc) {
+            c.messages.push({
+              id: uid(),
+              role: 'assistant',
+              content: acc,
+              reasoning: reasonAcc || undefined,
+              createdAt: Date.now()
+            });
+            c.updatedAt = Date.now();
+            ZenMuxDB.putConversation(c);
+          }
           body.innerHTML = renderParts(reasonAcc, acc);
           return;
         }
         toast(e.message || String(e));
-        if (!acc) body.parentNode.parentNode.removeChild(body.parentNode);
+        if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
+          body.parentNode.parentNode.removeChild(body.parentNode);
+        }
       })
       .then(function () {
         state.busy = false;
@@ -524,7 +946,6 @@
       });
   }
 
-  // 逐块读取 SSE，把 content / reasoning 增量分别交给 onChunk(cDelta, rDelta, done)
   function pump(res, onChunk) {
     var reader = res.body.getReader();
     var dec = new TextDecoder('utf-8');
@@ -551,14 +972,16 @@
           var d = ch.delta || {};
           if (d.reasoning) r += d.reasoning;
           if (d.content) c += d.content;
-        } catch (e) { /* 半包，下一块补齐后再解析 */ }
+        } catch (e) { }
       }
       if (c || r) onChunk(c, r, false);
       return reader.read().then(step);
     });
   }
 
-  /* ---------------- 门禁 ---------------- */
+  /* ==========================================================================
+     9. 门禁验证 (Access Gate)
+     ========================================================================== */
   function showGate(err) {
     el.gate.classList.remove('hide');
     el.gateErr.textContent = err || '';
@@ -577,8 +1000,8 @@
       })
       .then(function (j) {
         state.token = v;
-        store(LS.token, v);
-        store(LS.gated, '1');
+        localStorage.setItem(LS.token, v);
+        localStorage.setItem(LS.gated, '1');
         hideGate();
         var list = (j && j.data) || [];
         fillModels(list);
@@ -587,7 +1010,7 @@
           state.model = list[0].id;
         }
         el.model.value = state.model;
-        store(LS.model, state.model);
+        localStorage.setItem(LS.model, state.model);
         syncEffort();
         renderThread();
         syncSend();
@@ -597,7 +1020,9 @@
       });
   }
 
-  /* ---------------- UI ---------------- */
+  /* ==========================================================================
+     10. 界面事件监听与初始化 (UI & Startup)
+     ========================================================================== */
   function autoGrow() {
     el.input.style.height = 'auto';
     el.input.style.height = Math.min(el.input.scrollHeight, 200) + 'px';
@@ -606,7 +1031,10 @@
 
   el.input.addEventListener('input', function () { autoGrow(); syncSend(); });
   el.input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      send();
+    }
   });
 
   el.send.addEventListener('click', send);
@@ -616,13 +1044,10 @@
 
   el.newChat.addEventListener('click', function () {
     if (state.busy) return;
-    state.currentId = null;
-    current();
-    persist();
-    renderConvList();
-    renderThread();
-    closeSidebar();
-    el.input.focus();
+    createNewConversation().then(function () {
+      closeSidebar();
+      el.input.focus();
+    });
   });
 
   el.burger.addEventListener('click', function () { el.sidebar.classList.toggle('open'); });
@@ -630,7 +1055,7 @@
 
   el.model.addEventListener('change', function () {
     state.model = el.model.value.trim();
-    store(LS.model, state.model);
+    localStorage.setItem(LS.model, state.model);
     syncSend();
     syncEffort();
     renderThread();
@@ -638,17 +1063,17 @@
 
   el.effort.addEventListener('change', function () {
     state.effort = el.effort.value;
-    store(LS.effort, state.effort);
+    localStorage.setItem(LS.effort, state.effort);
   });
 
   el.ctx.addEventListener('change', function () {
     state.ctxN = parseInt(el.ctx.value, 10) || 0;
-    store(LS.ctx, String(state.ctxN));
-    if (state.ctxN === 0) toast('已改为携带全部历史：长会话会显著增加费用，也可能撞上 1MB 请求体上限');
+    localStorage.setItem(LS.ctx, String(state.ctxN));
+    if (state.ctxN === 0) toast('已改为携带全部历史');
   });
 
   el.logout.addEventListener('click', function () {
-    store(LS.gated, '');
+    localStorage.setItem(LS.gated, '');
     showGate('');
   });
 
@@ -657,20 +1082,20 @@
     if (e.key === 'Enter') { e.preventDefault(); submitGate(); }
   });
 
-  /* ---------------- 启动 ---------------- */
+  // 启动引导
   el.model.value = state.model;
   el.effort.value = state.effort;
   el.ctx.value = String(state.ctxN);
   syncEffort();
   autoGrow();
-  renderConvList();
-  renderThread();
   syncSend();
 
-  if (localStorage.getItem(LS.gated) === '1') {
-    hideGate();
-    loadModels();
-  } else {
-    showGate('');
-  }
+  loadAllConversations().then(function () {
+    if (localStorage.getItem(LS.gated) === '1') {
+      hideGate();
+      loadModels();
+    } else {
+      showGate('');
+    }
+  });
 })();

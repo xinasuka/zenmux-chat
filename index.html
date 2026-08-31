@@ -1,63 +1,90 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<html lang="zh-CN" data-page-node-id="AyRtHuAf5LYMYfxjCYjT7k">
+<head data-page-node-id="pZVM8Lkp8xUknu4z3F1ABf">
+<meta charset="UTF-8" data-page-node-id="gYGX4hkJcdPzFwHoJGIceR">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" data-page-node-id="ZSVNH930tEFY16YeAjSGoO">
 <title>ZenMux Chat</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css" data-page-node-id="6kEmaC6Kp2sT5ELRqtxGfL">
 </head>
-<body>
+<body data-page-node-id="YdTK9aH82CgKi4dCCtn1aI">
 
-<aside id="sidebar">
-  <header><button class="btn" id="new-chat">＋　新建对话</button></header>
-  <div id="conv-list"></div>
-  <footer>会话仅存于本机浏览器</footer>
+<aside id="sidebar" data-page-node-id="IjMet6IvisWsyveK4sh3tK">
+  <header data-page-node-id="hBYLlvINt5pv0MiQJ1cPEN"><button class="btn" id="new-chat" data-page-node-id="Lgi6x3df4rNO4bC6bK9tu7">＋　新建对话</button></header>
+  <div id="conv-list" data-page-node-id="oKl0Mao8kSXfpESlq6ujsD"></div>
+  <footer data-page-node-id="Dt5fow2SxN0hBDUyfUP0iq">会话仅存于本机浏览器</footer>
 </aside>
 
-<div id="main">
-  <div id="topbar">
-    <button id="burger">☰</button>
-    <select id="model" title="选择模型"><option value="">载入模型中…</option></select>
-    <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效">
-      <option value="">推理 默认</option>
-      <option value="minimal">推理 最低</option>
-      <option value="low">推理 低</option>
-      <option value="medium">推理 中</option>
-      <option value="high">推理 高</option>
-      <option value="off">推理 关闭</option>
+<div id="main" data-page-node-id="5RUDD3bEZhLMSuhsuMb7Ap">
+  <div id="topbar" data-page-node-id="XbJMlK4TvZUK5SlExdqJzL">
+    <button id="burger" data-page-node-id="wSvAzU5fe1bE673sCsfAYn">☰</button>
+    <select id="model" title="选择模型" data-page-node-id="oPqyzivdChjN6iLYo3d9aC"><option value="" data-page-node-id="w6hpDhMfkA5qwoyW2te1Sc">载入模型中…</option></select>
+    <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效" data-page-node-id="Keko3APNkL6UvQYoOD6iGH">
+      <option value="" data-page-node-id="qF9tqF0DJTIS6GdDDYouwN">推理 默认</option>
+      <option value="minimal" data-page-node-id="Ljwk1WxkRVNeWwKlK83Sn9">推理 最低</option>
+      <option value="low" data-page-node-id="ctmvOc5ls1MSYrDkD4Deor">推理 低</option>
+      <option value="medium" data-page-node-id="qOwJelW5GOKsGMSGUBUW6G">推理 中</option>
+      <option value="high" data-page-node-id="Z908yTzxkFHEHwByZulPkF">推理 高</option>
+      <option value="off" data-page-node-id="cllAylE3b7XDBoJmiifFdJ">推理 关闭</option>
     </select>
-    <select id="ctx" class="mini-sel" title="每次请求携带多少条历史消息">
-      <option value="10">上下文 10</option>
-      <option value="20">上下文 20</option>
-      <option value="40">上下文 40</option>
-      <option value="0">上下文 全部</option>
+    <select id="ctx" class="mini-sel" title="每次请求携带多少条历史消息" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
+      <option value="10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">上下文 10</option>
+      <option value="20" data-page-node-id="keiOmwFkrVWiWZtbR4w7bn">上下文 20</option>
+      <option value="40" data-page-node-id="PNHjQJubaEeJyznuZM5GEl">上下文 40</option>
+      <option value="0" data-page-node-id="CRurP9qDThQztl86X1tU4t">上下文 全部</option>
     </select>
-    <div class="spacer"></div>
-    <button class="icon-btn" id="logout">退出</button>
+    <div class="spacer" data-page-node-id="188psDF9zupSFc3dpDJDTJ"></div>
+    <button class="icon-btn" id="logout" data-page-node-id="n3QEetVbJGBPpwzDOGX3fm">退出</button>
   </div>
-  <div id="thread"><div id="thread-inner"></div></div>
-  <div id="composer-wrap">
-    <div id="composer">
-      <textarea id="input" rows="1" placeholder="发消息，Enter 发送，Shift+Enter 换行"></textarea>
-      <button id="stop" title="停止">■</button>
-      <button id="send" title="发送">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8l12-6-4.5 6L14 14 2 8z"/></svg>
+  <div id="thread" data-page-node-id="vdRCThaM6lrCnMeNZ6ZdVv"><div id="thread-inner" data-page-node-id="6mB71lyu8YYe1S2ndu6jmp"></div></div>
+  <div id="composer-wrap" data-page-node-id="3p2v0aCPGAIC95Dt80xczR">
+    <div id="composer-attachments" class="attachments-tray"></div>
+    <div id="composer" data-page-node-id="B7tnlXHiSbdyTHXDW3BH07">
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display:none">
+      <button id="attach-btn" class="composer-icon-btn" title="添加图片（支持点击、拖拽、剪贴板粘贴）">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </button>
+      <textarea id="input" rows="1" placeholder="发消息或粘贴/拖拽图片，Enter 发送，Shift+Enter 换行"></textarea>
+      <button id="stop" title="停止" data-page-node-id="mPg8sygomFKpxexZkzYZK0">■</button>
+      <button id="send" title="发送" data-page-node-id="DiBFl6NPkhFZqRePnLQIVR">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" data-page-node-id="r2S07dnQvhJQtDH3XZ6DLR"><path d="M2 8l12-6-4.5 6L14 14 2 8z" data-page-node-id="xjSljhsLNoNpqJjfWF3BJV"/></svg>
       </button>
     </div>
   </div>
 </div>
 
-<div id="gate">
-  <div id="gate-box">
-    <h2>访问口令</h2>
-    <p>服务端若已配置 ACCESS_TOKEN，此处填对应值；未配置则留空直接进入。</p>
-    <input id="gate-input" type="password" autocomplete="current-password" placeholder="口令">
-    <button id="gate-go">进入</button>
-    <div id="gate-err"></div>
+<div id="drop-overlay" class="drop-overlay">
+  <div class="drop-hint">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="17 8 12 3 7 8"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
+    </svg>
+    <span>松开鼠标添加图片</span>
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="lightbox" class="lightbox hide">
+  <button id="lightbox-close" class="lightbox-close" title="关闭 (Esc)">×</button>
+  <div class="lightbox-content">
+    <img id="lightbox-img" src="" alt="预览大图">
+  </div>
+</div>
+
+<div id="gate" data-page-node-id="3RnzGpSr4STVNxFOqkxUDl">
+  <div id="gate-box" data-page-node-id="4QaGa55sm8Sj358xR8iCSA">
+    <h2 data-page-node-id="kXn3sLRhenARrsyM9PdBCO">访问口令</h2>
+    <p data-page-node-id="SIHXPRHvy6BVFQHE50FOr6">服务端若已配置 ACCESS_TOKEN，此处填对应值；未配置则留空直接进入。</p>
+    <input id="gate-input" type="password" autocomplete="current-password" placeholder="口令" data-page-node-id="5pQiupAVFWi5shCMXos2zR">
+    <button id="gate-go" data-page-node-id="xy5SJwKqNjMdJkvUpF7LVQ">进入</button>
+    <div id="gate-err" data-page-node-id="AyyzGwOMvOuqejWvVif1h7"></div>
+  </div>
+</div>
+
+<div id="toast" data-page-node-id="5VskJCHKPeLP2lhSEW3wIo"></div>
 
 <script src="app.js" defer></script>
 </body>
