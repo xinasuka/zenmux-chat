@@ -49,7 +49,12 @@
   }
   function store(k, v) {
     try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
-    catch (e) { toast('本地存储写入失败，会话可能无法保留'); }
+    catch (e) {
+      var full = (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22));
+      toast(full
+        ? '本地存储空间已满（约 5MB 上限）。请删除部分旧对话或导出备份后再继续。'
+        : '本地存储写入失败，会话可能无法保留');
+    }
   }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
