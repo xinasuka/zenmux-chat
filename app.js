@@ -1,6 +1,6 @@
 /* ZenMux Chat —— 现代化边缘 AI 对话站
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
-   多模态：客户端 Canvas 自适应重采样与压缩、剪贴板粘贴、文件拖拽、灯箱大图预览、输入模态自适应
+   多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
 */
 (function () {
   'use strict';
@@ -41,7 +41,7 @@
     effort: localStorage.getItem(LS.effort) || '',
     ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
     modelMeta: {},
-    pendingImages: [], // [{ id, name, dataUrl, width, height, size }]
+    pendingAttachments: [], // [{ id, type: 'image'|'file', name, ext, dataUrl?, text?, size, lines?, ... }]
     busy: false,
     controller: null,
   };
@@ -49,6 +49,12 @@
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   /* ==========================================================================
@@ -142,11 +148,11 @@
   };
 
   /* ==========================================================================
-     2. 客户端自适应图像重采样与压缩引擎 (ImageProcessor)
+     2. 图像重采样与压缩引擎 (ImageProcessor)
      ========================================================================== */
   var ImageProcessor = {
-    MAX_DIMENSION: 1600, // 最大宽/高限制（像素）
-    JPEG_QUALITY: 0.82,  // 压缩质量
+    MAX_DIMENSION: 1600,
+    JPEG_QUALITY: 0.82,
     MAX_FILE_SIZE_MB: 15,
 
     processFile: function (file) {
@@ -168,7 +174,6 @@
             var w = originalWidth;
             var h = originalHeight;
 
-            // 等比缩放
             if (w > self.MAX_DIMENSION || h > self.MAX_DIMENSION) {
               if (w >= h) {
                 h = Math.round((h * self.MAX_DIMENSION) / w);
@@ -189,7 +194,6 @@
               ctx.drawImage(img, 0, 0, w, h);
             }
 
-            // 保持透明小图为 PNG，其余转为高压缩比 JPEG
             var isSmallPng = file.type === 'image/png' && file.size < 250 * 1024;
             var mime = isSmallPng ? 'image/png' : 'image/jpeg';
             var dataUrl = canvas.toDataURL(mime, self.JPEG_QUALITY);
@@ -200,7 +204,9 @@
 
             resolve({
               id: uid(),
+              type: 'image',
               name: file.name || 'image.jpg',
+              ext: (file.name || '').split('.').pop().toLowerCase() || 'img',
               mimeType: mime,
               dataUrl: dataUrl,
               width: w,
@@ -223,7 +229,128 @@
   };
 
   /* ==========================================================================
-     3. Markdown 渲染引擎
+     3. 源码与文档就地文本提取引擎 (FileTextExtractor)
+     ========================================================================== */
+  var FileTextExtractor = {
+    MAX_CHARS: 100000, // 字符上限（约 25,000~30,000 Token）
+    MAX_FILE_SIZE_MB: 10,
+
+    isImageFile: function (file) {
+      if (file.type && file.type.indexOf('image/') === 0) return true;
+      var ext = (file.name || '').split('.').pop().toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'].indexOf(ext) !== -1;
+    },
+
+    processFile: function (file) {
+      var self = this;
+      var ext = (file.name || '').split('.').pop().toLowerCase();
+
+      if (file.size > self.MAX_FILE_SIZE_MB * 1024 * 1024) {
+        return Promise.reject(new Error('文件超过 ' + self.MAX_FILE_SIZE_MB + 'MB 上限'));
+      }
+
+      if (ext === 'pdf') {
+        return self.extractPdf(file);
+      }
+
+      return self.extractPlainText(file, ext);
+    },
+
+    extractPlainText: function (file, ext) {
+      var self = this;
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var raw = e.target.result || '';
+          var isTruncated = false;
+          if (raw.length > self.MAX_CHARS) {
+            raw = raw.slice(0, self.MAX_CHARS) + '\n\n[... 文件过长，已自动截取前 ' + self.MAX_CHARS.toLocaleString() + ' 字符 ...]';
+            isTruncated = true;
+          }
+          var lines = raw.split('\n').length;
+          resolve({
+            id: uid(),
+            type: 'file',
+            name: file.name,
+            ext: ext || 'txt',
+            text: raw,
+            lines: lines,
+            chars: raw.length,
+            size: file.size,
+            truncated: isTruncated
+          });
+        };
+        reader.onerror = function () {
+          reject(new Error('读取文件失败'));
+        };
+        reader.readAsText(file, 'utf-8');
+      });
+    },
+
+    extractPdf: function (file) {
+      var self = this;
+      return new Promise(function (resolve, reject) {
+        function doParse(pdfjs) {
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            var typedarray = new Uint8Array(e.target.result);
+            pdfjs.getDocument(typedarray).promise.then(function (pdf) {
+              var maxPages = Math.min(pdf.numPages, 60);
+              var pagePromises = [];
+              for (var i = 1; i <= maxPages; i++) {
+                pagePromises.push(pdf.getPage(i).then(function (page) {
+                  return page.getTextContent().then(function (content) {
+                    return content.items.map(function (item) { return item.str; }).join(' ');
+                  });
+                }));
+              }
+              Promise.all(pagePromises).then(function (pagesText) {
+                var fullText = pagesText.map(function (t, idx) {
+                  return '--- 第 ' + (idx + 1) + ' 页 ---\n' + t;
+                }).join('\n\n');
+
+                if (fullText.length > self.MAX_CHARS) {
+                  fullText = fullText.slice(0, self.MAX_CHARS) + '\n\n[... PDF 内容过长，已自动截取前 ' + self.MAX_CHARS.toLocaleString() + ' 字符 ...]';
+                }
+
+                resolve({
+                  id: uid(),
+                  type: 'file',
+                  name: file.name,
+                  ext: 'pdf',
+                  text: fullText,
+                  lines: fullText.split('\n').length,
+                  chars: fullText.length,
+                  size: file.size,
+                  pages: pdf.numPages
+                });
+              }).catch(reject);
+            }).catch(reject);
+          };
+          reader.onerror = function () { reject(new Error('读取 PDF 失败')); };
+          reader.readAsArrayBuffer(file);
+        }
+
+        if (window.pdfjsLib) {
+          doParse(window.pdfjsLib);
+        } else {
+          var s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload = function () {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            doParse(window.pdfjsLib);
+          };
+          s.onerror = function () {
+            reject(new Error('无法动态载入 PDF.js 模块，请检查网络'));
+          };
+          document.head.appendChild(s);
+        }
+      });
+    }
+  };
+
+  /* ==========================================================================
+     4. Markdown 渲染引擎
      ========================================================================== */
   var SENT = String.fromCharCode(1);
 
@@ -356,7 +483,7 @@
   }
 
   /* ==========================================================================
-     4. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
+     5. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
      ========================================================================== */
   var toastTimer = null;
   function toast(msg) {
@@ -388,34 +515,59 @@
   });
 
   /* ==========================================================================
-     5. 附件管理与图片添加 (Attachments & Vision Input)
+     6. 统一附件管理与文件添加 (Attachments Management)
      ========================================================================== */
   function renderAttachments() {
     el.attachmentsTray.innerHTML = '';
-    if (!state.pendingImages.length) return;
+    if (!state.pendingAttachments.length) return;
 
-    state.pendingImages.forEach(function (img, idx) {
-      var card = document.createElement('div');
-      card.className = 'attachment-card';
+    state.pendingAttachments.forEach(function (att, idx) {
+      var card;
+      if (att.type === 'image') {
+        card = document.createElement('div');
+        card.className = 'attachment-card';
+        var pic = document.createElement('img');
+        pic.src = att.dataUrl;
+        pic.alt = att.name;
+        pic.title = att.name + ' (' + formatSize(att.size) + ')';
+        pic.addEventListener('click', function () { openLightbox(att.dataUrl); });
+        card.appendChild(pic);
+      } else {
+        card = document.createElement('div');
+        card.className = 'attachment-file-card';
+        var badge = document.createElement('div');
+        badge.className = 'file-icon-badge';
+        badge.textContent = (att.ext || 'FILE').slice(0, 4).toUpperCase();
 
-      var pic = document.createElement('img');
-      pic.src = img.dataUrl;
-      pic.alt = img.name;
-      pic.title = img.name + ' (' + Math.round(img.size / 1024) + ' KB)';
-      pic.addEventListener('click', function () { openLightbox(img.dataUrl); });
+        var metaCol = document.createElement('div');
+        metaCol.className = 'file-meta-col';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'file-name-text';
+        nameSpan.textContent = att.name;
+        nameSpan.title = att.name;
+
+        var sizeSpan = document.createElement('span');
+        sizeSpan.className = 'file-size-text';
+        sizeSpan.textContent = formatSize(att.size) + (att.lines ? ' · ' + att.lines + '行' : '');
+
+        metaCol.appendChild(nameSpan);
+        metaCol.appendChild(sizeSpan);
+        card.appendChild(badge);
+        card.appendChild(metaCol);
+      }
 
       var del = document.createElement('button');
       del.className = 'attachment-del';
       del.textContent = '×';
-      del.title = '移除此图片';
+      del.title = '移除此附件';
       del.addEventListener('click', function (e) {
         e.stopPropagation();
-        state.pendingImages.splice(idx, 1);
+        state.pendingAttachments.splice(idx, 1);
         renderAttachments();
         syncSend();
       });
 
-      card.appendChild(pic);
       card.appendChild(del);
       el.attachmentsTray.appendChild(card);
     });
@@ -423,32 +575,34 @@
 
   function handleIncomingFiles(fileList) {
     if (!fileList || !fileList.length) return;
+    var files = Array.prototype.slice.call(fileList);
+
+    if (state.pendingAttachments.length + files.length > 8) {
+      toast('单次提问最多附加 8 个附件');
+      files = files.slice(0, 8 - state.pendingAttachments.length);
+    }
 
     var m = state.modelMeta[state.model];
-    if (m && !hasVision(m)) {
-      toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
-      return;
-    }
-
-    var files = Array.prototype.slice.call(fileList).filter(function (f) {
-      return f.type && f.type.indexOf('image/') === 0;
-    });
-    if (!files.length) {
-      toast('仅支持添加图片格式文件 (JPEG, PNG, WebP, GIF)');
-      return;
-    }
-
-    if (state.pendingImages.length + files.length > 6) {
-      toast('单次提问最多附加 6 张图片');
-      files = files.slice(0, 6 - state.pendingImages.length);
-    }
+    var canVision = hasVision(m);
 
     var promises = files.map(function (file) {
-      return ImageProcessor.processFile(file).then(function (imgObj) {
-        state.pendingImages.push(imgObj);
-      }).catch(function (err) {
-        toast('处理图片 "' + file.name + '" 失败: ' + err.message);
-      });
+      if (FileTextExtractor.isImageFile(file)) {
+        if (m && !canVision) {
+          toast('当前模型不支持图片，已忽略图片 "' + file.name + '"（代码/文本文件可正常分析）');
+          return Promise.resolve();
+        }
+        return ImageProcessor.processFile(file).then(function (imgObj) {
+          state.pendingAttachments.push(imgObj);
+        }).catch(function (err) {
+          toast('处理图片 "' + file.name + '" 失败: ' + err.message);
+        });
+      } else {
+        return FileTextExtractor.processFile(file).then(function (fileObj) {
+          state.pendingAttachments.push(fileObj);
+        }).catch(function (err) {
+          toast('读取文件 "' + file.name + '" 失败: ' + err.message);
+        });
+      }
     });
 
     Promise.all(promises).then(function () {
@@ -459,11 +613,6 @@
   }
 
   el.attachBtn.addEventListener('click', function () {
-    var m = state.modelMeta[state.model];
-    if (m && !hasVision(m)) {
-      toast('当前选中的模型不支持图片输入');
-      return;
-    }
     el.fileInput.click();
   });
 
@@ -472,25 +621,20 @@
     el.fileInput.value = '';
   });
 
-  // 剪贴板粘贴图片 (Paste Event)
+  // 剪贴板粘贴图片与代码文件 (Paste Event)
   window.addEventListener('paste', function (e) {
     if (!e.clipboardData || !e.clipboardData.items) return;
     var items = e.clipboardData.items;
-    var pastedImages = [];
+    var pastedFiles = [];
     for (var i = 0; i < items.length; i++) {
-      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+      if (items[i].kind === 'file') {
         var blob = items[i].getAsFile();
-        if (blob) pastedImages.push(blob);
+        if (blob) pastedFiles.push(blob);
       }
     }
-    if (pastedImages.length > 0) {
+    if (pastedFiles.length > 0) {
       e.preventDefault();
-      var m = state.modelMeta[state.model];
-      if (m && !hasVision(m)) {
-        toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
-        return;
-      }
-      handleIncomingFiles(pastedImages);
+      handleIncomingFiles(pastedFiles);
     }
   });
 
@@ -520,17 +664,12 @@
     dragCounter = 0;
     el.dropOverlay.classList.remove('active');
     if (e.dataTransfer && e.dataTransfer.files) {
-      var m = state.modelMeta[state.model];
-      if (m && !hasVision(m)) {
-        toast('当前选中的模型不支持图片输入，请先切换至支持视觉的模型');
-        return;
-      }
       handleIncomingFiles(e.dataTransfer.files);
     }
   });
 
   /* ==========================================================================
-     6. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
+     7. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
      ========================================================================== */
   function loadAllConversations() {
     return ZenMuxDB.getAllConversations().then(function (list) {
@@ -636,18 +775,18 @@
     if (!c || !c.messages || !c.messages.length) {
       var empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = state.model ? '开始一段对话，支持发送图片与多模态分析' : '先在上方选择模型';
+      empty.textContent = state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '先在上方选择模型';
       el.threadInner.appendChild(empty);
       return;
     }
 
     c.messages.forEach(function (m) {
-      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning));
+      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent));
     });
     toBottom();
   }
 
-  function bubble(role, content, images, reasoning) {
+  function bubble(role, content, images, reasoning, files, displayContent) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
 
@@ -664,7 +803,7 @@
 
     var body = document.createElement('div');
 
-    // 若附带图片，在气泡顶部渲染图片网格
+    // 1. 若附带图片，渲染图片网格
     if (images && images.length) {
       var grid = document.createElement('div');
       grid.className = 'msg-images';
@@ -684,9 +823,34 @@
       body.appendChild(grid);
     }
 
+    // 2. 若附带源码/文档附件，渲染可折叠卡片
+    if (files && files.length) {
+      var fileBox = document.createElement('div');
+      fileBox.className = 'msg-files';
+      files.forEach(function (f) {
+        var card = document.createElement('details');
+        card.className = 'msg-file-card';
+
+        var summary = document.createElement('summary');
+        summary.innerHTML = '📄 <strong>' + esc(f.name) + '</strong> <span style="font-size:11px;color:var(--fg-dim);margin-left:auto">' +
+          formatSize(f.size) + (f.lines ? ' · ' + f.lines + '行' : '') + '</span>';
+
+        var pre = document.createElement('pre');
+        var code = document.createElement('code');
+        code.textContent = f.text || '';
+        pre.appendChild(code);
+
+        card.appendChild(summary);
+        card.appendChild(pre);
+        fileBox.appendChild(card);
+      });
+      body.appendChild(fileBox);
+    }
+
+    // 3. 正文
     var textNode = document.createElement('div');
     if (role === 'user') {
-      textNode.textContent = content || '';
+      textNode.textContent = displayContent || content || '';
     } else {
       textNode.innerHTML = renderParts(reasoning, content);
     }
@@ -700,17 +864,16 @@
   }
 
   function appendBubble(role) {
-    var wrap = bubble(role, '', null, '');
+    var wrap = bubble(role, '', null, '', null, '');
     el.threadInner.appendChild(wrap);
     return wrap.querySelector('.body > div:last-child');
   }
 
   /* ==========================================================================
-     7. 模型列表与能力检测 (Models & Capabilities)
+     8. 模型列表与能力检测 (Models & Capabilities)
      ========================================================================== */
   function hasVision(m) {
     if (!m) return false;
-    // 优先依据 ZenMux 返回的 input_modalities 数组判断
     if (Array.isArray(m.input_modalities)) {
       return m.input_modalities.indexOf('image') !== -1;
     }
@@ -761,27 +924,6 @@
     });
   }
 
-  function syncVision() {
-    var m = state.modelMeta[state.model];
-    var can = hasVision(m);
-    var unknown = !m;
-    var enabled = can || unknown;
-    el.attachBtn.disabled = !enabled;
-    el.fileInput.disabled = !enabled;
-    if (enabled) {
-      el.attachBtn.classList.remove('disabled');
-      el.attachBtn.title = '添加图片（支持点击、拖拽、剪贴板粘贴）';
-    } else {
-      el.attachBtn.classList.add('disabled');
-      el.attachBtn.title = '当前模型不支持图片输入';
-      if (state.pendingImages.length > 0) {
-        state.pendingImages = [];
-        renderAttachments();
-        toast('已切换至不支持图片输入的模型，已清空图片附件');
-      }
-    }
-  }
-
   function syncEffort() {
     var m = state.modelMeta[state.model];
     var can = !!(m && m.capabilities && m.capabilities.reasoning);
@@ -793,7 +935,6 @@
   }
 
   function syncModelCapabilities() {
-    syncVision();
     syncEffort();
   }
 
@@ -835,7 +976,7 @@
       return '该模型当前访问量过大被限流，稍后重试或换一个模型。';
     }
     if (status === 401) return '访问口令不正确，请点右上角退出后重新输入。';
-    if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数或多模态格式不被该模型支持');
+    if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数格式不被该模型支持');
     if (status === 502) return '边缘节点连接 ZenMux 失败，稍后重试。';
     if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
       return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
@@ -844,64 +985,82 @@
   }
 
   /* ==========================================================================
-     8. 消息发送与 SSE 多模态流式响应 (Message Dispatch & Streaming)
+     9. 消息发送与多模态/文件上下文流式响应 (Message Dispatch & Streaming)
      ========================================================================== */
   function syncSend() {
-    var hasContent = !!el.input.value.trim() || state.pendingImages.length > 0;
+    var hasContent = !!el.input.value.trim() || state.pendingAttachments.length > 0;
     el.send.disabled = state.busy || !hasContent || !state.model;
   }
 
   function send() {
     var text = el.input.value.trim();
-    var images = state.pendingImages.slice();
-    if ((!text && !images.length) || state.busy) return;
+    var atts = state.pendingAttachments.slice();
+    if ((!text && !atts.length) || state.busy) return;
     if (!state.model) { toast('请先选择模型'); el.model.focus(); return; }
+
+    var images = atts.filter(function (a) { return a.type === 'image'; });
+    var files = atts.filter(function (a) { return a.type === 'file'; });
 
     var meta = state.modelMeta[state.model];
     if (images.length && meta && !hasVision(meta)) {
-      toast('当前模型不支持图片输入，请先切换至支持视觉的模型');
+      toast('当前模型不支持图片输入，请切换至支持视觉的模型');
       return;
     }
 
     var c = state.currentConv;
     if (!c) return;
 
+    // 构建注入文件文本后的完整 Prompt
+    var fullPrompt = text;
+    if (files.length) {
+      var fileContextBlocks = files.map(function (f) {
+        var lang = f.ext || 'text';
+        return '--- 附件文件: ' + f.name + ' (' + formatSize(f.size) + (f.lines ? ', ' + f.lines + '行' : '') + ') ---\n' +
+          '```' + lang + '\n' +
+          f.text + '\n' +
+          '```\n' +
+          '--- 附件结束 ---';
+      }).join('\n\n');
+
+      fullPrompt = fileContextBlocks + (text ? '\n\n' + text : '\n\n请分析以上文件内容。');
+    }
+
     var first = c.messages.length === 0;
     var userMsg = {
       id: uid(),
       role: 'user',
-      content: text,
+      content: fullPrompt,
+      displayContent: text,
       images: images.length ? images : undefined,
+      files: files.length ? files : undefined,
       createdAt: Date.now()
     };
     c.messages.push(userMsg);
     c.updatedAt = Date.now();
     if (first) {
-      c.title = (text || (images.length ? '[图片分析]' : '新对话')).slice(0, 28);
+      c.title = (text || (files.length ? files[0].name : (images.length ? '[图片分析]' : '新对话'))).slice(0, 28);
     }
 
-    // 移除空白提示
     var emptyNode = el.threadInner.querySelector('.empty');
     if (emptyNode) {
       emptyNode.parentNode.removeChild(emptyNode);
     }
 
-    // 直接追加 User 气泡到活跃 DOM，绝不在流式开始前重写 innerHTML
-    el.threadInner.appendChild(bubble('user', text, images, ''));
+    // 追加用户气泡至活跃 DOM
+    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text));
 
-    // 后台异步保存至 IndexedDB 并更新左侧会话标题
+    // 后台持久化
     ZenMuxDB.putConversation(c).then(function () {
       renderConvList();
     });
 
-    // 清空输入与附件
+    // 清空暂存托盘
     el.input.value = '';
-    state.pendingImages = [];
+    state.pendingAttachments = [];
     renderAttachments();
     autoGrow();
     syncSend();
 
-    // 追加 Assistant 气泡并获取正文引用
     var body = appendBubble('assistant');
     toBottom();
 
@@ -924,7 +1083,7 @@
         if (m.content && m.content.trim()) {
           parts.push({ type: 'text', text: m.content });
         } else {
-          parts.push({ type: 'text', text: '请分析上述图片' });
+          parts.push({ type: 'text', text: '请分析上述内容' });
         }
         m.images.forEach(function (img) {
           parts.push({
@@ -1045,7 +1204,7 @@
   }
 
   /* ==========================================================================
-     9. 门禁验证 (Access Gate)
+     10. 门禁验证 (Access Gate)
      ========================================================================== */
   function showGate(err) {
     el.gate.classList.remove('hide');
@@ -1086,7 +1245,7 @@
   }
 
   /* ==========================================================================
-     10. 界面事件监听与初始化 (UI & Startup)
+     11. 界面事件监听与初始化 (UI & Startup)
      ========================================================================== */
   function autoGrow() {
     el.input.style.height = 'auto';
