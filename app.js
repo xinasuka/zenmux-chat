@@ -12,13 +12,15 @@
     model: 'zm.model',
     token: 'zm.token',
     gated: 'zm.gated',
+    effort: 'zm.effort',
+    ctx: 'zm.ctx',
   };
 
   var $ = function (id) { return document.getElementById(id); };
 
   var el = {
     sidebar: $('sidebar'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
-    model: $('model'), logout: $('logout'),
+    model: $('model'), effort: $('effort'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
     gate: $('gate'), gateInput: $('gate-input'), gateGo: $('gate-go'), gateErr: $('gate-err'),
@@ -30,9 +32,15 @@
     model: localStorage.getItem(LS.model) || '',
     conversations: read(LS.conv, []),
     currentId: localStorage.getItem(LS.cur) || null,
+    // '' = 不传参数（由 ZenMux 按模型默认，通常 medium）；'off' = 显式关闭推理
+    effort: localStorage.getItem(LS.effort) || '',
+    // 每次请求携带的历史消息条数，0 = 全部（受模型 context_length 与 1MB 请求体上限约束）
+    ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
+    modelMeta: {},
     busy: false,
     controller: null,
   };
+  if (isNaN(state.ctxN)) state.ctxN = 20;
 
   /* ---------------- 存储 ---------------- */
   function read(k, d) {
@@ -329,6 +337,7 @@
         }
         el.model.value = state.model;
         store(LS.model, state.model);
+        syncEffort();
         renderThread();
       })
       .catch(function (e) {
@@ -337,8 +346,20 @@
   }
 
   // 按 owned_by 分组填充模型下拉；option 显示 display_name，value 为模型 id
+  // 从 pricings 判断是否免费：prompt 与 completion 单价都为 0
+  function isFree(m) {
+    var p = m.pricings || {};
+    function zero(arr) {
+      if (!arr || !arr.length) return false;
+      for (var i = 0; i < arr.length; i++) if (Number(arr[i].value) !== 0) return false;
+      return true;
+    }
+    return zero(p.prompt) && zero(p.completion);
+  }
+
   function fillModels(list) {
     el.model.innerHTML = '';
+    state.modelMeta = {};
     var ph = document.createElement('option');
     ph.value = '';
     ph.textContent = list.length ? '选择模型…' : '无可用模型';
@@ -346,6 +367,7 @@
 
     var groups = {};
     list.forEach(function (m) {
+      state.modelMeta[m.id] = m;
       var g = m.owned_by || '其他';
       (groups[g] = groups[g] || []).push(m);
     });
@@ -357,11 +379,50 @@
         o.value = m.id;
         var label = m.display_name || m.id;
         if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
+        if (isFree(m)) label += ' ·免费';
         o.textContent = label;
         og.appendChild(o);
       });
       el.model.appendChild(og);
     });
+  }
+
+  // 当前模型不支持推理时，禁用推理强度选择器并说明原因
+  function syncEffort() {
+    var m = state.modelMeta[state.model];
+    var can = !!(m && m.capabilities && m.capabilities.reasoning);
+    // 模型元数据还没拉到时不要误禁用
+    var unknown = !m;
+    el.effort.disabled = !can && !unknown;
+    el.effort.title = can
+      ? '推理强度：ZenMux 不传此参数时默认 medium'
+      : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理，此项无效');
+  }
+
+  /* ---------------- 错误解释 ---------------- */
+  // 反代把上游错误包成 {error, detail}，detail 里才是真正的原因。
+  // 直接显示「上游返回 402」等于没说，这里翻成人话。
+  function explainError(raw, status) {
+    var outer = {}, inner = {};
+    try { outer = JSON.parse(raw) || {}; } catch (e) { /* 非 JSON */ }
+    try { inner = (JSON.parse(outer.detail || '{}') || {}).error || {}; } catch (e) { /* 非 JSON */ }
+    var upMsg = inner.message || '';
+    var type = inner.type || '';
+
+    if (status === 402 || type === 'reject_no_credit') {
+      return '该模型要求账户余额大于 0（ZenMux 的防滥用策略，不是扣费）。'
+        + '免费模型也受此限制，充一点余额即可解锁。';
+    }
+    if (status === 429 || type === 'rate_limit') {
+      return '该模型当前访问量过大被限流，稍后重试或换一个模型。';
+    }
+    if (status === 401) return '访问口令不正确，请点右上角退出后重新输入。';
+    if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数不被该模型支持');
+    if (status === 502) return '边缘节点连接 ZenMux 失败，稍后重试。';
+    if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
+      return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
+    }
+    return upMsg || outer.error || raw.slice(0, 300) || ('HTTP ' + status);
   }
 
   /* ---------------- 发送 ---------------- */
@@ -396,24 +457,31 @@
     el.stop.style.display = 'flex';
     state.controller = new AbortController();
 
-    var history = c.messages
-      .filter(function (m) { return m.content; })
-      .slice(-20)
+    // 这里是「多轮对话」的全部实现：Chat Completions 协议无服务端状态，
+    // 每次请求都要把历史原样重发一遍。只回传 content，不回传 reasoning
+    // （上游不需要，且会白烧 token）。
+    var hist = c.messages.filter(function (m) { return m.content; });
+    var history = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist)
       .map(function (m) { return { role: m.role, content: m.content }; });
+
+    var payload = { model: state.model, messages: history, temperature: 0.7 };
+    var meta = state.modelMeta[state.model];
+    var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
+    if (canReason && state.effort) {
+      if (state.effort === 'off') payload.reasoning = { enabled: false };
+      else payload.reasoning_effort = state.effort;
+    }
 
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
-      body: JSON.stringify({ model: state.model, messages: history, temperature: 0.7 }),
+      body: JSON.stringify(payload),
       signal: state.controller.signal,
     })
       .then(function (res) {
         if (!res.ok) {
           return res.text().then(function (t) {
-            var msg = '';
-            try { msg = (JSON.parse(t) || {}).error || (JSON.parse(t) || {}).message || ''; }
-            catch (e) { msg = t.slice(0, 300); }
-            throw new Error(msg || ('HTTP ' + res.status));
+            throw new Error(explainError(t, res.status));
           });
         }
         if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
@@ -515,6 +583,7 @@
         }
         el.model.value = state.model;
         store(LS.model, state.model);
+        syncEffort();
         renderThread();
         syncSend();
       })
@@ -558,7 +627,19 @@
     state.model = el.model.value.trim();
     store(LS.model, state.model);
     syncSend();
+    syncEffort();
     renderThread();
+  });
+
+  el.effort.addEventListener('change', function () {
+    state.effort = el.effort.value;
+    store(LS.effort, state.effort);
+  });
+
+  el.ctx.addEventListener('change', function () {
+    state.ctxN = parseInt(el.ctx.value, 10) || 0;
+    store(LS.ctx, String(state.ctxN));
+    if (state.ctxN === 0) toast('已改为携带全部历史：长会话会显著增加费用，也可能撞上 1MB 请求体上限');
   });
 
   el.logout.addEventListener('click', function () {
@@ -573,6 +654,9 @@
 
   /* ---------------- 启动 ---------------- */
   el.model.value = state.model;
+  el.effort.value = state.effort;
+  el.ctx.value = String(state.ctxN);
+  syncEffort();
   autoGrow();
   renderConvList();
   renderThread();

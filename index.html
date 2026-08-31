@@ -18,6 +18,20 @@
   <div id="topbar">
     <button id="burger">☰</button>
     <select id="model" title="选择模型"><option value="">载入模型中…</option></select>
+    <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效">
+      <option value="">推理 默认</option>
+      <option value="minimal">推理 最低</option>
+      <option value="low">推理 低</option>
+      <option value="medium">推理 中</option>
+      <option value="high">推理 高</option>
+      <option value="off">推理 关闭</option>
+    </select>
+    <select id="ctx" class="mini-sel" title="每次请求携带多少条历史消息">
+      <option value="10">上下文 10</option>
+      <option value="20">上下文 20</option>
+      <option value="40">上下文 40</option>
+      <option value="0">上下文 全部</option>
+    </select>
     <div class="spacer"></div>
     <button class="icon-btn" id="logout">退出</button>
   </div>

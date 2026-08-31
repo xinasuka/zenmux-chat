@@ -56,6 +56,15 @@
   #model:focus{outline:none;border-color:var(--accent)}
   #model optgroup{background:var(--bg-side);color:var(--fg-dim);font-style:normal}
   #model option{background:var(--bg-elev);color:var(--fg)}
+  .mini-sel{
+    background:var(--bg-elev);border:1px solid var(--line);color:var(--fg-dim);
+    border-radius:9px;padding:7px 8px;font-size:12px;cursor:pointer;flex:0 0 auto;
+  }
+  .mini-sel:focus{outline:none;border-color:var(--accent)}
+  .mini-sel:disabled{opacity:.38;cursor:not-allowed}
+  .mini-sel option{background:var(--bg-elev);color:var(--fg)}
+  /* 窄屏优先保住模型选择器，两个次要选择器先让位 */
+  @media (max-width:760px){ .mini-sel{display:none} }
   .spacer{flex:1}
   .icon-btn{
     background:transparent;border:1px solid var(--line);color:var(--fg-dim);
