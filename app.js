@@ -369,8 +369,8 @@
       cleaned = cleaned.replace(/^[？?！!，,。.\s]+/, '').trim();
 
       var result = cleaned || raw;
-      if (images && images.length) {
-        result = '[图] ' + result;
+      if (images && images.length && (!text || !text.trim())) {
+        result = '[图片] ' + result;
       }
       return result.slice(0, 24);
     },
@@ -787,13 +787,13 @@
 
       var editBtn = document.createElement('button');
       editBtn.className = 'conv-btn edit';
-      editBtn.textContent = '✏️';
       editBtn.title = '重命名';
+      editBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
 
       var delBtn = document.createElement('button');
       delBtn.className = 'conv-btn del';
-      delBtn.textContent = '×';
       delBtn.title = '删除对话';
+      delBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
       function startEdit() {
         if (isEditing || state.busy) return;

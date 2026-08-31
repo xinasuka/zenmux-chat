@@ -40,11 +40,13 @@
   }
   .conv:hover .actions{opacity:1}
   .conv-btn{
-    background:transparent;border:0;color:var(--fg-faint);font-size:13px;line-height:1;
-    padding:3px 4px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:color .12s,background .12s;
+    background:transparent;border:0;color:var(--fg-faint);width:24px;height:24px;
+    border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:color .15s,background .15s,transform .1s;padding:0;
   }
+  .conv-btn svg{display:block;pointer-events:none}
   .conv-btn:hover{color:var(--fg);background:rgba(255,255,255,.08)}
+  .conv-btn:active{transform:scale(.92)}
   .conv-btn.del:hover{color:var(--danger);background:rgba(226,75,74,.15)}
   .conv-edit-input{
     flex:1;background:#18181b;border:1px solid var(--accent);border-radius:6px;
