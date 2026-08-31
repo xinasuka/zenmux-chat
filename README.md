@@ -4,22 +4,43 @@
 
 实现国内网络环境**无需代理直连**访问 ZenMux 平台全量大模型（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / LLaMA 等），API Key 严密封装于边缘端，本地 IndexedDB 存储，月度维护成本 **¥0**。
 
-```
-┌─────────────────────────────────────────┐         ① 跨境一跳直连 (免代理)         ┌────────────────────────────────┐
-│         浏览器端 (中国大陆直连)           │ ─────────────────────────────────> │   EdgeOne Pages 境外边缘节点   │
-│ --------------------------------------- │                                    │ ------------------------------ │
-│ • 客户端 Canvas 图像自适应压缩 (≤200KB) │ <───────────────────────────────── │ • 校验 X-Access-Token 访问门禁 │
-│ • 40+ 源码/PDF 就地文本提取与注入       │           SSE 零缓冲流式响应        │ • 注入 Secret ZENMUX_API_KEY   │
-│ • AnySearch 实时全网前置 RAG 检索       │                                    │ • 注入 Secret ANYSEARCH_KEY    │
-│ • 双阶启发式智能命名 (零额外 API 消耗)  │                                    └────────────────────────────────┘
-│ • 极简暗黑毛玻璃美学与超细定制滚动条    │                                                    │
-│ • IndexedDB 本地高性能异步持久化        │                                                    │ ② 境外内网高速转发
-└─────────────────────────────────────────┘                                                    │
-                                                                                               ▼
-                                                                               ┌────────────────────────────────┐
-                                                                               │      zenmux.ai 聚合平台        │
-                                                                               │ (GPT-4o/Claude/DeepSeek/Qwen)  │
-                                                                               └────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Client["💻 浏览器客户端 (中国大陆直连)"]
+        direction TB
+        C1["🎨 极简暗色毛玻璃界面 & 5px 定制滚动条"]
+        C2["🖼️ Canvas 图像自适应重采样压缩 (≤200KB)"]
+        C3["📄 40+ 源码格式与 PDF 文本就地提取注入"]
+        C4["✨ 双阶启发式智能命名 (零额外 API 消耗)"]
+        C5["💾 IndexedDB 本地高性能异步持久化"]
+    end
+
+    subgraph Edge["⚡ EdgeOne Pages 境外 Anycast 边缘节点"]
+        direction TB
+        E1["🔒 校验 X-Access-Token 访问门禁"]
+        E2["🔑 注入 Secret ZENMUX_API_KEY"]
+        E3["🔍 注入 Secret ANYSEARCH_API_KEY"]
+        E4["⚡ SSE 零缓冲流式零拷贝中继"]
+    end
+
+    subgraph Upstream["🤖 ZenMux 聚合大模型平台"]
+        direction TB
+        U1["DeepSeek-V3 / R1 (推理)"]
+        U2["Claude 3.5 Sonnet / Opus"]
+        U3["GPT-4o / o1 / o3-mini"]
+        U4["Qwen 2.5 / LLaMA 3.3"]
+    end
+
+    subgraph SearchEngine["🌐 AnySearch 搜索引擎"]
+        S1["全网事实语义检索 & 高密度摘要提取"]
+    end
+
+    Client -- "① 跨境一跳直连 (带访问口令)" --> Edge
+    Edge -- "② 检索事实增强 (可选)" --> SearchEngine
+    SearchEngine -. "返回高密度 Snippet" .-> Edge
+    Edge -- "③ 高速内网转发 (注入 Secret Key)" --> Upstream
+    Upstream -- "④ SSE 零缓冲逐字流式吐字" --> Edge
+    Edge -- "⑤ 实时渲染打字机动效" --> Client
 ```
 
 ---
