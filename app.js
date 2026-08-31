@@ -1009,6 +1009,9 @@
   function toBottom() { el.thread.scrollTop = el.thread.scrollHeight; }
 
   function createActionsToolbar(msg, msgIndex) {
+    var container = document.createElement('div');
+    container.className = 'msg-actions-container';
+
     var bar = document.createElement('div');
     bar.className = 'msg-actions';
 
@@ -1046,27 +1049,51 @@
     });
     bar.appendChild(regenBtn);
 
-    // 3. Token 消耗审计徽章
+    // 3. Token 信息按钮与折叠卡片层（紧随重新生成按钮自然排列）
     if (msg.usage && msg.usage.total_tokens) {
       var u = msg.usage;
-      var badge = document.createElement('button');
-      badge.className = 'usage-badge';
-      badge.title = '点击查看本轮及会话 Token 消耗明细';
-      badge.innerHTML = '⚡ ' + u.total_tokens.toLocaleString() + ' Tokens';
-      badge.addEventListener('click', function () {
-        var sessTotal = calculateSessionTokens(state.currentConv);
-        var modelName = msg.model || state.model || '大模型';
-        var promptT = (u.prompt_tokens || 0).toLocaleString();
-        var compT = (u.completion_tokens || 0).toLocaleString();
-        var totalT = (u.total_tokens || 0).toLocaleString();
-        var sessT = sessTotal.toLocaleString();
+      var infoBtn = document.createElement('button');
+      infoBtn.className = 'msg-action-btn info-btn';
+      infoBtn.title = '展开/折叠 Token 消耗与模型详情';
+      infoBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> ' + u.total_tokens.toLocaleString() + ' Tokens';
 
-        toast('【Token 消耗明细】输入: ' + promptT + ' · 输出: ' + compT + ' · 本轮: ' + totalT + ' · 当前对话累计: ' + sessT + ' (' + modelName + ')', 'info');
+      var usageCard = document.createElement('div');
+      usageCard.className = 'msg-usage-card hide';
+
+      infoBtn.addEventListener('click', function () {
+        var isHidden = usageCard.classList.contains('hide');
+        if (isHidden) {
+          var sessTotal = calculateSessionTokens(state.currentConv);
+          var modelName = msg.model || state.model || '大模型';
+          var promptT = (u.prompt_tokens || 0).toLocaleString();
+          var compT = (u.completion_tokens || 0).toLocaleString();
+          var totalT = (u.total_tokens || 0).toLocaleString();
+          var sessT = sessTotal.toLocaleString();
+
+          usageCard.innerHTML = '<div class="usage-grid">' +
+            '<div class="usage-item"><span class="usage-lbl">输入</span><span class="usage-val">' + promptT + '</span></div>' +
+            '<div class="usage-item"><span class="usage-lbl">输出</span><span class="usage-val">' + compT + '</span></div>' +
+            '<div class="usage-item highlight"><span class="usage-lbl">本轮总计</span><span class="usage-val">' + totalT + '</span></div>' +
+            '<div class="usage-item"><span class="usage-lbl">会话累计</span><span class="usage-val">' + sessT + '</span></div>' +
+            '</div>' +
+            '<div class="usage-model-tag">响应模型: ' + esc(modelName) + '</div>';
+
+          usageCard.classList.remove('hide');
+          infoBtn.classList.add('active');
+        } else {
+          usageCard.classList.add('hide');
+          infoBtn.classList.remove('active');
+        }
       });
-      bar.appendChild(badge);
+
+      bar.appendChild(infoBtn);
+      container.appendChild(bar);
+      container.appendChild(usageCard);
+    } else {
+      container.appendChild(bar);
     }
 
-    return bar;
+    return container;
   }
 
   function regenerateFrom(asstIndex) {
