@@ -1,40 +1,44 @@
 # ZenMux Chat
 
-基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代静态前端 + 客户端全模态解析引擎 + 边缘函数安全反代**。
+基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代极简前端 + 客户端全模态解析引擎 + 边缘函数安全反代 + AI 原生实时联网检索**。
 
 实现国内网络环境**无需代理直连**访问 ZenMux 平台全量大模型（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / LLaMA 等），API Key 严密封装于边缘端，本地 IndexedDB 存储，月度维护成本 **¥0**。
 
 ```
-┌───────────────────────────┐         ① 跨境一跳直连 (免代理)         ┌────────────────────────────────┐
-│   浏览器端 (中国大陆直连)   │ ─────────────────────────────────> │   EdgeOne Pages 境外边缘节点   │
-│ ------------------------- │                                    │ ------------------------------ │
-│ • 客户端 Canvas 图像压缩  │ <───────────────────────────────── │ • 校验 X-Access-Token 访问门禁 │
-│ • 40+ 源码/PDF 文本提取   │           SSE 零缓冲流式响应        │ • 注入服务端 Secret API Key    │
-│ • IndexedDB 会话持久化    │                                    └────────────────────────────────┘
-│ • 双阶启发式智能会话命名  │                                                    │
-└───────────────────────────┘                                                    │ ② 境外内网高速转发
-                                                                                 ▼
-                                                                 ┌────────────────────────────────┐
-                                                                 │      zenmux.ai 聚合平台        │
-                                                                 │ (GPT-4o/Claude/DeepSeek/Qwen)  │
-                                                                 └────────────────────────────────┘
+┌─────────────────────────────────────────┐         ① 跨境一跳直连 (免代理)         ┌────────────────────────────────┐
+│         浏览器端 (中国大陆直连)           │ ─────────────────────────────────> │   EdgeOne Pages 境外边缘节点   │
+│ --------------------------------------- │                                    │ ------------------------------ │
+│ • 客户端 Canvas 图像自适应压缩 (≤200KB) │ <───────────────────────────────── │ • 校验 X-Access-Token 访问门禁 │
+│ • 40+ 源码/PDF 就地文本提取与注入       │           SSE 零缓冲流式响应        │ • 注入 Secret ZENMUX_API_KEY   │
+│ • AnySearch 实时全网前置 RAG 检索       │                                    │ • 注入 Secret ANYSEARCH_KEY    │
+│ • 双阶启发式智能命名 (零额外 API 消耗)  │                                    └────────────────────────────────┘
+│ • 极简暗黑毛玻璃美学与超细定制滚动条    │                                                    │
+│ • IndexedDB 本地高性能异步持久化        │                                                    │ ② 境外内网高速转发
+└─────────────────────────────────────────┘                                                    │
+                                                                                               ▼
+                                                                               ┌────────────────────────────────┐
+                                                                               │      zenmux.ai 聚合平台        │
+                                                                               │ (GPT-4o/Claude/DeepSeek/Qwen)  │
+                                                                               └────────────────────────────────┘
 ```
 
 ---
 
-## 一、 为什么我们要这么做？（Design Rationale）
+## 一、 核心设计理念（Design Rationale）
 
 1. **解决跨境直连与网络阻断痛点**：
    ZenMux.ai 聚合了全球顶尖的商业与开源大模型，但在中国大陆常规网络环境下受阻。通过部署在 EdgeOne 国际版境外 Anycast 边缘节点，客户端发起一跳请求直达边缘节点，再由边缘节点同域转发至 ZenMux，**彻底摆脱了客户端代理工具的束缚**。
 2. **核心资产安全隔离（API Key 永不落地）**：
-   前端仅通过自定义访问口令（`ACCESS_TOKEN`）进行身份认证，ZenMux 的付费 `API_KEY` 仅存在于 EdgeOne 边缘加密 Secret 环境变量中，杜绝前端源码或抓包泄露风险。
-3. **极致的零运维与零成本（Serverless & Local-First）**：
+   前端仅通过自定义访问口令（`ACCESS_TOKEN`）进行身份认证，ZenMux 与 AnySearch 的付费 `API_KEY` 仅存在于 EdgeOne 边缘加密 Secret 环境变量中，杜绝前端源码或抓包泄露风险。
+3. **前置 AI 语义检索增强（Pre-Retrieval Dense RAG）**：
+   抛弃传统大模型 Tool Call 带来的“双重网络延迟（4~8s）”与“双倍 Token 计费”，直接由 AI 原生搜索引擎进行自然语言语义召回，并注入精炼事实片段，**让全平台 100% 的大模型（包括 DeepSeek-R1 纯思考模型）瞬间拥有毫秒级实时全网检索能力**。
+4. **极致的零运维与零成本（Serverless & Local-First）**：
    - **计算前置（Client-Side Compute）**：图像重采样、PDF 解析、代码提取、Markdown 渲染与智能命名全部在用户本地浏览器完成，不消耗服务端任何昂贵算力；
    - **存储本地化（Local-First DB）**：对话历史与附件全量保存在本机的 `IndexedDB` 中，隐私安全且无需付费云数据库。
 
 ---
 
-## 二、 核心技术架构与实现特性
+## 二、 核心技术架构与模块实现
 
 ### 1. 客户端多模态与文件解析引擎 (`app.js`)
 * **图像智能降采样与压缩（`ImageProcessor`）**：
@@ -46,26 +50,35 @@
 * **Token 容量防御安全阀**：
   单文件上限 10 万字符（约 2.5~3 万 Token），超出部分平滑截断并附加提示，防止撑爆大模型 Context Window。
 
-### 2. 双阶智能命名与内联交互
-* **零额外 API 消耗的会话命名（`TitleExtractor`）**：
+### 2. 实时全网检索与多档位控制 (`WebSearchService` & `api/search.js`)
+* **AI 原生前置检索**：用户提问直接由搜索引擎进行意图分析与向量检索，提取高密度 Snippet 构建 Grounding Context，较原生抓取整页 HTML **节省 80%+ Prompt Token**；
+* **多档位深度控制（Search Depth Selector）**：
+  - **`搜索 精炼` (3 条)**：极速响应、极低 Token 消耗，适合简单事实、汇率、天气查询；
+  - **`搜索 标准` (5 条，默认)**：覆盖面与成本最佳，适合日常综合提问；
+  - **`搜索 深度` (10 条)**：多源深度交叉核验，适合技术调研与深度分析；
+  - **`搜索 全面` (20 条)**：触达 API 物理最高上限，适合研报级事实汇总；
+* **精美来源溯源 UI**：
+  回答气泡底部自适应渲染 `<details class="msg-sources">` 折叠卡片，包含序号、网页标题、域名徽标与直达外链。
+
+### 3. 双阶智能命名与内联交互 (`TitleExtractor`)
+* **零额外 API 消耗的会话命名**：
   - **阶段 1（首问即时去噪）**：自动清洗「请问」、「帮我写一个」等前缀助词，结合附件名初拟标题；
   - **阶段 2（首轮回复嗅探）**：AI 流式生成完毕后，本地正则抓取 AI 回复中的 Markdown 标题（`# 标题`）或加粗主题（`**主题**`）自动润色；
 * **侧边栏内联编辑**：
   悬停显示精美线性 SVG 按钮，支持双击标题或点击修改按钮原地呼出输入框，修改即刻同步至 IndexedDB。
 
-### 3. AnySearch 实时联网检索与引用溯源 (`AnySearchService` & `/api/search.js`)
-* **全模型无缝联网（Model-Agnostic RAG）**：
-  无需依赖特定模型的内置工具调用，一键让 DeepSeek、Qwen、Claude、GPT 等全平台模型获得实时全网检索能力；
-* **极低 Token 消耗与精炼注入**：
-  提取清洗后的高密度 Snippet 摘要构建隔离 Grounding 上下文，较原生网页抓取降低 **80%+ Prompt Token 成本**；
-* **精美溯源 UI**：
-  回答气泡中自适应渲染 `<details class="msg-sources">` 引用来源卡片，展示网页 Favicon/域名标签、标题与直达外链。
+### 4. 极简与优雅美学系统 (`styles.css`)
+* **Apple-Grade 排版与抗锯齿**：启用 `-webkit-font-smoothing: antialiased` 与 `-moz-osx-font-smoothing: grayscale`，字距与行高优化至最佳可读性；
+* **极细定制化滚动条（Custom Slim Scrollbars）**：全局换装 5px 极细暗光微胶囊滚动条，平时隐形，滑动时柔和显现；
+* **毛玻璃磨砂顶栏（Frosted Glass Topbar）**：启用 `backdrop-filter: blur(12px)` 与半透背景，会话向上滚动穿过顶栏时具有通透的层次感；
+* **输入框呼吸光晕（Luminous Focus Glow）**：`:focus-within` 时呈现紫色柔光轮廓与微阴影，交互沉浸；
+* **轻量级双层 Toast**：信息通知采用中性磨砂玻璃黑底，异常错误采用暗红底色，彻底消除误导。
 
-### 4. 高性能异步存储引擎 (`ZenMuxDB`)
+### 5. 高性能异步存储引擎 (`ZenMuxDB`)
 * 基于浏览器原生 **IndexedDB**（数据库：`ZenMuxChatDB`，对象仓库：`conversations`）；
 * 突破传统 `localStorage` 5MB 配额限制，支持海量历史会话、长文与图片数据的流畅存储与毫秒级索引。
 
-### 5. 边缘流式中继与安全网关 (`edge-functions/api/`)
+### 6. 边缘流式中继与安全网关 (`edge-functions/api/`)
 * **零缓冲流式传输（True SSE Streaming）**：
   边缘函数基于 Web Streams API 实现 `ReadableStream` 零拷贝透传，并注入 `X-Accel-Buffering: no` 响应头，确保 Token 实时逐字输出；
 * **安全密钥托管**：
@@ -79,7 +92,8 @@
 1. **EdgeOne 国际站账号**：注册于 [edgeone.ai](https://edgeone.ai)（非腾讯云国内站）；
 2. **GitHub 账号与代码仓库**：Fork 或推送本项目；
 3. **自定义域名**：准备一个二级域名（如 `chat.yourdomain.com`），**免备案且无 401 限制**；
-4. **ZenMux API Key**：在 [zenmux.ai](https://zenmux.ai) 控制台生成。
+4. **ZenMux API Key**：在 [zenmux.ai](https://zenmux.ai) 控制台生成；
+5. **AnySearch API Key** *(可选)*：在 [anysearch.com](https://anysearch.com) 控制台生成（用于联网搜索）。
 
 ---
 
@@ -154,8 +168,8 @@ edgeone pages dev
 
 ```text
 ├── index.html                  # 页面结构骨架、附件托盘与联网检索开关
-├── styles.css                  # 现代化极简暗色主题、来源卡片与响应式布局样式
-├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、AnySearch 检索与流式控制
+├── styles.css                  # 现代化极简暗色主题、毛玻璃顶栏、来源卡片与响应式布局
+├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、联网检索与流式控制
 ├── edge-functions/
 │   └── api/
 │       ├── chat.js             # 边缘对话函数：鉴权校验、密钥注入与 SSE 零拷贝转发
