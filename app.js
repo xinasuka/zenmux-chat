@@ -1622,7 +1622,8 @@
   el.ctx.addEventListener('change', function () {
     state.ctxN = parseInt(el.ctx.value, 10) || 0;
     localStorage.setItem(LS.ctx, String(state.ctxN));
-    if (state.ctxN === 0) toast('已改为携带全部历史', 'info');
+    var label = el.ctx.options[el.ctx.selectedIndex].text;
+    toast('已切换为：' + label, 'info');
   });
 
   el.logout.addEventListener('click', function () {
