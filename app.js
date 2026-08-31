@@ -846,6 +846,8 @@
       delBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (state.busy) return;
+        var titleToDel = c.title || '此对话';
+        if (!window.confirm('确定要删除对话「' + titleToDel + '」吗？此操作不可撤销。')) return;
         ZenMuxDB.deleteConversation(c.id).then(function () {
           state.conversations = state.conversations.filter(function (x) { return x.id !== c.id; });
           if (state.currentId === c.id) {
@@ -918,12 +920,6 @@
     var col = document.createElement('div');
     col.className = 'body';
 
-    var who = document.createElement('div');
-    who.className = 'role';
-    who.textContent = role === 'user' ? '你' : 'ZenMux';
-
-    var body = document.createElement('div');
-
     // 1. 若附带图片，渲染图片网格
     if (images && images.length) {
       var grid = document.createElement('div');
@@ -941,7 +937,7 @@
         thumb.appendChild(imgTag);
         grid.appendChild(thumb);
       });
-      body.appendChild(grid);
+      col.appendChild(grid);
     }
 
     // 2. 若附带源码/文档附件，渲染可折叠卡片
@@ -965,20 +961,19 @@
         card.appendChild(pre);
         fileBox.appendChild(card);
       });
-      body.appendChild(fileBox);
+      col.appendChild(fileBox);
     }
 
     // 3. 正文
     var textNode = document.createElement('div');
+    textNode.className = 'msg-text';
     if (role === 'user') {
       textNode.textContent = displayContent || content || '';
     } else {
       textNode.innerHTML = renderParts(reasoning, content);
     }
-    body.appendChild(textNode);
+    col.appendChild(textNode);
 
-    col.appendChild(who);
-    col.appendChild(body);
     wrap.appendChild(avatar);
     wrap.appendChild(col);
     return wrap;
@@ -987,7 +982,7 @@
   function appendBubble(role) {
     var wrap = bubble(role, '', null, '', null, '');
     el.threadInner.appendChild(wrap);
-    return wrap.querySelector('.body > div:last-child');
+    return wrap.querySelector('.msg-text');
   }
 
   /* ==========================================================================
