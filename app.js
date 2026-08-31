@@ -2,7 +2,7 @@
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
    多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
    会话管理：双阶启发式智能标题提炼 + 侧边栏内联手动重命名
-   联网检索：全模型前置实时全网检索增强 (RAG Grounding) + 引用来源溯源
+   联网检索：全模型前置实时全网检索增强 (RAG Grounding) + 检索深度多档位控制 + 引用来源溯源
 */
 (function () {
   'use strict';
@@ -15,6 +15,7 @@
     effort: 'zm.effort',
     ctx: 'zm.ctx',
     webSearch: 'zm.webSearch',
+    searchDepth: 'zm.searchDepth',
   };
 
   var DB_NAME = 'ZenMuxChatDB';
@@ -25,7 +26,7 @@
 
   var el = {
     sidebar: $('sidebar'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
-    model: $('model'), effort: $('effort'), ctx: $('ctx'), logout: $('logout'),
+    model: $('model'), effort: $('effort'), searchDepth: $('search-depth'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
     attachBtn: $('attach-btn'), webSearchBtn: $('web-search-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
@@ -44,6 +45,7 @@
     effort: localStorage.getItem(LS.effort) || '',
     ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
     webSearch: localStorage.getItem(LS.webSearch) === '1',
+    searchDepth: localStorage.getItem(LS.searchDepth) || 'standard',
     modelMeta: {},
     pendingAttachments: [],
     busy: false,
@@ -66,6 +68,16 @@
       return new URL(url).hostname.replace(/^www\./, '');
     } catch (e) {
       return '';
+    }
+  }
+
+  function getSearchCountByDepth(depth) {
+    switch (depth) {
+      case 'quick': return 3;
+      case 'deep': return 10;
+      case 'pro': return 20;
+      case 'standard':
+      default: return 5;
     }
   }
 
@@ -365,14 +377,15 @@
      4. 全模型实时联网检索服务 (WebSearchService)
      ========================================================================== */
   var WebSearchService = {
-    search: function (query, token) {
+    search: function (query, token, count) {
+      var maxResults = count || 5;
       return fetch('/api/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Access-Token': token
         },
-        body: JSON.stringify({ query: query, max_results: 5 })
+        body: JSON.stringify({ query: query, max_results: maxResults })
       })
         .then(function (r) {
           return r.json().then(function (j) {
@@ -1285,7 +1298,8 @@
     var searchPromise = Promise.resolve(null);
     if (state.webSearch && text) {
       body.innerHTML = '<div class="search-status"><span class="attachment-spinner"></span> 正在检索实时网络事实…</div>';
-      searchPromise = WebSearchService.search(text, state.token).catch(function (err) {
+      var searchCount = getSearchCountByDepth(state.searchDepth);
+      searchPromise = WebSearchService.search(text, state.token, searchCount).catch(function (err) {
         if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
           toast('服务端未配置联网搜索密钥（将以常规方式回答，可在控制台配置）', 'info');
         } else {
@@ -1598,6 +1612,13 @@
     localStorage.setItem(LS.effort, state.effort);
   });
 
+  el.searchDepth.addEventListener('change', function () {
+    state.searchDepth = el.searchDepth.value;
+    localStorage.setItem(LS.searchDepth, state.searchDepth);
+    var label = el.searchDepth.options[el.searchDepth.selectedIndex].text;
+    toast('已切换为：' + label, 'info');
+  });
+
   el.ctx.addEventListener('change', function () {
     state.ctxN = parseInt(el.ctx.value, 10) || 0;
     localStorage.setItem(LS.ctx, String(state.ctxN));
@@ -1617,6 +1638,7 @@
   // 启动引导
   el.model.value = state.model;
   el.effort.value = state.effort;
+  el.searchDepth.value = state.searchDepth;
   el.ctx.value = String(state.ctxN);
   syncModelCapabilities();
   syncWebSearchBtn();

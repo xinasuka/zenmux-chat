@@ -80,8 +80,9 @@
     #burger{order:1}
     #model{order:2;flex:1 1 auto;min-width:0}
     #logout{order:3}
-    #effort{order:4;flex:1 1 40%;min-width:0}
-    #ctx{order:5;flex:1 1 40%;min-width:0}
+    #effort{order:4;flex:1 1 28%;min-width:0}
+    #search-depth{order:5;flex:1 1 28%;min-width:0}
+    #ctx{order:6;flex:1 1 28%;min-width:0}
     .spacer{display:none}
   }
   .spacer{flex:1}

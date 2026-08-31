@@ -55,7 +55,7 @@ export async function onRequestPost(context) {
     return json({ error: '缺少搜索 query 参数' }, 400);
   }
 
-  const maxResults = Math.min(Math.max(parseInt(payload.max_results, 10) || 5, 1), 10);
+  const maxResults = Math.min(Math.max(parseInt(payload.max_results, 10) || 5, 1), 20);
 
   let searchRes;
   try {
