@@ -63,8 +63,16 @@
   .mini-sel:focus{outline:none;border-color:var(--accent)}
   .mini-sel:disabled{opacity:.38;cursor:not-allowed}
   .mini-sel option{background:var(--bg-elev);color:var(--fg)}
-  /* 窄屏优先保住模型选择器，两个次要选择器先让位 */
-  @media (max-width:760px){ .mini-sel{display:none} }
+  /* 窄屏：模型选择器占第一行，推理/上下文换到第二行各半宽，不再隐藏 */
+  @media (max-width:760px){
+    #topbar{flex:0 0 auto;flex-wrap:wrap;height:auto;min-height:52px;align-items:center;padding:8px 12px;gap:8px;row-gap:8px}
+    #burger{order:1}
+    #model{order:2;flex:1 1 auto;min-width:0}
+    #logout{order:3}
+    #effort{order:4;flex:1 1 40%;min-width:0}
+    #ctx{order:5;flex:1 1 40%;min-width:0}
+    .spacer{display:none}
+  }
   .spacer{flex:1}
   .icon-btn{
     background:transparent;border:1px solid var(--line);color:var(--fg-dim);
