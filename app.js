@@ -18,7 +18,7 @@
 
   var el = {
     sidebar: $('sidebar'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
-    model: $('model'), modelList: $('model-list'), logout: $('logout'),
+    model: $('model'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
     gate: $('gate'), gateInput: $('gate-input'), gateGo: $('gate-go'), gateErr: $('gate-err'),
@@ -178,6 +178,17 @@
     return renderMd(t);
   }
 
+  // 渲染「推理过程 + 正文」。reasoning 折叠显示，content 正常 Markdown。
+  function renderParts(reasoning, content) {
+    var html = '';
+    if (reasoning && reasoning.trim()) {
+      html += '<details class="reasoning" open><summary>思考过程</summary>' +
+        renderMd(reasoning) + '</details>';
+    }
+    html += renderMd(content || '');
+    return html;
+  }
+
   /* ---------------- 提示 ---------------- */
   var toastTimer = null;
   function toast(msg) {
@@ -311,23 +322,46 @@
       .then(function (j) {
         var list = (j && j.data) || [];
         if (!list.length) throw new Error('模型列表为空');
-        el.modelList.innerHTML = '';
-        list.forEach(function (m) {
-          var o = document.createElement('option');
-          o.value = m.id;
-          if (m.id.indexOf(state.model) === 0) o.label = m.id;
-          el.modelList.appendChild(o);
-        });
-        if (!state.model) {
+        fillModels(list);
+        var ids = list.map(function (m) { return m.id; });
+        if (!state.model || ids.indexOf(state.model) === -1) {
           state.model = list[0].id;
-          el.model.value = state.model;
-          store(LS.model, state.model);
         }
+        el.model.value = state.model;
+        store(LS.model, state.model);
         renderThread();
       })
       .catch(function (e) {
-        toast('模型列表拉取失败：' + e.message + '（可手动填写模型 ID）');
+        toast('模型列表拉取失败：' + e.message + '（可手动选择模型）');
       });
+  }
+
+  // 按 owned_by 分组填充模型下拉；option 显示 display_name，value 为模型 id
+  function fillModels(list) {
+    el.model.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = list.length ? '选择模型…' : '无可用模型';
+    el.model.appendChild(ph);
+
+    var groups = {};
+    list.forEach(function (m) {
+      var g = m.owned_by || '其他';
+      (groups[g] = groups[g] || []).push(m);
+    });
+    Object.keys(groups).sort().forEach(function (g) {
+      var og = document.createElement('optgroup');
+      og.label = g;
+      groups[g].forEach(function (m) {
+        var o = document.createElement('option');
+        o.value = m.id;
+        var label = m.display_name || m.id;
+        if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
+        o.textContent = label;
+        og.appendChild(o);
+      });
+      el.model.appendChild(og);
+    });
   }
 
   /* ---------------- 发送 ---------------- */
@@ -354,6 +388,7 @@
 
     var body = appendBubble('assistant');
     var acc = '';
+    var reasonAcc = '';
     var stick = true;
 
     state.busy = true;
@@ -382,10 +417,11 @@
           });
         }
         if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
-        return pump(res, function (chunk, done) {
-          if (chunk) acc += chunk;
+        return pump(res, function (cDelta, rDelta, done) {
+          if (rDelta) reasonAcc += rDelta;
+          if (cDelta) acc += cDelta;
           if (stick && nearBottom()) toBottom();
-          body.innerHTML = renderStream(acc) + (done ? '' : '<span class="caret"></span>');
+          body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
           if (!done && nearBottom()) toBottom();
         });
       })
@@ -394,12 +430,12 @@
           c.messages.push({ role: 'assistant', content: acc });
           persist();
         }
-        body.innerHTML = renderMd(acc);
+        body.innerHTML = renderParts(reasonAcc, acc);
       })
       .catch(function (e) {
         if (e.name === 'AbortError') {
           if (acc) { c.messages.push({ role: 'assistant', content: acc }); persist(); }
-          body.innerHTML = renderMd(acc);
+          body.innerHTML = renderParts(reasonAcc, acc);
           return;
         }
         toast(e.message || String(e));
@@ -415,20 +451,21 @@
       });
   }
 
-  // 逐块读取 SSE，把 delta 交给 onChunk
+  // 逐块读取 SSE，把 content / reasoning 增量分别交给 onChunk(cDelta, rDelta, done)
   function pump(res, onChunk) {
     var reader = res.body.getReader();
     var dec = new TextDecoder('utf-8');
     var buf = '';
 
     return reader.read().then(function step(part) {
-      if (part.done) { onChunk('', true); return; }
+      if (part.done) { onChunk('', '', true); return; }
       buf += dec.decode(part.value, { stream: true });
 
       var lines = buf.split('\n');
       buf = lines.pop();
 
-      var delta = '';
+      var c = '';
+      var r = '';
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
         if (line.indexOf('data:') !== 0) continue;
@@ -438,11 +475,12 @@
           var j = JSON.parse(data);
           var ch = j.choices && j.choices[0];
           if (!ch) continue;
-          var d = (ch.delta && ch.delta.content) || (ch.message && ch.message.content);
-          if (d) delta += d;
+          var d = ch.delta || {};
+          if (d.reasoning) r += d.reasoning;
+          if (d.content) c += d.content;
         } catch (e) { /* 半包，下一块补齐后再解析 */ }
       }
-      if (delta) onChunk(delta, false);
+      if (c || r) onChunk(c, r, false);
       return reader.read().then(step);
     });
   }
@@ -470,17 +508,13 @@
         store(LS.gated, '1');
         hideGate();
         var list = (j && j.data) || [];
-        el.modelList.innerHTML = '';
-        list.forEach(function (m) {
-          var o = document.createElement('option');
-          o.value = m.id;
-          el.modelList.appendChild(o);
-        });
-        if (list.length && !state.model) {
+        fillModels(list);
+        var ids = list.map(function (m) { return m.id; });
+        if (list.length && (!state.model || ids.indexOf(state.model) === -1)) {
           state.model = list[0].id;
-          el.model.value = state.model;
-          store(LS.model, state.model);
         }
+        el.model.value = state.model;
+        store(LS.model, state.model);
         renderThread();
         syncSend();
       })
