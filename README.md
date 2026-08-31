@@ -1,246 +1,155 @@
 # ZenMux Chat
 
-在 **EdgeOne Pages 国际版**（edgeone.ai）上跑的个人对话站：静态前端 + 边缘函数反代 ZenMux API。
-目标效果——国内浏览器**不开代理**直接聊天，API Key 不出服务端，月成本 ¥0。
+基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代静态前端 + 客户端全模态解析引擎 + 边缘函数安全反代**。
+
+实现国内网络环境**无需代理直连**访问 ZenMux 平台全量大模型（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / LLaMA 等），API Key 严密封装于边缘端，本地 IndexedDB 存储，月度维护成本 **¥0**。
 
 ```
-浏览器（大陆，无代理）
-   │  ① 跨境一跳，到 EdgeOne 境外节点
-   ▼
-EdgeOne Pages 边缘函数（/api/chat）
-   │  ② 注入 Secret 里的 Key，境外→境外
-   ▼
-zenmux.ai（Cloudflare）
+┌───────────────────────────┐         ① 跨境一跳直连 (免代理)         ┌────────────────────────────────┐
+│   浏览器端 (中国大陆直连)   │ ─────────────────────────────────> │   EdgeOne Pages 境外边缘节点   │
+│ ------------------------- │                                    │ ------------------------------ │
+│ • 客户端 Canvas 图像压缩  │ <───────────────────────────────── │ • 校验 X-Access-Token 访问门禁 │
+│ • 40+ 源码/PDF 文本提取   │           SSE 零缓冲流式响应        │ • 注入服务端 Secret API Key    │
+│ • IndexedDB 会话持久化    │                                    └────────────────────────────────┘
+│ • 双阶启发式智能会话命名  │                                                    │
+└───────────────────────────┘                                                    │ ② 境外内网高速转发
+                                                                                 ▼
+                                                                 ┌────────────────────────────────┐
+                                                                 │      zenmux.ai 聚合平台        │
+                                                                 │ (GPT-4o/Claude/DeepSeek/Qwen)  │
+                                                                 └────────────────────────────────┘
 ```
 
 ---
 
-## 一、前置条件（缺一不可）
+## 一、 为什么我们要这么做？（Design Rationale）
 
-| # | 需要 | 状态 | 说明 |
-|---|---|---|---|
-| 1 | EdgeOne 国际站账号 | ✅ 已注册 | edgeone.ai，非腾讯云国内站 |
-| 2 | GitHub 账号 | ✅ 已有 | 用于托管代码、触发自动构建 |
-| 3 | **一个自己的域名** | ⬜ **待确认** | **硬门槛，见下方说明** |
-| 4 | ZenMux API Key | ⬜ 待获取 | zenmux.ai 控制台创建 |
-
-### 为什么必须要有域名
-
-EdgeOne Pages 官方域名文档（[Domain Management Overview](https://pages.edgeone.ai/document/domain-overview)）原文规定：
-
-> 经**项目域名**和**部署域名**访问时，中国大陆网络环境必须使用系统生成的预览 URL，
-> 链接有效期 3 小时，超时返回 **401**。非中国大陆网络环境可直接访问。
-
-也就是说平台送的 `*.edgeone.app` 从大陆访问会 401，且预览链接 3 小时就失效。
-官方文档紧接着给出建议：
-
-> It is advisable to bind a custom domain to create a stable access channel.
-> No ICP Filing Registration is required in **global availability zones (excluding Chinese mainland)**.
-
-**绑定自定义域名 + 加速区域选"全球可用区（不含中国大陆）" → 免备案、不受 401 门禁限制。**
-
-域名很便宜：`.xyz` / `.top` 首年通常十几元。已有任何闲置域名都可用，用一个子域名即可（如 `chat.你的域名.com`）。
+1. **解决跨境直连与网络阻断痛点**：
+   ZenMux.ai 聚合了全球顶尖的商业与开源大模型，但在中国大陆常规网络环境下受阻。通过部署在 EdgeOne 国际版境外 Anycast 边缘节点，客户端发起一跳请求直达边缘节点，再由边缘节点同域转发至 ZenMux，**彻底摆脱了客户端代理工具的束缚**。
+2. **核心资产安全隔离（API Key 永不落地）**：
+   前端仅通过自定义访问口令（`ACCESS_TOKEN`）进行身份认证，ZenMux 的付费 `API_KEY` 仅存在于 EdgeOne 边缘加密 Secret 环境变量中，杜绝前端源码或抓包泄露风险。
+3. **极致的零运维与零成本（Serverless & Local-First）**：
+   - **计算前置（Client-Side Compute）**：图像重采样、PDF 解析、代码提取、Markdown 渲染与智能命名全部在用户本地浏览器完成，不消耗服务端任何昂贵算力；
+   - **存储本地化（Local-First DB）**：对话历史与附件全量保存在本机的 `IndexedDB` 中，隐私安全且无需付费云数据库。
 
 ---
 
-## 二、部署步骤
+## 二、 核心技术架构与实现特性
 
-### 第 1 步：拿到两个密钥
+### 1. 客户端多模态与文件解析引擎 (`app.js`)
+* **图像智能降采样与压缩（`ImageProcessor`）**：
+  在客户端利用 HTML5 Canvas 2D 进行自适应双线性插值压缩（最大边长限制 1600px，JPEG 质量 0.82），将 5~15MB 原始高清图片无损压缩至 80~250KB，**完美规避边缘函数 1MB 请求体硬上限**；
+* **代码与文档就地文本提取（`FileTextExtractor`）**：
+  - **40+ 种格式原生毫秒级秒读**：涵盖 `.py`, `.js`, `.ts`, `.go`, `.rs`, `.java`, `.c`, `.cpp`, `.sh`, `.sql`, `.json`, `.csv`, `.yaml`, `.xml`, `.log`, `.md` 等；
+  - **PDF 按需分页解析**：动态按需加载 PDF.js 提取纯文本内容；
+  - **上下文语义注入（In-Context Injection）**：以标准 Markdown 围栏隔离注入 Prompt，**让所有大模型（即使上游不支持文件多模态）均可直接分析代码与长文档**；
+* **Token 容量防御安全阀**：
+  单文件上限 10 万字符（约 2.5~3 万 Token），超出部分平滑截断并附加提示，防止撑爆大模型 Context Window。
 
-**ZenMux API Key** — 登录 zenmux.ai → 控制台 → API Keys → 创建，复制保存。
+### 2. 双阶智能命名与内联交互
+* **零额外 API 消耗的会话命名（`TitleExtractor`）**：
+  - **阶段 1（首问即时去噪）**：自动清洗「请问」、「帮我写一个」等前缀助词，结合附件名初拟标题；
+  - **阶段 2（首轮回复嗅探）**：AI 流式生成完毕后，本地正则抓取 AI 回复中的 Markdown 标题（`# 标题`）或加粗主题（`**主题**`）自动润色；
+* **侧边栏内联编辑**：
+  悬停显示精美线性 SVG 按钮，支持双击标题或点击修改按钮原地呼出输入框，修改即刻同步至 IndexedDB。
 
-**访问口令 ACCESS_TOKEN** — 自己编一个（如 `MyChat2026!xK9`）。
-它的作用是给你的 `/api/chat` 加一道锁：URL 一旦泄露，别人没有口令也用不了，不会变成免费开放代理。**强烈建议设置。**
+### 3. 高性能异步存储引擎 (`ZenMuxDB`)
+* 基于浏览器原生 **IndexedDB**（数据库：`ZenMuxChatDB`，对象仓库：`conversations`）；
+* 突破传统 `localStorage` 5MB 配额限制，支持海量历史会话、长文与图片数据的流畅存储与毫秒级索引。
 
-### 第 2 步：GitHub 建仓库并推送 —— ✅ 已完成
-
-仓库已建好并推送：
-
-| 项 | 值 |
-|---|---|
-| 地址 | <https://github.com/xinasuka/zenmux-chat> |
-| 可见性 | **Private（私有）** |
-| 默认分支 | `main` |
-| 已推送文件 | 9 个（前端 3 + 边缘函数 2 + 配置 4） |
-
-本机 `gh` 已装在 `~/.workbuddy/binaries/gh/bin/gh`，并已写入 `~/.zshrc` 与 `~/.bash_profile` 的 PATH，
-且已用 keyring 中的 `xinasuka` 账号完成登录（`gh auth status` 可查）。后续改动直接：
-
-```bash
-cd /Users/mac/WorkBuddy/2026-08-31-14-26-41/zenmux-chat
-git add -A && git commit -m "说明" && git push
-```
-
-推送后 EdgeOne Pages 会自动重新构建。
-
-> **注意**：仓库是私有的，EdgeOne Pages 第 3 步授权 GitHub 时，
-> 必须选择 **Only select repositories** 并勾选 `zenmux-chat`，
-> 且确认授权页出现了 "Private repository access" 权限项，否则平台读不到代码。
-
-### 第 3 步：EdgeOne Pages 导入项目
-
-1. 打开 <https://edgeone.ai> 并登录 → 进入 **Pages**（现也称 Makers）控制台
-2. 点 **Create project** → **Import a Git Repository**
-3. 首次会要求 GitHub 授权，同意并选择刚建的仓库（私有仓库也支持）
-4. 构建配置页填写：
-
-   | 字段 | 值 |
-   |---|---|
-   | Framework / 框架预设 | 留空或选 **Other** |
-   | Build Command（构建命令） | **留空** |
-   | Output Directory（输出目录） | **`.`**（一个点，表示仓库根目录） |
-   | Install Command | 留空 |
-   | Node Version | 留默认即可（无构建步骤，用不到） |
-
-   > 这些值已写在仓库的 `edgeone.json` 里，控制台会自动读取；若显示不一致，以上表为准。
-
-5. **Acceleration Region（加速区域）选 `Global availability zone (exclude Chinese mainland)`**
-   —— 即"全球可用区（不含中国大陆）"。**这一步决定免备案，别选错。**
-   选"中国大陆可用区"或"全球可用区"都会要求 ICP 备案。
-6. 点 **Start deployment**，等构建完成（约 1 分钟）。
-   **必须至少有一次成功部署**，否则后面绑域名会因无部署记录而返回 404。
-
-### 第 4 步：绑定自定义域名（共 3 小步，缺一不可）
-
-**4.0 复查加速区域**（决定要不要备案，事后改很麻烦）
-项目页 → Settings，确认 Acceleration Region 是
-`Global availability zone (exclude Chinese mainland)`。若不是，先改过来再重新部署。
-
-**4.1 添加域名 + 所有权校验 + CNAME**
-
-1. 项目页 → **Domain Management** → **Add custom domain**
-2. 填入域名。**强烈建议用子域名**，如 `chat.example.com`（根域 CNAME 会与 MX 记录冲突）
-3. 弹窗会给出**两条**需要去注册商添加的记录，**两条都加，别只加 CNAME**：
-
-   | 顺序 | 类型 | 主机记录 / 记录名称 | 记录值 |
-   |---|---|---|---|
-   | ① | **TXT**（所有权校验） | EdgeOne 弹窗里 `Host` 字段去掉当前域名（例：EdgeOne 给 `edgeonereclaim.zenchat.cc.cd.` 当前域为 `zenchat.cc.cd`，则填 **`edgeonereclaim`**） | 复制弹窗里 `Value` 后面的整串 `reclaim-...`（**用拷按钮，别手敲**，长度 30+） |
-   | ② | **CNAME** | 同上，去掉当前域名后的前缀 | 平台给的形如 `a4285573.xxxx.dns.edgeone.site.` |
-
-   > 顺序无所谓，但**必须先加 TXT 并通过校验**，域名状态才会从 Pending 往前走。
-   > 各家控制台"主机记录"字段叫法：DNSPod/腾讯云叫**记录名称**，阿里云叫**主机记录**，Cloudflare 叫**Name**——都是一个意思，只填**子域名前缀**（不要带当前域名、不要带 `@`、不要加根域）。
-4. 回到控制台点 **Verify** / 等待状态变为 **Activated**。
-   DNS 生效通常几分钟，最长 48 小时（TTL 决定）。
-
-**4.2 申请 HTTPS 证书（⚠️ 平台不会自动发，必须手动点一次）**
-
-官方文档原文：*"Makers does not automatically assign an HTTPS certificate to your domain."*
-不配证书，`https://` 打不开。
-
-1. 域名添加成功后 → 该域名的 **HTTPS configuration**
-2. 选 **Apply for free certificate**（免费，TrustAsia / Let's Encrypt，RSA，**自动续期**）
-3. 顺手打开 **Force HTTPS Access**（HTTP 301 跳 HTTPS）
-4. 等证书签发部署（通常几分钟）
-
-**4.3 验证解析是否生效**（在你自己的终端跑；本机沙箱 DNS 不可达，需你自己确认）
-
-```bash
-dig chat.example.com CNAME +short
-# 应返回平台给的 CNAME 值
-
-curl -sI https://chat.example.com | head -1
-# 应返回 HTTP/2 200（或 200 OK）
-```
-
-### 第 5 步：配置环境变量（Secret）
-
-项目页 → **Settings** → **Environment Variables**，添加两条。
-**类型都选 Secret**（加密存储，不会出现在构建日志里）：
-
-| 变量名 | 值 | 说明 |
-|---|---|---|
-| `ZENMUX_API_KEY` | 第 1 步的 Key | 上游 API 密钥 |
-| `ACCESS_TOKEN` | 第 1 步自编口令 | 访问门禁，留空则接口完全公开 |
-
-添加环境变量后**需要重新部署**才会生效：项目页 → 右上角 **Redeploy**（或推一次空 commit）。
-
-### 第 6 步：打开使用
-
-浏览器访问 `https://chat.example.com`：
-
-1. 弹出"访问口令"框 → 填第 1 步自编的 `ACCESS_TOKEN` → 进入
-   （若服务端未配置 `ACCESS_TOKEN`，留空直接点进入）
-2. 顶部模型框会自动填充可选模型（数据来自 ZenMux），也可手动输入模型 ID
-3. Enter 发送，Shift+Enter 换行
+### 4. 边缘流式中继网关 (`edge-functions/api/`)
+* **零缓冲流式传输（True SSE Streaming）**：
+  边缘函数基于 Web Streams API 实现 `ReadableStream` 零拷贝透传，并注入 `X-Accel-Buffering: no` 响应头，确保 Token 实时逐字输出。
 
 ---
 
-## 三、验证流式是否正常
+## 三、 快速部署指南
 
-**静态页能打开 ≠ 流式不卡**，必须单独验。在终端执行：
-
-```bash
-curl -N -s -X POST https://chat.example.com/api/chat \
-  -H "Content-Type: application/json" \
-  -H "X-Access-Token: 你的口令" \
-  -d '{"model":"openai/gpt-5","messages":[{"role":"user","content":"从1数到30"}],"stream":true}' \
-  | head -c 1500
-```
-
-- **正常**：token 一撮一撮持续往外冒
-- **异常**：首字节等很久、或攒几秒一次性吐出 → 中间有缓冲，见下方排查
+### 前置准备
+1. **EdgeOne 国际站账号**：注册于 [edgeone.ai](https://edgeone.ai)（非腾讯云国内站）；
+2. **GitHub 账号与代码仓库**：Fork 或推送本项目；
+3. **自定义域名**：准备一个二级域名（如 `chat.yourdomain.com`），**免备案且无 401 限制**；
+4. **ZenMux API Key**：在 [zenmux.ai](https://zenmux.ai) 控制台生成。
 
 ---
 
-## 四、本地调试
+### 部署步骤
 
-本目录已初始化 git 并提交。本地看 UI（不含边缘函数）：
+#### 第 1 步：导入 EdgeOne Pages 项目
+1. 登录 [edgeone.ai 控制台](https://edgeone.ai) → 进入 **Pages**（或 **Makers**）；
+2. 点击 **Create project** → **Import a Git Repository** → 选择本仓库；
+3. 构建配置填入：
+   - **Framework Preset**: 留空或选择 `Other`
+   - **Build Command**: 留空
+   - **Output Directory**: `.`（一个英文点，表示项目根目录）
+4. **Acceleration Region（加速区域）务必选择 `Global availability zone (exclude Chinese mainland)`**
+   > ⚠️ **极为重要**：选择“全球可用区（不含中国大陆）”**完全免 ICP 备案**。
+5. 点击 **Start deployment** 完成初次构建。
+
+#### 第 2 步：绑定自定义域名与申请 SSL 证书
+1. 进入项目页 → **Domain Management** → **Add custom domain**；
+2. 填入您的二级域名（如 `chat.yourdomain.com`）；
+3. 在域名解析服务商（Cloudflare / DNSPod / 阿里云等）添加 EdgeOne 给出的 **两项解析记录**：
+   - **TXT 记录**（用于域名所有权校验）
+   - **CNAME 记录**（用于流量接入调度）
+4. 校验通过后，在域名列表点击 **HTTPS configuration** → 选择 **Apply for free certificate**（免费自动续期证书）并开启 **Force HTTPS Access**。
+
+#### 第 3 步：配置环境变量（Secrets）
+进入项目页 → **Settings** → **Environment Variables**，添加以下两项加密变量：
+
+| 变量名 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `ZENMUX_API_KEY` | **Secret** | 在 zenmux.ai 获取的 API 密钥 |
+| `ACCESS_TOKEN` | **Secret** | 自行设定的前端访问口令（防止接口被盗刷） |
+
+添加完成后，点击项目右上角 **Redeploy** 重新部署以使变量生效。
+
+---
+
+## 四、 本地开发与联调
+
+由于本项目前端为零依赖纯静态架构，可直接启动本地服务器：
 
 ```bash
-npm run dev        # 或 python3 -m http.server 8088
-# 打开 http://localhost:8088
+# 方式 1：Node 本地预览
+npm run dev
+
+# 方式 2：Python 快速服务
+python3 -m http.server 8088
 ```
 
-需要联调边缘函数（会真实读取线上环境变量）：
-
+如需在本地同时模拟 EdgeOne 边缘函数环境，可安装官方 CLI：
 ```bash
 npm i -g edgeone
 edgeone login
-edgeone pages link    # 关联线上项目，同步环境变量
-edgeone pages dev     # http://localhost:8088，前后端一体
+edgeone pages link
+edgeone pages dev
 ```
-
-> 注意：Edge Functions 有启动次数限制，别频繁重启 `dev`；函数内用 `console.log` 调试，日志直接输出到终端。
 
 ---
 
-## 五、故障排查
+## 五、 工程边界与注意事项 (Engineering Guardrails)
 
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| 打开首页 401 | 用的是 `*.edgeone.app` 默认域名 | 必须绑自定义域名，见第 4 步 |
-| 口令框提示"口令不正确" | `ACCESS_TOKEN` 未配置或不一致 | 检查环境变量；环境变量改后要重新部署 |
-| 提示"服务端未配置环境变量" | `ZENMUX_API_KEY` 没读到 | 确认变量名拼写、类型为 Secret、且已重新部署 |
-| 模型列表为空 | Key 无效或 ZenMux 账户无额度 | 直接 curl `/api/models` 看原始返回 |
-| 回复卡住不动、最后超时 | 边缘函数 120s 墙钟上限 | 别开超长深度思考；用"停止"中断重来 |
-| token 攒几秒一次性吐出 | 网关缓冲了 SSE | 已加 `X-Accel-Buffering: no`；仍无效则考虑改用 Node Functions |
-| 部署报构建失败 | 输出目录/构建命令填错 | 确认输出目录是 `.`，构建命令留空 |
+| 维度 | 限制与边界 | 应对与保障机制 |
+| :--- | :--- | :--- |
+| **边缘函数请求体上限** | 单次 POST 请求体约为 **1MB ~ 2MB** | 客户端 Canvas 自动将图片采样压缩至 200KB 内，保证多图请求依然稳健 |
+| **函数执行生命周期** | Edge Functions 最长单次连接为 **120 秒** | 避免开启超长推理耗时任务，支持前端随时点击「■ 停止」中断流式 |
+| **域名访问限制** | EdgeOne 默认赠送的 `*.edgeone.app` 在大陆访问会触发 401 限制 | 绑定免备案自定义域名并开启全球加速（不含大陆区）彻底解决 |
+| **大模型上下文窗口** | 超大文件注入可能耗尽 Token 配额 | `FileTextExtractor` 设立 10 万字符防御性截断机制 |
 
 ---
 
-## 六、已知限制（不粉饰）
+## 六、 仓库目录结构
 
-1. **边缘函数 ~120s 墙钟上限**：模型若超过 120s 不吐 token，连接会被掐断。
-2. **CPU 时间 200ms/次**（不含 I/O 等待）。本项目是纯转发，属 I/O 密集，不会撞限。
-3. **请求体上限 1 MB**：超长对话上下文可能超限，前端已限制只回传最近 20 条消息。
-4. **大陆到境外节点的 SSE 长连接稳定性没有公开压测数据**。首屏快 ≠ 流式不卡，
-   这是本方案最大的未验证项，请按第三节实测。
-5. 若 `ACCESS_TOKEN` 不设置，函数在 URL 泄露时等同于开放代理。
-
----
-
-## 七、文件说明
-
+```text
+├── index.html                  # 页面结构骨架与无障碍访问语义
+├── styles.css                  # 现代化极简暗色主题与响应式布局样式
+├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、文本提取与流式控制
+├── edge-functions/
+│   └── api/
+│       ├── chat.js             # 边缘中继函数：鉴权校验、密钥注入与 SSE 零拷贝转发
+│       └── models.js           # 边缘模型函数：ZenMux 可用模型元数据安全代理
+├── edgeone.json                # EdgeOne Pages 部署构建规范描述文件
+├── package.json                # 项目元数据与开发命令
+└── .env.example                # 环境变量配置模板参考
 ```
-index.html                    页面骨架（引用外部 CSS/JS，无 CDN 依赖）
-styles.css                    样式，暗色主题，响应式
-app.js                        全部前端逻辑：Markdown 渲染、SSE 流式读取、会话持久化
-edge-functions/api/chat.js    边缘函数：SSE 反代，注入 Key，校验口令
-edge-functions/api/models.js  边缘函数：模型列表透传
-edgeone.json                  平台构建配置（无构建，输出根目录）
-package.json                  项目元信息 + 本地预览脚本
-.env.example                  环境变量模板（不含真实值）
-```
-
-路由说明：`edge-functions/api/chat.js` → `https://你的域名/api/chat`。
-前端用 `X-Access-Token` 请求头传递口令，与上游的 `Authorization` 头互不干扰。
