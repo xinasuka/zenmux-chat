@@ -5,43 +5,33 @@
 实现国内网络环境**无需代理直连**访问 ZenMux 平台全量大模型（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / LLaMA 等），API Key 严密封装于边缘端，本地 IndexedDB 存储，月度维护成本 **¥0**。
 
 ```mermaid
-flowchart LR
-    subgraph Client["💻 浏览器客户端 (中国大陆直连)"]
-        direction TB
-        C1["🎨 极简暗色毛玻璃界面 & 5px 定制滚动条"]
-        C2["🖼️ Canvas 图像自适应重采样压缩 (≤200KB)"]
-        C3["📄 40+ 源码格式与 PDF 文本就地提取注入"]
-        C4["✨ 双阶启发式智能命名 (零额外 API 消耗)"]
-        C5["💾 IndexedDB 本地高性能异步持久化"]
-    end
+sequenceDiagram
+    autonumber
+    actor User as 👤 用户 / 浏览器端
+    participant Edge as ⚡ EdgeOne 境外边缘节点
+    participant Search as 🌐 AnySearch 搜索引擎
+    participant ZenMux as 🤖 ZenMux 聚合大模型平台
 
-    subgraph Edge["⚡ EdgeOne Pages 境外 Anycast 边缘节点"]
-        direction TB
-        E1["🔒 校验 X-Access-Token 访问门禁"]
-        E2["🔑 注入 Secret ZENMUX_API_KEY"]
-        E3["🔍 注入 Secret ANYSEARCH_API_KEY"]
-        E4["⚡ SSE 零缓冲流式零拷贝中继"]
+    Note over User: 客户端 Canvas 图片压缩 / 40+ 源码及 PDF 本地秒级提取
+    User->>Edge: 发起对话请求 (携带 X-Access-Token 访问口令)
+    Edge->>Edge: 校验门禁口令 & 读取 Secret 环境变量
+    opt 开启实时联网搜索
+        Edge->>Search: 检索全网最新事实
+        Search-->>Edge: 返回高密度精炼摘要 (Snippet)
+        Edge->>Edge: 组装 RAG Grounding 上下文
     end
-
-    subgraph Upstream["🤖 ZenMux 聚合大模型平台"]
-        direction TB
-        U1["DeepSeek-V3 / R1 (推理)"]
-        U2["Claude 3.5 Sonnet / Opus"]
-        U3["GPT-4o / o1 / o3-mini"]
-        U4["Qwen 2.5 / LLaMA 3.3"]
-    end
-
-    subgraph SearchEngine["🌐 AnySearch 搜索引擎"]
-        S1["全网事实语义检索 & 高密度摘要提取"]
-    end
-
-    Client -- "① 跨境一跳直连 (带访问口令)" --> Edge
-    Edge -- "② 检索事实增强 (可选)" --> SearchEngine
-    SearchEngine -. "返回高密度 Snippet" .-> Edge
-    Edge -- "③ 高速内网转发 (注入 Secret Key)" --> Upstream
-    Upstream -- "④ SSE 零缓冲逐字流式吐字" --> Edge
-    Edge -- "⑤ 实时渲染打字机动效" --> Client
+    Edge->>ZenMux: 流式转发 Prompt (安全注入 Secret ZENMUX_API_KEY)
+    ZenMux-->>Edge: SSE 零缓冲逐字响应 (Token Stream)
+    Edge-->>User: ReadableStream 零拷贝中继推送
+    Note over User: 轻量 Markdown 状态机高频渲染 / 打字机动效 / IndexedDB 本地存储
 ```
+
+| 架构层级 | 运行载体 | 核心职责与关键技术 |
+| :--- | :--- | :--- |
+| **💻 客户端层** | 本地浏览器 (Local-First) | Canvas 图像自适应压缩、40+ 源码/PDF 就地提取、双阶智能命名、IndexedDB 本地持久化 |
+| **⚡ 边缘网关层** | EdgeOne 境外 Anycast 节点 | `X-Access-Token` 门禁鉴权、Secret 密钥安全隔离、`X-Accel-Buffering: no` SSE 零缓冲中继 |
+| **🌐 联网检索层** | AnySearch 搜索引擎 | AI 原生自然语言语义检索、高密度 Snippet 摘要提取、大幅节省 80%+ Tokens |
+| **🤖 算力供给层** | ZenMux 聚合平台 | 全量主流大模型无缝中继（DeepSeek-V3/R1、Claude 3.5、GPT-4o/o1、Qwen 2.5 等） |
 
 ---
 
