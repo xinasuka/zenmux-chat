@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ZenMux Chat</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside id="sidebar">
+  <header><button class="btn" id="new-chat">＋　新建对话</button></header>
+  <div id="conv-list"></div>
+  <footer>会话仅存于本机浏览器</footer>
+</aside>
+
+<div id="main">
+  <div id="topbar">
+    <button id="burger">☰</button>
+    <input id="model" list="model-list" placeholder="模型 ID，如 openai/gpt-5">
+    <datalist id="model-list"></datalist>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="logout">退出</button>
+  </div>
+  <div id="thread"><div id="thread-inner"></div></div>
+  <div id="composer-wrap">
+    <div id="composer">
+      <textarea id="input" rows="1" placeholder="发消息，Enter 发送，Shift+Enter 换行"></textarea>
+      <button id="stop" title="停止">■</button>
+      <button id="send" title="发送">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8l12-6-4.5 6L14 14 2 8z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="gate">
+  <div id="gate-box">
+    <h2>访问口令</h2>
+    <p>服务端若已配置 ACCESS_TOKEN，此处填对应值；未配置则留空直接进入。</p>
+    <input id="gate-input" type="password" autocomplete="current-password" placeholder="口令">
+    <button id="gate-go">进入</button>
+    <div id="gate-err"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

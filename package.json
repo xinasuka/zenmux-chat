@@ -1,0 +1,9 @@
+{
+  "name": "zenmux-chat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "部署在 EdgeOne Pages 上的 ZenMux 个人对话站：静态前端 + 边缘函数 SSE 反代",
+  "scripts": {
+    "dev": "python3 -m http.server 8088"
+  }
+}

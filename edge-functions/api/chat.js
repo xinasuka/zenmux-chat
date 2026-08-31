@@ -1,0 +1,91 @@
+// edge-functions/api/chat.js
+// 在 EdgeOne Pages 边缘节点上反向代理 ZenMux 的 chat/completions，并原样透传 SSE 流。
+// API Key 只存在于平台环境变量（Secret），永远不会下发到浏览器。
+
+const UPSTREAM = 'https://zenmux.ai/api/v1/chat/completions';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
+export function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
+  const apiKey = env.ZENMUX_API_KEY;
+  if (!apiKey) {
+    return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
+  }
+
+  // 访问口令：若配置了 ACCESS_TOKEN，则必须校验；未配置则放行（仅限你确信 URL 不外泄时使用）
+  const accessToken = env.ACCESS_TOKEN;
+  if (accessToken) {
+    const auth = request.headers.get('X-Access-Token') || '';
+    if (auth !== accessToken) {
+      return json({ error: 'unauthorized' }, 401);
+    }
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return json({ error: '请求体不是合法 JSON' }, 400);
+  }
+
+  if (!payload || !Array.isArray(payload.messages)) {
+    return json({ error: '缺少 messages 字段' }, 400);
+  }
+
+  // 强制流式：边缘节点对长连接有 120s 上限，非流式更容易撞上
+  payload.stream = true;
+
+  let upstream;
+  try {
+    upstream = await fetch(UPSTREAM, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    return json({ error: '连接上游失败', detail: String(e && e.message) }, 502);
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    const detail = await upstream.text().catch(() => '');
+    return json(
+      { error: `上游返回 ${upstream.status}`, detail: detail.slice(0, 800) },
+      upstream.status || 502
+    );
+  }
+
+  // 直接把上游的 ReadableStream 作为响应体返回，零拷贝透传
+  return new Response(upstream.body, {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      // 关键：禁止 Nginx / 网关层缓冲 SSE，否则会攒成一坨一次吐出
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}
