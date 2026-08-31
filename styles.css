@@ -378,8 +378,16 @@
 
   #toast{
     position:absolute;left:50%;transform:translateX(-50%);bottom:96px;
-    background:#3a1f1f;border:1px solid #6b2b2b;color:#f2c4c4;
-    padding:10px 16px;border-radius:10px;font-size:13px;max-width:70vw;display:none;z-index:60;
+    padding:9px 18px;border-radius:10px;font-size:13px;max-width:70vw;
+    display:none;z-index:60;box-shadow:0 6px 22px rgba(0,0,0,.5);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    transition:opacity .18s ease;
+  }
+  #toast.info{
+    background:rgba(30,30,36,.92);border:1px solid rgba(255,255,255,.14);color:#ebebee;
+  }
+  #toast.error{
+    background:rgba(56,26,26,.94);border:1px solid #732d2d;color:#f7c8c8;
   }
 
   @media (max-width:720px){

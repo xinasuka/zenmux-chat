@@ -2,7 +2,7 @@
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
    多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
    会话管理：双阶启发式智能标题提炼 + 侧边栏内联手动重命名
-   联网检索：AnySearch 边缘检索增强 (RAG Grounding) + 引用来源溯源
+   联网检索：全模型前置实时全网检索增强 (RAG Grounding) + 引用来源溯源
 */
 (function () {
   'use strict';
@@ -45,7 +45,7 @@
     ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
     webSearch: localStorage.getItem(LS.webSearch) === '1',
     modelMeta: {},
-    pendingAttachments: [], // [{ id, type: 'image'|'file', name, ext, dataUrl?, text?, size, lines?, ... }]
+    pendingAttachments: [],
     busy: false,
     controller: null,
   };
@@ -362,9 +362,9 @@
   };
 
   /* ==========================================================================
-     4. AnySearch 实时联网检索服务 (AnySearchService)
+     4. 全模型实时联网检索服务 (WebSearchService)
      ========================================================================== */
-  var AnySearchService = {
+  var WebSearchService = {
     search: function (query, token) {
       return fetch('/api/search', {
         method: 'POST',
@@ -400,7 +400,7 @@
                '摘要: ' + (r.snippet || '').trim();
       }).join('\n\n');
 
-      return '--- 实时联网检索事实参考 (AnySearch Grounding) ---\n' +
+      return '--- 实时全网检索事实参考 (Web Grounding) ---\n' +
              '以下是针对用户查询【' + query + '】检索到的最新全网参考资料：\n\n' +
              items + '\n\n' +
              '--- 检索信息结束。请基于上述最新事实与数据进行严谨准确的回答，并在引用处标注来源序号（如 [1]）。 ---';
@@ -595,11 +595,12 @@
      7. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
      ========================================================================== */
   var toastTimer = null;
-  function toast(msg) {
+  function toast(msg, type) {
     el.toast.textContent = msg;
+    el.toast.className = (type === 'error' ? 'error' : 'info');
     el.toast.style.display = 'block';
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.toast.style.display = 'none'; }, 4000);
+    toastTimer = setTimeout(function () { el.toast.style.display = 'none'; }, 3500);
   }
 
   function openLightbox(src) {
@@ -687,7 +688,7 @@
     var files = Array.prototype.slice.call(fileList);
 
     if (state.pendingAttachments.length + files.length > 8) {
-      toast('单次提问最多附加 8 个附件');
+      toast('单次提问最多附加 8 个附件', 'info');
       files = files.slice(0, 8 - state.pendingAttachments.length);
     }
 
@@ -697,19 +698,19 @@
     var promises = files.map(function (file) {
       if (FileTextExtractor.isImageFile(file)) {
         if (m && !canVision) {
-          toast('当前模型不支持图片，已忽略图片 "' + file.name + '"（代码/文本文件可正常分析）');
+          toast('当前模型不支持图片，已忽略图片 "' + file.name + '"（代码/文本文件可正常分析）', 'info');
           return Promise.resolve();
         }
         return ImageProcessor.processFile(file).then(function (imgObj) {
           state.pendingAttachments.push(imgObj);
         }).catch(function (err) {
-          toast('处理图片 "' + file.name + '" 失败: ' + err.message);
+          toast('处理图片 "' + file.name + '" 失败: ' + err.message, 'error');
         });
       } else {
         return FileTextExtractor.processFile(file).then(function (fileObj) {
           state.pendingAttachments.push(fileObj);
         }).catch(function (err) {
-          toast('读取文件 "' + file.name + '" 失败: ' + err.message);
+          toast('读取文件 "' + file.name + '" 失败: ' + err.message, 'error');
         });
       }
     });
@@ -733,10 +734,10 @@
   function syncWebSearchBtn() {
     if (state.webSearch) {
       el.webSearchBtn.classList.add('active');
-      el.webSearchBtn.title = '联网搜索：已开启（AnySearch 实时检索增强，点击关闭）';
+      el.webSearchBtn.title = '联网搜索：已开启（实时全网检索增强，点击关闭）';
     } else {
       el.webSearchBtn.classList.remove('active');
-      el.webSearchBtn.title = '联网搜索：已关闭（点击开启 AnySearch 实时检索）';
+      el.webSearchBtn.title = '联网搜索：已关闭（点击开启实时全网检索）';
     }
   }
 
@@ -744,7 +745,7 @@
     state.webSearch = !state.webSearch;
     localStorage.setItem(LS.webSearch, state.webSearch ? '1' : '0');
     syncWebSearchBtn();
-    toast('联网搜索已' + (state.webSearch ? '开启' : '关闭'));
+    toast('联网搜索已' + (state.webSearch ? '开启' : '关闭'), 'info');
   });
 
   // 剪贴板粘贴图片与代码文件
@@ -814,7 +815,7 @@
       renderConvList();
       renderThread();
     }).catch(function (err) {
-      toast('读取 IndexedDB 会话失败: ' + err.message);
+      toast('读取 IndexedDB 会话失败: ' + err.message, 'error');
     });
   }
 
@@ -932,7 +933,7 @@
           }
           syncSend();
         }).catch(function (err) {
-          toast('删除失败: ' + err.message);
+          toast('删除失败: ' + err.message, 'error');
         });
       });
 
@@ -1182,7 +1183,7 @@
         renderThread();
       })
       .catch(function (e) {
-        toast('模型列表拉取失败：' + e.message + '（可手动输入/选择）');
+        toast('模型列表拉取失败：' + e.message + '（可手动输入/选择）', 'error');
       });
   }
 
@@ -1220,14 +1221,14 @@
     var text = el.input.value.trim();
     var atts = state.pendingAttachments.slice();
     if ((!text && !atts.length) || state.busy) return;
-    if (!state.model) { toast('请先选择模型'); el.model.focus(); return; }
+    if (!state.model) { toast('请先选择模型', 'info'); el.model.focus(); return; }
 
     var images = atts.filter(function (a) { return a.type === 'image'; });
     var files = atts.filter(function (a) { return a.type === 'file'; });
 
     var meta = state.modelMeta[state.model];
     if (images.length && meta && !hasVision(meta)) {
-      toast('当前模型不支持图片输入，请切换至支持视觉的模型');
+      toast('当前模型不支持图片输入，请切换至支持视觉的模型', 'info');
       return;
     }
 
@@ -1280,15 +1281,15 @@
     el.stop.style.display = 'flex';
     state.controller = new AbortController();
 
-    // 异步执行 AnySearch 实时联网检索（若开启）
+    // 异步执行实时联网检索（若开启）
     var searchPromise = Promise.resolve(null);
     if (state.webSearch && text) {
-      body.innerHTML = '<div class="search-status"><span class="attachment-spinner"></span> 正在通过 AnySearch 检索实时网络事实…</div>';
-      searchPromise = AnySearchService.search(text, state.token).catch(function (err) {
+      body.innerHTML = '<div class="search-status"><span class="attachment-spinner"></span> 正在检索实时网络事实…</div>';
+      searchPromise = WebSearchService.search(text, state.token).catch(function (err) {
         if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
-          toast('服务端未配置 ANYSEARCH_API_KEY（将以常规方式回答，可在 EdgeOne 后台配置密钥）');
+          toast('服务端未配置联网搜索密钥（将以常规方式回答，可在控制台配置）', 'info');
         } else {
-          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'));
+          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
         }
         return null;
       });
@@ -1299,7 +1300,7 @@
       var activeSources = (searchResults && searchResults.length) ? searchResults : null;
 
       if (activeSources) {
-        var groundingBlock = AnySearchService.formatGroundingPrompt(text, activeSources);
+        var groundingBlock = WebSearchService.formatGroundingPrompt(text, activeSources);
         finalPrompt = groundingBlock + '\n\n' + finalPrompt;
       }
 
@@ -1461,7 +1462,7 @@
             body.innerHTML = renderParts(reasonAcc, acc);
             return;
           }
-          toast(e.message || String(e));
+          toast(e.message || String(e), 'error');
           if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
             body.parentNode.parentNode.removeChild(body.parentNode);
           }
@@ -1600,7 +1601,7 @@
   el.ctx.addEventListener('change', function () {
     state.ctxN = parseInt(el.ctx.value, 10) || 0;
     localStorage.setItem(LS.ctx, String(state.ctxN));
-    if (state.ctxN === 0) toast('已改为携带全部历史');
+    if (state.ctxN === 0) toast('已改为携带全部历史', 'info');
   });
 
   el.logout.addEventListener('click', function () {
