@@ -980,7 +980,8 @@
     if (!c || !c.messages || !c.messages.length) {
       var empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '先在上方选择模型';
+      empty.innerHTML = '<div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>' +
+        '<span>' + (state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '请先在上方选择模型') + '</span>';
       el.threadInner.appendChild(empty);
       return;
     }
