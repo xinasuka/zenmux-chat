@@ -1,80 +1,217 @@
-# ZenMux Chat（EdgeOne Pages 版）
+# ZenMux Chat
 
-国内不开代理、直接用浏览器聊 ZenMux 上的模型。前端静态页 + 边缘函数反代，API Key 不出服务端。
-
-## 架构
+在 **EdgeOne Pages 国际版**（edgeone.ai）上跑的个人对话站：静态前端 + 边缘函数反代 ZenMux API。
+目标效果——国内浏览器**不开代理**直接聊天，API Key 不出服务端，月成本 ¥0。
 
 ```
 浏览器（大陆，无代理）
-   │  ① 跨境一跳，到腾讯自有境外节点
+   │  ① 跨境一跳，到 EdgeOne 境外节点
    ▼
-EdgeOne Pages 边缘节点（中国香港 / 东京）
-   │  ② 边缘函数读 Secret 环境变量，注入 Key
+EdgeOne Pages 边缘函数（/api/chat）
+   │  ② 注入 Secret 里的 Key，境外→境外
    ▼
 zenmux.ai（Cloudflare）
 ```
 
-第 ① 段走腾讯自有骨干，社区实测可达（港 ~100ms 移动 / ~250ms 非移动，东京 ~200ms 三网）。
-第 ② 段是境外对境外，无障碍。
+---
 
-## 部署步骤
+## 一、前置条件（缺一不可）
 
-1. 注册 <https://edgeone.ai>（国际站，只需邮箱 + GitHub，不要信用卡/手机号）。
-2. 控制台新建 Pages 项目 → Import a Git Repository，把本目录推到 GitHub 后导入。
-   - 构建命令留空，输出目录填 `.`（根目录）。
-3. **加速区域选 `全球可用区（不含中国大陆）`**，这样自定义域名免 ICP 备案。
-4. **绑定你自己的域名**（必须，见下方"坑 1"）。
-5. 项目设置 → 环境变量，加两条，**类型都选 Secret**：
+| # | 需要 | 状态 | 说明 |
+|---|---|---|---|
+| 1 | EdgeOne 国际站账号 | ✅ 已注册 | edgeone.ai，非腾讯云国内站 |
+| 2 | GitHub 账号 | ✅ 已有 | 用于托管代码、触发自动构建 |
+| 3 | **一个自己的域名** | ⬜ **待确认** | **硬门槛，见下方说明** |
+| 4 | ZenMux API Key | ⬜ 待获取 | zenmux.ai 控制台创建 |
 
-   | 变量 | 说明 |
-   |---|---|
-   | `ZENMUX_API_KEY` | ZenMux 的 API Key |
-   | `ACCESS_TOKEN` | 你自己编的访问口令，前端首次打开要填 |
+### 为什么必须要有域名
 
-6. 推代码触发构建，完成后用你的域名访问。
+EdgeOne Pages 官方域名文档（[Domain Management Overview](https://pages.edgeone.ai/document/domain-overview)）原文规定：
 
-本地调试：
+> 经**项目域名**和**部署域名**访问时，中国大陆网络环境必须使用系统生成的预览 URL，
+> 链接有效期 3 小时，超时返回 **401**。非中国大陆网络环境可直接访问。
+
+也就是说平台送的 `*.edgeone.app` 从大陆访问会 401，且预览链接 3 小时就失效。
+官方文档紧接着给出建议：
+
+> It is advisable to bind a custom domain to create a stable access channel.
+> No ICP Filing Registration is required in **global availability zones (excluding Chinese mainland)**.
+
+**绑定自定义域名 + 加速区域选"全球可用区（不含中国大陆）" → 免备案、不受 401 门禁限制。**
+
+域名很便宜：`.xyz` / `.top` 首年通常十几元。已有任何闲置域名都可用，用一个子域名即可（如 `chat.你的域名.com`）。
+
+---
+
+## 二、部署步骤
+
+### 第 1 步：拿到两个密钥
+
+**ZenMux API Key** — 登录 zenmux.ai → 控制台 → API Keys → 创建，复制保存。
+
+**访问口令 ACCESS_TOKEN** — 自己编一个（如 `MyChat2026!xK9`）。
+它的作用是给你的 `/api/chat` 加一道锁：URL 一旦泄露，别人没有口令也用不了，不会变成免费开放代理。**强烈建议设置。**
+
+### 第 2 步：GitHub 建仓库并推送
+
+在 GitHub 网页新建一个**私有**仓库（Private），名字随意（如 `zenmux-chat`），
+**不要**勾选 "Add a README / .gitignore / license"（保持空仓库）。
+
+然后在本目录执行（把 `<你的用户名>` 和仓库名替换掉）：
 
 ```bash
-npm install -g edgeone
+cd /Users/mac/WorkBuddy/2026-08-31-14-26-41/zenmux-chat
+
+git remote add origin git@github.com:<你的用户名>/zenmux-chat.git
+git branch -M main
+git push -u origin main
+```
+
+> 若用 HTTPS 而非 SSH：`git remote add origin https://github.com/<用户名>/zenmux-chat.git`，
+> 推送时密码填 GitHub 的 **Personal Access Token**（不是账号密码）。
+
+### 第 3 步：EdgeOne Pages 导入项目
+
+1. 打开 <https://edgeone.ai> 并登录 → 进入 **Pages**（现也称 Makers）控制台
+2. 点 **Create project** → **Import a Git Repository**
+3. 首次会要求 GitHub 授权，同意并选择刚建的仓库（私有仓库也支持）
+4. 构建配置页填写：
+
+   | 字段 | 值 |
+   |---|---|
+   | Framework / 框架预设 | 留空或选 **Other** |
+   | Build Command（构建命令） | **留空** |
+   | Output Directory（输出目录） | **`.`**（一个点，表示仓库根目录） |
+   | Install Command | 留空 |
+   | Node Version | 留默认即可（无构建步骤，用不到） |
+
+   > 这些值已写在仓库的 `edgeone.json` 里，控制台会自动读取；若显示不一致，以上表为准。
+
+5. **Acceleration Region（加速区域）选 `Global availability zone (exclude Chinese mainland)`**
+   —— 即"全球可用区（不含中国大陆）"。**这一步决定免备案，别选错。**
+   选"中国大陆可用区"或"全球可用区"都会要求 ICP 备案。
+6. 点 **Start deployment**，等构建完成（约 1 分钟）。
+
+### 第 4 步：绑定自定义域名
+
+1. 项目页 → **Settings** → **Domains** → **Add Domain**
+2. 填入你要用的域名，例如 `chat.example.com`
+3. 平台会给出一条 **CNAME 记录值**，形如：
+   `a4285573.xxxx.example.com.dns.edgeone.site.`
+4. 去你的域名注册商（阿里云/腾讯云/Cloudflare 等）DNS 解析页，添加记录：
+
+   | 类型 | 主机记录 | 记录值 | TTL |
+   |---|---|---|---|
+   | CNAME | `chat`（或你要的子域名前缀） | 平台给的 CNAME 值 | 默认 / 600 |
+
+   > 若用根域名（主机记录 `@`），注意 CNAME 会与 MX 记录冲突，建议用子域名。
+5. 回到 Pages 控制台等待状态变为 **Activated**。DNS 生效通常几分钟，最长几小时。
+6. 验证（本地终端）：
+
+   ```bash
+   dig chat.example.com CNAME +short
+   # 应返回平台给的 CNAME 值
+   ```
+
+### 第 5 步：配置环境变量（Secret）
+
+项目页 → **Settings** → **Environment Variables**，添加两条。
+**类型都选 Secret**（加密存储，不会出现在构建日志里）：
+
+| 变量名 | 值 | 说明 |
+|---|---|---|
+| `ZENMUX_API_KEY` | 第 1 步的 Key | 上游 API 密钥 |
+| `ACCESS_TOKEN` | 第 1 步自编口令 | 访问门禁，留空则接口完全公开 |
+
+添加环境变量后**需要重新部署**才会生效：项目页 → 右上角 **Redeploy**（或推一次空 commit）。
+
+### 第 6 步：打开使用
+
+浏览器访问 `https://chat.example.com`：
+
+1. 弹出"访问口令"框 → 填第 1 步自编的 `ACCESS_TOKEN` → 进入
+   （若服务端未配置 `ACCESS_TOKEN`，留空直接点进入）
+2. 顶部模型框会自动填充可选模型（数据来自 ZenMux），也可手动输入模型 ID
+3. Enter 发送，Shift+Enter 换行
+
+---
+
+## 三、验证流式是否正常
+
+**静态页能打开 ≠ 流式不卡**，必须单独验。在终端执行：
+
+```bash
+curl -N -s -X POST https://chat.example.com/api/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Access-Token: 你的口令" \
+  -d '{"model":"openai/gpt-5","messages":[{"role":"user","content":"从1数到30"}],"stream":true}' \
+  | head -c 1500
+```
+
+- **正常**：token 一撮一撮持续往外冒
+- **异常**：首字节等很久、或攒几秒一次性吐出 → 中间有缓冲，见下方排查
+
+---
+
+## 四、本地调试
+
+本目录已初始化 git 并提交。本地看 UI（不含边缘函数）：
+
+```bash
+npm run dev        # 或 python3 -m http.server 8088
+# 打开 http://localhost:8088
+```
+
+需要联调边缘函数（会真实读取线上环境变量）：
+
+```bash
+npm i -g edgeone
 edgeone login
-edgeone pages init      # 已含 edge-functions/ 与配置时可跳过
-edgeone pages link      # 关联线上项目，同步环境变量
-edgeone pages dev       # http://localhost:8088
+edgeone pages link    # 关联线上项目，同步环境变量
+edgeone pages dev     # http://localhost:8088，前后端一体
 ```
 
-## 已验证 / 未验证
+> 注意：Edge Functions 有启动次数限制，别频繁重启 `dev`；函数内用 `console.log` 调试，日志直接输出到终端。
 
-**已验证（官方原文 + 第三方实机项目）：**
+---
 
-- EdgeOne Pages 的边缘函数支持 `fetch` + `ReadableStream` 透传 SSE；官方 Node Functions 文档给了 SSE 示例。
-- 开源项目 `fbigun/edgeone-function-ai-api` 就是同一套路的 AI API 反代，实机跑通了流式，
-  其做法是 `connectTimeout 10s / readTimeout 120s / writeTimeout 10s` + 响应头 `X-Accel-Buffering: no`。
-  本项目的 `chat.js` 采用了同样的响应头。
-- 环境变量支持 Secret 加密类型，通过 `context.env.xxx` 读取。
+## 五、故障排查
 
-**未验证 / 有风险：**
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 打开首页 401 | 用的是 `*.edgeone.app` 默认域名 | 必须绑自定义域名，见第 4 步 |
+| 口令框提示"口令不正确" | `ACCESS_TOKEN` 未配置或不一致 | 检查环境变量；环境变量改后要重新部署 |
+| 提示"服务端未配置环境变量" | `ZENMUX_API_KEY` 没读到 | 确认变量名拼写、类型为 Secret、且已重新部署 |
+| 模型列表为空 | Key 无效或 ZenMux 账户无额度 | 直接 curl `/api/models` 看原始返回 |
+| 回复卡住不动、最后超时 | 边缘函数 120s 墙钟上限 | 别开超长深度思考；用"停止"中断重来 |
+| token 攒几秒一次性吐出 | 网关缓冲了 SSE | 已加 `X-Accel-Buffering: no`；仍无效则考虑改用 Node Functions |
+| 部署报构建失败 | 输出目录/构建命令填错 | 确认输出目录是 `.`，构建命令留空 |
 
-- **边缘函数有 ~120s 墙钟上限。** 模型若超过 120s 不吐 token，连接会被掐断。
-  缓解：别开超长深度思考；前端"停止"按钮可以随时中断重来。
-- **边缘函数 CPU 时间 200ms/次**（不含 I/O 等待）。这里是纯转发，属 I/O 密集，不会撞限。
-- Edge Functions 请求体上限 1MB，长对话上下文别塞太多。
-- 国内到该边缘节点的**流式长连接**稳定性没有公开压测数据。静态首屏快 ≠ SSE 不卡。先小规模试。
+---
 
-## 坑
+## 六、已知限制（不粉饰）
 
-1. **默认 `*.edgeone.app` 域名从大陆访问会 401。** 官方文档明文：经项目域名/部署域名访问时，
-   大陆网络环境必须用控制台生成的预览链接，有效期 3 小时，超时即 401。
-   → 必须绑自定义域名。绑定后免备案，且不受该门禁限制。
-2. 加速区域若选"中国大陆可用区"或"全球可用区"，自定义域名要 ICP 备案。不备案就选
-   "全球可用区（不含中国大陆）"。
-3. 若 `ACCESS_TOKEN` 不设置，函数在 URL 泄露时等于开放代理。**务必设置。**
-4. 静态资源路由优先级高于边缘函数路由，别把静态文件放到 `api/` 路径下。
+1. **边缘函数 ~120s 墙钟上限**：模型若超过 120s 不吐 token，连接会被掐断。
+2. **CPU 时间 200ms/次**（不含 I/O 等待）。本项目是纯转发，属 I/O 密集，不会撞限。
+3. **请求体上限 1 MB**：超长对话上下文可能超限，前端已限制只回传最近 20 条消息。
+4. **大陆到境外节点的 SSE 长连接稳定性没有公开压测数据**。首屏快 ≠ 流式不卡，
+   这是本方案最大的未验证项，请按第三节实测。
+5. 若 `ACCESS_TOKEN` 不设置，函数在 URL 泄露时等同于开放代理。
 
-## 文件
+---
+
+## 七、文件说明
 
 ```
-index.html                    前端（无外部 CDN 依赖，可离线打开）
-edge-functions/api/chat.js    SSE 反代
-edge-functions/api/models.js  模型列表透传
+index.html                    页面骨架（引用外部 CSS/JS，无 CDN 依赖）
+styles.css                    样式，暗色主题，响应式
+app.js                        全部前端逻辑：Markdown 渲染、SSE 流式读取、会话持久化
+edge-functions/api/chat.js    边缘函数：SSE 反代，注入 Key，校验口令
+edge-functions/api/models.js  边缘函数：模型列表透传
+edgeone.json                  平台构建配置（无构建，输出根目录）
+package.json                  项目元信息 + 本地预览脚本
+.env.example                  环境变量模板（不含真实值）
 ```
+
+路由说明：`edge-functions/api/chat.js` → `https://你的域名/api/chat`。
+前端用 `X-Access-Token` 请求头传递口令，与上游的 `Authorization` 头互不干扰。
