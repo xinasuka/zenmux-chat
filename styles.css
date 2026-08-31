@@ -208,9 +208,15 @@
   .composer-icon-btn{
     flex:0 0 auto;background:transparent;border:0;color:var(--fg-dim);border-radius:9px;
     width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:color .15s,background .15s,opacity .15s;margin-bottom:1px;
+    transition:color .15s,background .15s,opacity .15s,border-color .15s;margin-bottom:1px;
   }
   .composer-icon-btn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
+  .composer-icon-btn.active{
+    color:var(--accent);background:rgba(127,119,221,.15);border:1px solid rgba(127,119,221,.35);
+  }
+  .composer-icon-btn.active:hover{
+    background:rgba(127,119,221,.25);color:#fff;
+  }
   .composer-icon-btn:disabled,.composer-icon-btn.disabled{
     opacity:.28;cursor:not-allowed;pointer-events:auto;
   }
@@ -266,6 +272,46 @@
   }
   .msg-file-card pre code{
     font-size:12.5px;line-height:1.55;color:#d6d6dc;white-space:pre;
+  }
+
+  /* ---------- web search sources & status ---------- */
+  .msg-sources{
+    background:#141417;border:1px solid var(--line-soft);border-radius:10px;
+    padding:8px 12px;margin-bottom:12px;font-size:13px;
+  }
+  .msg-sources > summary{
+    cursor:pointer;color:var(--fg-dim);font-size:12.5px;font-weight:500;
+    display:flex;align-items:center;gap:6px;user-select:none;outline:none;
+  }
+  .msg-sources > summary:hover{color:var(--fg)}
+  .msg-sources > summary::-webkit-details-marker{display:none}
+  .msg-sources[open] > summary{
+    margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line-soft);color:var(--fg);
+  }
+  .sources-list{
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .source-item{
+    display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;
+    background:#1a1a1e;color:var(--fg);text-decoration:none;font-size:12.5px;
+    transition:background .15s,color .15s,border-color .15s;border:1px solid rgba(255,255,255,.04);
+  }
+  .source-item:hover{
+    background:#25252b;color:#a4c6f5;border-color:rgba(127,119,221,.3);
+  }
+  .source-index{
+    flex:0 0 auto;font-size:11px;font-weight:700;color:var(--accent);
+    background:rgba(127,119,221,.15);padding:1px 5px;border-radius:4px;
+  }
+  .source-title{
+    flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .source-domain{
+    flex:0 0 auto;font-size:11px;color:var(--fg-faint);margin-left:auto;
+  }
+  .search-status{
+    display:flex;align-items:center;gap:8px;font-size:13px;color:var(--accent);
+    padding:4px 0 8px;
   }
 
   /* ---------- drop overlay ---------- */

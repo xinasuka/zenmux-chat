@@ -2,6 +2,7 @@
    存储架构：IndexedDB (ZenMuxChatDB) 高性能异步持久化
    多模态与文件：客户端 Canvas 图像自适应重采样与压缩、全格式代码/文档就地文本提取与上下文注入、剪贴板粘贴、文件拖拽、灯箱预览
    会话管理：双阶启发式智能标题提炼 + 侧边栏内联手动重命名
+   联网检索：AnySearch 边缘检索增强 (RAG Grounding) + 引用来源溯源
 */
 (function () {
   'use strict';
@@ -13,6 +14,7 @@
     gated: 'zm.gated',
     effort: 'zm.effort',
     ctx: 'zm.ctx',
+    webSearch: 'zm.webSearch',
   };
 
   var DB_NAME = 'ZenMuxChatDB';
@@ -26,7 +28,7 @@
     model: $('model'), effort: $('effort'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
-    attachBtn: $('attach-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
+    attachBtn: $('attach-btn'), webSearchBtn: $('web-search-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
     dropOverlay: $('drop-overlay'),
     lightbox: $('lightbox'), lightboxImg: $('lightbox-img'), lightboxClose: $('lightbox-close'),
     gate: $('gate'), gateInput: $('gate-input'), gateGo: $('gate-go'), gateErr: $('gate-err'),
@@ -41,6 +43,7 @@
     currentConv: null,
     effort: localStorage.getItem(LS.effort) || '',
     ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
+    webSearch: localStorage.getItem(LS.webSearch) === '1',
     modelMeta: {},
     pendingAttachments: [], // [{ id, type: 'image'|'file', name, ext, dataUrl?, text?, size, lines?, ... }]
     busy: false,
@@ -56,6 +59,14 @@
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function getHostname(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch (e) {
+      return '';
+    }
   }
 
   /* ==========================================================================
@@ -351,20 +362,62 @@
   };
 
   /* ==========================================================================
-     4. 智能标题提取与降噪引擎 (TitleExtractor)
+     4. AnySearch 实时联网检索服务 (AnySearchService)
+     ========================================================================== */
+  var AnySearchService = {
+    search: function (query, token) {
+      return fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Token': token
+        },
+        body: JSON.stringify({ query: query, max_results: 5 })
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || (j && j.code !== 0 && j.code !== undefined)) {
+              throw new Error((j && j.error) || (j && j.message) || ('HTTP ' + r.status));
+            }
+            var results = (j && j.data && j.data.results) || [];
+            return results.map(function (item) {
+              return {
+                title: item.title || '网页结果',
+                url: item.url || '',
+                snippet: item.snippet || item.content || ''
+              };
+            });
+          });
+        });
+    },
+
+    formatGroundingPrompt: function (query, results) {
+      if (!results || !results.length) return '';
+      var items = results.map(function (r, idx) {
+        var domain = getHostname(r.url);
+        return '[' + (idx + 1) + '] 《' + r.title + '》' + (domain ? ' (' + domain + ')' : '') + '\n' +
+               '链接: ' + r.url + '\n' +
+               '摘要: ' + (r.snippet || '').trim();
+      }).join('\n\n');
+
+      return '--- 实时联网检索事实参考 (AnySearch Grounding) ---\n' +
+             '以下是针对用户查询【' + query + '】检索到的最新全网参考资料：\n\n' +
+             items + '\n\n' +
+             '--- 检索信息结束。请基于上述最新事实与数据进行严谨准确的回答，并在引用处标注来源序号（如 [1]）。 ---';
+    }
+  };
+
+  /* ==========================================================================
+     5. 智能标题提取与降噪引擎 (TitleExtractor)
      ========================================================================== */
   var TitleExtractor = {
     cleanUserPrompt: function (text, files, images) {
       if (files && files.length) {
         return (files[0].name + (files.length > 1 ? ' 等' + files.length + '个文件' : '')).slice(0, 24);
       }
-      if (images && images.length && (!text || !text.trim())) {
-        return ('[图片] ' + (images[0].name || '视觉分析')).slice(0, 24);
-      }
       var raw = (text || '').trim();
       if (!raw) return '新对话';
 
-      // 过滤冗余前缀与礼貌词
       var cleaned = raw.replace(/^(?:(?:请问|请帮我|麻烦帮我|我想了解|帮我写一个|帮我写|帮我做|帮我分析|请分析|请解释|请教|你好|您好|hi|hello|如何|怎么|怎样|如何实现|怎么写|能否|可以帮我|想问下|我想问)[\s，,：:、]*)+/i, '').trim();
       cleaned = cleaned.replace(/^[？?！!，,。.\s]+/, '').trim();
 
@@ -379,11 +432,10 @@
       if (!content || typeof content !== 'string') return null;
       var text = content.trim();
 
-      // 1. 优先嗅探一级/二级 Markdown 标题: # 标题 / ## 标题
       var headMatch = text.match(/(?:^|\n)#{1,3}\s+([^\n#`]{3,30})/);
       if (headMatch && headMatch[1]) {
         var h = headMatch[1].trim()
-          .replace(/^[\d+.\s、]+/, '') // 去除开头的 1. 或 1、
+          .replace(/^[\d+.\s、]+/, '')
           .replace(/[：:。!！?？]+$/, '')
           .trim();
         if (h.length >= 2 && h.length <= 26 && !/^(引言|简介|概述|分析|总结|解答|步骤|方案|说明)$/.test(h)) {
@@ -391,7 +443,6 @@
         }
       }
 
-      // 2. 嗅探加粗主题: **核心概念/方案名**
       var boldMatch = text.match(/(?:^|\n)\*\*([^*\n]{3,24})\*\*/);
       if (boldMatch && boldMatch[1]) {
         var b = boldMatch[1].trim()
@@ -408,7 +459,7 @@
   };
 
   /* ==========================================================================
-     5. Markdown 渲染引擎
+     6. Markdown 渲染引擎
      ========================================================================== */
   var SENT = String.fromCharCode(1);
 
@@ -541,7 +592,7 @@
   }
 
   /* ==========================================================================
-     6. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
+     7. 交互提示 & 灯箱大图预览 (Toast & Lightbox)
      ========================================================================== */
   var toastTimer = null;
   function toast(msg) {
@@ -573,7 +624,7 @@
   });
 
   /* ==========================================================================
-     7. 统一附件管理与文件添加 (Attachments Management)
+     8. 统一附件管理与文件添加 (Attachments Management)
      ========================================================================== */
   function renderAttachments() {
     el.attachmentsTray.innerHTML = '';
@@ -679,7 +730,24 @@
     el.fileInput.value = '';
   });
 
-  // 剪贴板粘贴图片与代码文件 (Paste Event)
+  function syncWebSearchBtn() {
+    if (state.webSearch) {
+      el.webSearchBtn.classList.add('active');
+      el.webSearchBtn.title = '联网搜索：已开启（AnySearch 实时检索增强，点击关闭）';
+    } else {
+      el.webSearchBtn.classList.remove('active');
+      el.webSearchBtn.title = '联网搜索：已关闭（点击开启 AnySearch 实时检索）';
+    }
+  }
+
+  el.webSearchBtn.addEventListener('click', function () {
+    state.webSearch = !state.webSearch;
+    localStorage.setItem(LS.webSearch, state.webSearch ? '1' : '0');
+    syncWebSearchBtn();
+    toast('联网搜索已' + (state.webSearch ? '开启' : '关闭'));
+  });
+
+  // 剪贴板粘贴图片与代码文件
   window.addEventListener('paste', function (e) {
     if (!e.clipboardData || !e.clipboardData.items) return;
     var items = e.clipboardData.items;
@@ -696,7 +764,7 @@
     }
   });
 
-  // 拖拽上传 (Drag & Drop)
+  // 拖拽上传
   var dragCounter = 0;
   window.addEventListener('dragenter', function (e) {
     e.preventDefault();
@@ -727,7 +795,7 @@
   });
 
   /* ==========================================================================
-     8. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
+     9. 会话模型与 IndexedDB 联动 (Conversation Lifecycle)
      ========================================================================== */
   function loadAllConversations() {
     return ZenMuxDB.getAllConversations().then(function (list) {
@@ -904,12 +972,12 @@
     }
 
     c.messages.forEach(function (m) {
-      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent));
+      el.threadInner.appendChild(bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources));
     });
     toBottom();
   }
 
-  function bubble(role, content, images, reasoning, files, displayContent) {
+  function bubble(role, content, images, reasoning, files, displayContent, sources) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
 
@@ -964,7 +1032,47 @@
       col.appendChild(fileBox);
     }
 
-    // 3. 正文
+    // 3. 若附带联网检索来源，渲染参考来源卡片
+    if (sources && sources.length) {
+      var srcBox = document.createElement('details');
+      srcBox.className = 'msg-sources';
+      var srcSummary = document.createElement('summary');
+      srcSummary.innerHTML = '🌐 <strong>参考来源</strong> (' + sources.length + ' 个网页)';
+
+      var list = document.createElement('div');
+      list.className = 'sources-list';
+      sources.forEach(function (s, idx) {
+        var link = document.createElement('a');
+        link.className = 'source-item';
+        link.href = s.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+
+        var idxSpan = document.createElement('span');
+        idxSpan.className = 'source-index';
+        idxSpan.textContent = '[' + (idx + 1) + ']';
+
+        var titleSpan = document.createElement('span');
+        titleSpan.className = 'source-title';
+        titleSpan.textContent = s.title || s.url;
+        titleSpan.title = s.title;
+
+        var domSpan = document.createElement('span');
+        domSpan.className = 'source-domain';
+        domSpan.textContent = getHostname(s.url);
+
+        link.appendChild(idxSpan);
+        link.appendChild(titleSpan);
+        link.appendChild(domSpan);
+        list.appendChild(link);
+      });
+
+      srcBox.appendChild(srcSummary);
+      srcBox.appendChild(list);
+      col.appendChild(srcBox);
+    }
+
+    // 4. 正文
     var textNode = document.createElement('div');
     textNode.className = 'msg-text';
     if (role === 'user') {
@@ -980,13 +1088,13 @@
   }
 
   function appendBubble(role) {
-    var wrap = bubble(role, '', null, '', null, '');
+    var wrap = bubble(role, '', null, '', null, '', null);
     el.threadInner.appendChild(wrap);
     return wrap.querySelector('.msg-text');
   }
 
   /* ==========================================================================
-     9. 模型列表与能力检测 (Models & Capabilities)
+     10. 模型列表与能力检测 (Models & Capabilities)
      ========================================================================== */
   function hasVision(m) {
     if (!m) return false;
@@ -1101,7 +1209,7 @@
   }
 
   /* ==========================================================================
-     10. 消息发送与多模态/文件上下文流式响应 (Message Dispatch & Streaming)
+     11. 消息发送与多模态/文件上下文流式响应 (Message Dispatch & Streaming)
      ========================================================================== */
   function syncSend() {
     var hasContent = !!el.input.value.trim() || state.pendingAttachments.length > 0;
@@ -1126,7 +1234,21 @@
     var c = state.currentConv;
     if (!c) return;
 
-    // 构建注入文件文本后的完整 Prompt
+    var first = c.messages.length === 0;
+
+    // 清空暂存输入框与托盘
+    el.input.value = '';
+    state.pendingAttachments = [];
+    renderAttachments();
+    autoGrow();
+    syncSend();
+
+    var emptyNode = el.threadInner.querySelector('.empty');
+    if (emptyNode) {
+      emptyNode.parentNode.removeChild(emptyNode);
+    }
+
+    // 初步构建 Prompt
     var fullPrompt = text;
     if (files.length) {
       var fileContextBlocks = files.map(function (f) {
@@ -1141,155 +1263,210 @@
       fullPrompt = fileContextBlocks + (text ? '\n\n' + text : '\n\n请分析以上文件内容。');
     }
 
-    var first = c.messages.length === 0;
-    var userMsg = {
-      id: uid(),
-      role: 'user',
-      content: fullPrompt,
-      displayContent: text,
-      images: images.length ? images : undefined,
-      files: files.length ? files : undefined,
-      createdAt: Date.now()
-    };
-    c.messages.push(userMsg);
-    c.updatedAt = Date.now();
-
     // 阶段 1: 初次发言智能初拟标题
     if (first && !c.customTitle) {
       c.title = TitleExtractor.cleanUserPrompt(text, files, images);
       c.autoTitled = true;
     }
 
-    var emptyNode = el.threadInner.querySelector('.empty');
-    if (emptyNode) {
-      emptyNode.parentNode.removeChild(emptyNode);
-    }
-
-    // 追加用户气泡至活跃 DOM
-    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text));
-
-    // 后台持久化并更新会话列表
-    ZenMuxDB.putConversation(c).then(function () {
-      renderConvList();
-    });
-
-    // 清空暂存托盘
-    el.input.value = '';
-    state.pendingAttachments = [];
-    renderAttachments();
-    autoGrow();
-    syncSend();
+    // 挂载用户气泡
+    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text, null));
 
     var body = appendBubble('assistant');
     toBottom();
-
-    var acc = '';
-    var reasonAcc = '';
-    var stick = true;
 
     state.busy = true;
     el.send.style.display = 'none';
     el.stop.style.display = 'flex';
     state.controller = new AbortController();
 
-    // 格式化上下文历史为 OpenAI Multimodal 规范
-    var hist = c.messages.filter(function (m) { return m.content || (m.images && m.images.length); });
-    var sliced = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist);
-
-    var history = sliced.map(function (m) {
-      if (m.role === 'user' && m.images && m.images.length) {
-        var parts = [];
-        if (m.content && m.content.trim()) {
-          parts.push({ type: 'text', text: m.content });
+    // 异步执行 AnySearch 实时联网检索（若开启）
+    var searchPromise = Promise.resolve(null);
+    if (state.webSearch && text) {
+      body.innerHTML = '<div class="search-status"><span class="attachment-spinner"></span> 正在通过 AnySearch 检索实时网络事实…</div>';
+      searchPromise = AnySearchService.search(text, state.token).catch(function (err) {
+        if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
+          toast('服务端未配置 ANYSEARCH_API_KEY（将以常规方式回答，可在 EdgeOne 后台配置密钥）');
         } else {
-          parts.push({ type: 'text', text: '请分析上述内容' });
+          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'));
         }
-        m.images.forEach(function (img) {
-          parts.push({
-            type: 'image_url',
-            image_url: { url: img.dataUrl, detail: 'auto' }
-          });
-        });
-        return { role: 'user', content: parts };
-      }
-      return { role: m.role, content: m.content || '' };
-    });
-
-    var payload = { model: state.model, messages: history, temperature: 0.7 };
-    var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
-    if (canReason && state.effort) {
-      if (state.effort === 'off') payload.reasoning = { enabled: false };
-      else payload.reasoning_effort = state.effort;
+        return null;
+      });
     }
 
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
-      body: JSON.stringify(payload),
-      signal: state.controller.signal,
-    })
-      .then(function (res) {
-        if (!res.ok) {
-          return res.text().then(function (t) {
-            throw new Error(explainError(t, res.status));
-          });
-        }
-        if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
-        return pump(res, function (cDelta, rDelta, done) {
-          if (rDelta) reasonAcc += rDelta;
-          if (cDelta) acc += cDelta;
-          if (stick && nearBottom()) toBottom();
-          body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
-          if (!done && nearBottom()) toBottom();
-        });
-      })
-      .then(function () {
-        if (acc || reasonAcc) {
-          var asstMsg = {
-            id: uid(),
-            role: 'assistant',
-            content: acc,
-            reasoning: reasonAcc || undefined,
-            createdAt: Date.now()
-          };
-          c.messages.push(asstMsg);
-          c.updatedAt = Date.now();
+    searchPromise.then(function (searchResults) {
+      var finalPrompt = fullPrompt;
+      var activeSources = (searchResults && searchResults.length) ? searchResults : null;
 
-          // 阶段 2: 智能嗅探 AI 回复中的标题进行润色 (仅在初拟标题且用户未手动修改时)
-          if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
-            var refined = TitleExtractor.sniffAssistantTitle(acc);
-            if (refined && refined !== c.title) {
-              c.title = refined;
-            }
+      if (activeSources) {
+        var groundingBlock = AnySearchService.formatGroundingPrompt(text, activeSources);
+        finalPrompt = groundingBlock + '\n\n' + finalPrompt;
+      }
+
+      var userMsg = {
+        id: uid(),
+        role: 'user',
+        content: finalPrompt,
+        displayContent: text,
+        images: images.length ? images : undefined,
+        files: files.length ? files : undefined,
+        createdAt: Date.now()
+      };
+      c.messages.push(userMsg);
+      c.updatedAt = Date.now();
+
+      ZenMuxDB.putConversation(c).then(function () {
+        renderConvList();
+      });
+
+      // 格式化上下文历史为 OpenAI Multimodal 规范
+      var hist = c.messages.filter(function (m) { return m.content || (m.images && m.images.length); });
+      var sliced = (state.ctxN > 0 ? hist.slice(-state.ctxN) : hist);
+
+      var history = sliced.map(function (m) {
+        if (m.role === 'user' && m.images && m.images.length) {
+          var parts = [];
+          if (m.content && m.content.trim()) {
+            parts.push({ type: 'text', text: m.content });
+          } else {
+            parts.push({ type: 'text', text: '请分析上述内容' });
+          }
+          m.images.forEach(function (img) {
+            parts.push({
+              type: 'image_url',
+              image_url: { url: img.dataUrl, detail: 'auto' }
+            });
+          });
+          return { role: 'user', content: parts };
+        }
+        return { role: m.role, content: m.content || '' };
+      });
+
+      var payload = { model: state.model, messages: history, temperature: 0.7 };
+      var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
+      if (canReason && state.effort) {
+        if (state.effort === 'off') payload.reasoning = { enabled: false };
+        else payload.reasoning_effort = state.effort;
+      }
+
+      var acc = '';
+      var reasonAcc = '';
+      var stick = true;
+
+      return fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
+        body: JSON.stringify(payload),
+        signal: state.controller.signal,
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (t) {
+              throw new Error(explainError(t, res.status));
+            });
+          }
+          if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
+
+          // 如果存在搜索来源，挂载参考来源折叠组件
+          if (activeSources && body.parentNode) {
+            var srcBox = document.createElement('details');
+            srcBox.className = 'msg-sources';
+            var srcSummary = document.createElement('summary');
+            srcSummary.innerHTML = '🌐 <strong>参考来源</strong> (' + activeSources.length + ' 个网页)';
+
+            var list = document.createElement('div');
+            list.className = 'sources-list';
+            activeSources.forEach(function (s, idx) {
+              var link = document.createElement('a');
+              link.className = 'source-item';
+              link.href = s.url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+
+              var idxSpan = document.createElement('span');
+              idxSpan.className = 'source-index';
+              idxSpan.textContent = '[' + (idx + 1) + ']';
+
+              var titleSpan = document.createElement('span');
+              titleSpan.className = 'source-title';
+              titleSpan.textContent = s.title || s.url;
+              titleSpan.title = s.title;
+
+              var domSpan = document.createElement('span');
+              domSpan.className = 'source-domain';
+              domSpan.textContent = getHostname(s.url);
+
+              link.appendChild(idxSpan);
+              link.appendChild(titleSpan);
+              link.appendChild(domSpan);
+              list.appendChild(link);
+            });
+
+            srcBox.appendChild(srcSummary);
+            srcBox.appendChild(list);
+            body.parentNode.insertBefore(srcBox, body);
           }
 
-          ZenMuxDB.putConversation(c).then(function () {
-            renderConvList();
+          body.innerHTML = '<span class="caret"></span>';
+
+          return pump(res, function (cDelta, rDelta, done) {
+            if (rDelta) reasonAcc += rDelta;
+            if (cDelta) acc += cDelta;
+            if (stick && nearBottom()) toBottom();
+            body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
+            if (!done && nearBottom()) toBottom();
           });
-        }
-        body.innerHTML = renderParts(reasonAcc, acc);
-      })
-      .catch(function (e) {
-        if (e.name === 'AbortError') {
+        })
+        .then(function () {
           if (acc || reasonAcc) {
-            c.messages.push({
+            var asstMsg = {
               id: uid(),
               role: 'assistant',
               content: acc,
               reasoning: reasonAcc || undefined,
+              sources: activeSources || undefined,
               createdAt: Date.now()
-            });
+            };
+            c.messages.push(asstMsg);
             c.updatedAt = Date.now();
-            ZenMuxDB.putConversation(c);
+
+            // 阶段 2: 智能嗅探 AI 回复中的标题进行润色
+            if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
+              var refined = TitleExtractor.sniffAssistantTitle(acc);
+              if (refined && refined !== c.title) {
+                c.title = refined;
+              }
+            }
+
+            ZenMuxDB.putConversation(c).then(function () {
+              renderConvList();
+            });
           }
           body.innerHTML = renderParts(reasonAcc, acc);
-          return;
-        }
-        toast(e.message || String(e));
-        if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
-          body.parentNode.parentNode.removeChild(body.parentNode);
-        }
-      })
+        })
+        .catch(function (e) {
+          if (e.name === 'AbortError') {
+            if (acc || reasonAcc) {
+              c.messages.push({
+                id: uid(),
+                role: 'assistant',
+                content: acc,
+                reasoning: reasonAcc || undefined,
+                sources: activeSources || undefined,
+                createdAt: Date.now()
+              });
+              c.updatedAt = Date.now();
+              ZenMuxDB.putConversation(c);
+            }
+            body.innerHTML = renderParts(reasonAcc, acc);
+            return;
+          }
+          toast(e.message || String(e));
+          if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
+            body.parentNode.parentNode.removeChild(body.parentNode);
+          }
+        });
+    })
       .then(function () {
         state.busy = false;
         state.controller = null;
@@ -1334,7 +1511,7 @@
   }
 
   /* ==========================================================================
-     11. 门禁验证 (Access Gate)
+     12. 门禁验证 (Access Gate)
      ========================================================================== */
   function showGate(err) {
     el.gate.classList.remove('hide');
@@ -1375,7 +1552,7 @@
   }
 
   /* ==========================================================================
-     12. 界面事件监听与初始化 (UI & Startup)
+     13. 界面事件监听与初始化 (UI & Startup)
      ========================================================================== */
   function autoGrow() {
     el.input.style.height = 'auto';
@@ -1441,6 +1618,7 @@
   el.effort.value = state.effort;
   el.ctx.value = String(state.ctxN);
   syncModelCapabilities();
+  syncWebSearchBtn();
   autoGrow();
   syncSend();
 

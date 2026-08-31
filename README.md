@@ -53,13 +53,23 @@
 * **侧边栏内联编辑**：
   悬停显示精美线性 SVG 按钮，支持双击标题或点击修改按钮原地呼出输入框，修改即刻同步至 IndexedDB。
 
-### 3. 高性能异步存储引擎 (`ZenMuxDB`)
+### 3. AnySearch 实时联网检索与引用溯源 (`AnySearchService` & `/api/search.js`)
+* **全模型无缝联网（Model-Agnostic RAG）**：
+  无需依赖特定模型的内置工具调用，一键让 DeepSeek、Qwen、Claude、GPT 等全平台模型获得实时全网检索能力；
+* **极低 Token 消耗与精炼注入**：
+  提取清洗后的高密度 Snippet 摘要构建隔离 Grounding 上下文，较原生网页抓取降低 **80%+ Prompt Token 成本**；
+* **精美溯源 UI**：
+  回答气泡中自适应渲染 `<details class="msg-sources">` 引用来源卡片，展示网页 Favicon/域名标签、标题与直达外链。
+
+### 4. 高性能异步存储引擎 (`ZenMuxDB`)
 * 基于浏览器原生 **IndexedDB**（数据库：`ZenMuxChatDB`，对象仓库：`conversations`）；
 * 突破传统 `localStorage` 5MB 配额限制，支持海量历史会话、长文与图片数据的流畅存储与毫秒级索引。
 
-### 4. 边缘流式中继网关 (`edge-functions/api/`)
+### 5. 边缘流式中继与安全网关 (`edge-functions/api/`)
 * **零缓冲流式传输（True SSE Streaming）**：
-  边缘函数基于 Web Streams API 实现 `ReadableStream` 零拷贝透传，并注入 `X-Accel-Buffering: no` 响应头，确保 Token 实时逐字输出。
+  边缘函数基于 Web Streams API 实现 `ReadableStream` 零拷贝透传，并注入 `X-Accel-Buffering: no` 响应头，确保 Token 实时逐字输出；
+* **安全密钥托管**：
+  ZenMux 与 AnySearch 的 API Key 均托管于边缘端 Secret 环境变量，前端仅需验证 `X-Access-Token` 统一访问门禁。
 
 ---
 
@@ -95,12 +105,13 @@
 4. 校验通过后，在域名列表点击 **HTTPS configuration** → 选择 **Apply for free certificate**（免费自动续期证书）并开启 **Force HTTPS Access**。
 
 #### 第 3 步：配置环境变量（Secrets）
-进入项目页 → **Settings** → **Environment Variables**，添加以下两项加密变量：
+进入项目页 → **Settings** → **Environment Variables**，添加以下加密变量：
 
 | 变量名 | 类型 | 说明 |
 | :--- | :--- | :--- |
-| `ZENMUX_API_KEY` | **Secret** | 在 zenmux.ai 获取的 API 密钥 |
+| `ZENMUX_API_KEY` | **Secret** | 在 zenmux.ai 获取的大模型 API 密钥 |
 | `ACCESS_TOKEN` | **Secret** | 自行设定的前端访问口令（防止接口被盗刷） |
+| `ANYSEARCH_API_KEY` | **Secret** | *(可选)* 在 anysearch.com 获取的检索密钥，用于开启实时全网联网搜索 |
 
 添加完成后，点击项目右上角 **Redeploy** 重新部署以使变量生效。
 
@@ -142,13 +153,14 @@ edgeone pages dev
 ## 六、 仓库目录结构
 
 ```text
-├── index.html                  # 页面结构骨架与无障碍访问语义
-├── styles.css                  # 现代化极简暗色主题与响应式布局样式
-├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、文本提取与流式控制
+├── index.html                  # 页面结构骨架、附件托盘与联网检索开关
+├── styles.css                  # 现代化极简暗色主题、来源卡片与响应式布局样式
+├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、AnySearch 检索与流式控制
 ├── edge-functions/
 │   └── api/
-│       ├── chat.js             # 边缘中继函数：鉴权校验、密钥注入与 SSE 零拷贝转发
-│       └── models.js           # 边缘模型函数：ZenMux 可用模型元数据安全代理
+│       ├── chat.js             # 边缘对话函数：鉴权校验、密钥注入与 SSE 零拷贝转发
+│       ├── models.js           # 边缘模型函数：ZenMux 可用模型元数据安全代理
+│       └── search.js           # 边缘检索函数：AnySearch 搜索引擎安全代理与鉴权中继
 ├── edgeone.json                # EdgeOne Pages 部署构建规范描述文件
 ├── package.json                # 项目元数据与开发命令
 └── .env.example                # 环境变量配置模板参考
