@@ -1358,7 +1358,7 @@
         return { role: m.role, content: m.content || '' };
       });
 
-      var payload = { model: state.model, messages: history, temperature: 0.7 };
+      var payload = { model: state.model, messages: history };
       var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
       if (canReason && state.effort) {
         if (state.effort === 'off') payload.reasoning = { enabled: false };

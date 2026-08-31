@@ -68,6 +68,53 @@ export async function onRequestPost(context) {
     return json({ error: '连接上游失败', detail: String(e && e.message) }, 502);
   }
 
+  // 边缘自愈重试：若上游因模型不支持特定参数（如 temperature / reasoning_effort）返回 400，自动剔除并就地重试
+  if (upstream.status === 400) {
+    const detail = await upstream.text().catch(() => '');
+    let modified = false;
+
+    if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      delete payload.temperature;
+      modified = true;
+    }
+    if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      delete payload.reasoning;
+      delete payload.reasoning_effort;
+      modified = true;
+    }
+
+    if (modified) {
+      try {
+        const retryRes = await fetch(UPSTREAM, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
+          body: JSON.stringify(payload),
+        });
+        if (retryRes.ok && retryRes.body) {
+          return new Response(retryRes.body, {
+            status: 200,
+            headers: {
+              ...CORS,
+              'Content-Type': 'text/event-stream; charset=utf-8',
+              'Cache-Control': 'no-cache, no-transform',
+              Connection: 'keep-alive',
+              'X-Accel-Buffering': 'no',
+            },
+          });
+        }
+      } catch (retryErr) { }
+    }
+
+    return json(
+      { error: '上游返回 400', detail: detail.slice(0, 800) },
+      400
+    );
+  }
+
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => '');
     return json(
