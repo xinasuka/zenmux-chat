@@ -52,23 +52,30 @@ EdgeOne Pages 官方域名文档（[Domain Management Overview](https://pages.ed
 **访问口令 ACCESS_TOKEN** — 自己编一个（如 `MyChat2026!xK9`）。
 它的作用是给你的 `/api/chat` 加一道锁：URL 一旦泄露，别人没有口令也用不了，不会变成免费开放代理。**强烈建议设置。**
 
-### 第 2 步：GitHub 建仓库并推送
+### 第 2 步：GitHub 建仓库并推送 —— ✅ 已完成
 
-在 GitHub 网页新建一个**私有**仓库（Private），名字随意（如 `zenmux-chat`），
-**不要**勾选 "Add a README / .gitignore / license"（保持空仓库）。
+仓库已建好并推送：
 
-然后在本目录执行（把 `<你的用户名>` 和仓库名替换掉）：
+| 项 | 值 |
+|---|---|
+| 地址 | <https://github.com/xinasuka/zenmux-chat> |
+| 可见性 | **Private（私有）** |
+| 默认分支 | `main` |
+| 已推送文件 | 9 个（前端 3 + 边缘函数 2 + 配置 4） |
+
+本机 `gh` 已装在 `~/.workbuddy/binaries/gh/bin/gh`，并已写入 `~/.zshrc` 与 `~/.bash_profile` 的 PATH，
+且已用 keyring 中的 `xinasuka` 账号完成登录（`gh auth status` 可查）。后续改动直接：
 
 ```bash
 cd /Users/mac/WorkBuddy/2026-08-31-14-26-41/zenmux-chat
-
-git remote add origin git@github.com:<你的用户名>/zenmux-chat.git
-git branch -M main
-git push -u origin main
+git add -A && git commit -m "说明" && git push
 ```
 
-> 若用 HTTPS 而非 SSH：`git remote add origin https://github.com/<用户名>/zenmux-chat.git`，
-> 推送时密码填 GitHub 的 **Personal Access Token**（不是账号密码）。
+推送后 EdgeOne Pages 会自动重新构建。
+
+> **注意**：仓库是私有的，EdgeOne Pages 第 3 步授权 GitHub 时，
+> 必须选择 **Only select repositories** 并勾选 `zenmux-chat`，
+> 且确认授权页出现了 "Private repository access" 权限项，否则平台读不到代码。
 
 ### 第 3 步：EdgeOne Pages 导入项目
 
