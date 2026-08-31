@@ -98,27 +98,48 @@ git add -A && git commit -m "说明" && git push
    —— 即"全球可用区（不含中国大陆）"。**这一步决定免备案，别选错。**
    选"中国大陆可用区"或"全球可用区"都会要求 ICP 备案。
 6. 点 **Start deployment**，等构建完成（约 1 分钟）。
+   **必须至少有一次成功部署**，否则后面绑域名会因无部署记录而返回 404。
 
-### 第 4 步：绑定自定义域名
+### 第 4 步：绑定自定义域名（共 3 小步，缺一不可）
 
-1. 项目页 → **Settings** → **Domains** → **Add Domain**
-2. 填入你要用的域名，例如 `chat.example.com`
-3. 平台会给出一条 **CNAME 记录值**，形如：
-   `a4285573.xxxx.example.com.dns.edgeone.site.`
-4. 去你的域名注册商（阿里云/腾讯云/Cloudflare 等）DNS 解析页，添加记录：
+**4.0 复查加速区域**（决定要不要备案，事后改很麻烦）
+项目页 → Settings，确认 Acceleration Region 是
+`Global availability zone (exclude Chinese mainland)`。若不是，先改过来再重新部署。
 
-   | 类型 | 主机记录 | 记录值 | TTL |
+**4.1 添加域名 + 所有权校验 + CNAME**
+
+1. 项目页 → **Domain Management** → **Add custom domain**
+2. 填入域名。**强烈建议用子域名**，如 `chat.example.com`（根域 CNAME 会与 MX 记录冲突）
+3. 弹窗会给出**两条**需要去注册商添加的记录，**两条都加，别只加 CNAME**：
+
+   | 顺序 | 类型 | 主机记录 | 记录值 |
    |---|---|---|---|
-   | CNAME | `chat`（或你要的子域名前缀） | 平台给的 CNAME 值 | 默认 / 600 |
+   | ① | **TXT**（所有权校验） | 控制台指定，通常 `_eo-verify` 或带域名前缀 | 控制台给的校验串 |
+   | ② | **CNAME** | `chat` | 平台给的形如 `a4285573.xxxx.dns.edgeone.site.` |
 
-   > 若用根域名（主机记录 `@`），注意 CNAME 会与 MX 记录冲突，建议用子域名。
-5. 回到 Pages 控制台等待状态变为 **Activated**。DNS 生效通常几分钟，最长几小时。
-6. 验证（本地终端）：
+   > 顺序无所谓，但**必须先加 TXT 并通过校验**，域名状态才会从 Pending 往前走。
+4. 回到控制台点 **Verify** / 等待状态变为 **Activated**。
+   DNS 生效通常几分钟，最长 48 小时（TTL 决定）。
 
-   ```bash
-   dig chat.example.com CNAME +short
-   # 应返回平台给的 CNAME 值
-   ```
+**4.2 申请 HTTPS 证书（⚠️ 平台不会自动发，必须手动点一次）**
+
+官方文档原文：*"Makers does not automatically assign an HTTPS certificate to your domain."*
+不配证书，`https://` 打不开。
+
+1. 域名添加成功后 → 该域名的 **HTTPS configuration**
+2. 选 **Apply for free certificate**（免费，TrustAsia / Let's Encrypt，RSA，**自动续期**）
+3. 顺手打开 **Force HTTPS Access**（HTTP 301 跳 HTTPS）
+4. 等证书签发部署（通常几分钟）
+
+**4.3 验证解析是否生效**（在你自己的终端跑；本机沙箱 DNS 不可达，需你自己确认）
+
+```bash
+dig chat.example.com CNAME +short
+# 应返回平台给的 CNAME 值
+
+curl -sI https://chat.example.com | head -1
+# 应返回 HTTP/2 200（或 200 OK）
+```
 
 ### 第 5 步：配置环境变量（Secret）
 
