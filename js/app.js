@@ -1,7 +1,7 @@
 // js/app.js
 // Main entrypoint and orchestrator for ZenMux Chat.
 
-import { el, state, LS, uid, formatSize, getHostname } from './state.js';
+import { el, state, LS, uid, formatSize, getHostname, APP_VERSION } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { initTheme } from './theme.js';
 import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
@@ -767,6 +767,10 @@ function initEventListeners() {
 
 /* ---------- Bootstrap Application Lifecycle ---------- */
 export function initApp() {
+  document.querySelectorAll('.app-version-badge').forEach((badge) => {
+    badge.textContent = 'v' + APP_VERSION;
+  });
+
   initTheme(toast);
   initEventListeners();
 

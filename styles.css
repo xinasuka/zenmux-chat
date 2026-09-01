@@ -61,10 +61,21 @@
     display:flex;align-items:center;justify-content:space-between;
     padding:14px 14px 4px 16px;min-height:48px;
   }
+  .sidebar-brand-group{
+    display:flex;align-items:center;gap:8px;
+  }
   .sidebar-brand-title{
     font-family:"Newsreader","Charter","Bitstream Charter","Georgia","Cambria",ui-serif,serif;
     font-size:20px;font-weight:500;letter-spacing:-0.3px;color:var(--fg);
     user-select:none;line-height:1.2;
+  }
+  .app-version-badge{
+    display:inline-flex;align-items:center;
+    font-size:10.5px;font-weight:500;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    color:var(--fg-faint);background:var(--card-item-bg);
+    border:1px solid var(--card-border);padding:1px 6px;border-radius:6px;
+    letter-spacing:0.2px;line-height:1.4;user-select:none;
   }
   .sidebar-icon-btn{
     background:transparent;border:0;color:var(--fg-dim);
