@@ -131,6 +131,24 @@
     #topbar-params .mini-sel{
       flex:1 1 0%;min-width:0;padding:7px 4px;font-size:12px;text-align:center;
     }
+    #composer-wrap{padding:0 12px 12px}
+    #composer{
+      flex-direction:column;align-items:stretch;gap:6px;padding:7px 10px 8px 12px;
+      border-radius:16px;
+    }
+    .composer-toolbar{
+      display:flex;align-items:center;gap:6px;padding-bottom:5px;
+      border-bottom:1px solid rgba(255,255,255,.05);
+    }
+    .composer-toolbar .composer-icon-btn{
+      width:30px;height:30px;
+    }
+    .composer-main-row{
+      width:100%;display:flex;align-items:flex-end;gap:8px;
+    }
+    #input{
+      flex:1;min-width:0;
+    }
   }
   .spacer{flex:1}
   .icon-btn{
@@ -382,6 +400,12 @@
   #composer:focus-within{
     border-color:rgba(127,119,221,.48);
     box-shadow:0 0 0 2px rgba(127,119,221,.14),0 4px 20px rgba(0,0,0,.25);
+  }
+  .composer-toolbar{
+    display:flex;align-items:center;gap:4px;flex-shrink:0;
+  }
+  .composer-main-row{
+    display:flex;align-items:flex-end;gap:8px;flex:1;min-width:0;
   }
   .composer-icon-btn{
     flex:0 0 auto;background:transparent;border:0;color:var(--fg-dim);border-radius:9px;
