@@ -132,6 +132,25 @@ sequenceDiagram
    - `ANYSEARCH_API_KEY`: *(Optional)* Search API key from anysearch.com
 6. Click **Redeploy** to take changes live!
 
+---
+
+### 4. Repository Structure
+
+```text
+├── index.html                  # HTML5 layout, dual-tier responsive composer, attachment tray
+├── styles.css                  # Modern minimalist dark theme, frosted topbar, TTS player, responsive layout
+├── app.js                      # Core engine: IndexedDB, Canvas compression, TTS/STT, streaming & token metrics
+├── edge-functions/
+│   └── api/
+│       ├── chat.js             # Edge chat worker: Auth, secret injection, parameter self-healing, SSE relay
+│       ├── models.js           # Edge models worker: Secure metadata proxy for available ZenMux models
+│       └── search.js           # Edge search worker: AnySearch proxy and RAG grounding relay
+├── edgeone.json                # EdgeOne Pages build & deployment specification
+├── package.json                # Project metadata & scripts
+├── README.md                   # Unified Bilingual Documentation (English Default)
+└── .env.example                # Template for environment variables
+```
+
 </details>
 
 <br>
@@ -262,23 +281,23 @@ sequenceDiagram
    - `ANYSEARCH_API_KEY`: *(可选)* AnySearch 检索 Key
 6. 点击 **Redeploy** 即可上线使用！
 
-</details>
-
 ---
 
-## Repository Structure / 仓库目录结构
+### 四、 仓库目录结构
 
 ```text
-├── index.html                  # HTML5 layout, dual-tier responsive composer, attachment tray
-├── styles.css                  # Modern minimalist dark theme, frosted topbar, TTS player, responsive layout
-├── app.js                      # Core engine: IndexedDB, Canvas compression, TTS/STT, streaming & token metrics
+├── index.html                  # 页面结构骨架、移动端双层复合输入框与操作工具条
+├── styles.css                  # 现代化极简暗色主题、毛玻璃顶栏、TTS 播放器与响应式布局
+├── app.js                      # 核心引擎：IndexedDB 存储、Canvas 压缩、TTS/STT 语音、流式与 Token 统计
 ├── edge-functions/
 │   └── api/
-│       ├── chat.js             # Edge chat worker: Auth, secret injection, parameter self-healing, SSE relay
-│       ├── models.js           # Edge models worker: Secure metadata proxy for available ZenMux models
-│       └── search.js           # Edge search worker: AnySearch proxy and RAG grounding relay
-├── edgeone.json                # EdgeOne Pages build & deployment specification
-├── package.json                # Project metadata & scripts
-├── README.md                   # Unified Bilingual Documentation (English Default)
-└── .env.example                # Template for environment variables
+│       ├── chat.js             # 边缘对话函数：鉴权校验、密钥注入、参数自适应降级与 SSE 零拷贝转发
+│       ├── models.js           # 边缘模型函数：ZenMux 可用模型元数据安全代理
+│       └── search.js           # 边缘检索函数：AnySearch 搜索引擎安全代理与鉴权中继
+├── edgeone.json                # EdgeOne Pages 部署构建规范描述文件
+├── package.json                # 项目元数据与开发命令
+├── README.md                   # 统一双语说明文档
+└── .env.example                # 环境变量配置模板参考
 ```
+
+</details>
