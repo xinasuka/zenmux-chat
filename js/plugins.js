@@ -199,6 +199,130 @@ const ALL_PLUGINS = [
     }
   },
   {
+    id: 'openalex',
+    name: 'OpenAlex 学术智库',
+    provider: 'OpenAlex API',
+    category: 'research',
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+    description: '检索全球 2.5 亿+ 篇学术文献、引用网络、作者机构与开放获取 DOI',
+    defaultEnabled: false,
+    toolSchema: {
+      type: 'function',
+      function: {
+        name: 'openalex_search',
+        description: 'Search academic research papers, scholarly literature, journal articles, and citations across OpenAlex open scientific graph database.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Scientific keywords, academic paper title, or author name in English or Chinese.'
+            }
+          },
+          required: ['query']
+        }
+      }
+    },
+    async execute(args, token) {
+      const query = (args && args.query) ? String(args.query).trim() : '';
+      const res = await fetch('/api/plugins/openalex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
+        body: JSON.stringify({ query, limit: 5 })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || (j && j.error)) {
+        throw new Error((j && j.error) || ('HTTP ' + res.status));
+      }
+      return {
+        query,
+        works: j.works || []
+      };
+    },
+    formatToolResult(data) {
+      const works = (data && data.works) || [];
+      if (!works.length) return '未在 OpenAlex 数据库中检索到匹配的学术文献。';
+      const items = works.map((w, idx) => {
+        return `[${idx + 1}] 《${w.title}》 (${w.year})\n- 作者: ${w.authors}\n- 来源/期刊: ${w.venue} (引用数: ${w.citationCount})\n- 论文链接/DOI: ${w.url}\n- 摘要: ${w.abstract}`;
+      }).join('\n\n');
+      return `以下是通过 OpenAlex 检索到的学术文献：\n\n${items}\n\n请结合上述文献内容进行深度学术总结，并在引用处标注 [1]、[2] 等序号。`;
+    },
+    formatCoTMarker(args, data) {
+      const query = (data && data.query) || (args && args.query) || '';
+      const count = (data && data.works) ? data.works.length : 0;
+      return `\n\n> ✦ **已检索 OpenAlex 文献**：\`${query}\` (获取到 ${count} 篇学术文献与引用)\n\n`;
+    },
+    getSources(data) {
+      return ((data && data.works) || []).map((w) => ({
+        title: `《${w.title}》 (${w.year})`,
+        url: w.url,
+        snippet: `作者: ${w.authors} · 引用: ${w.citationCount} · ${w.abstract.slice(0, 150)}`
+      }));
+    }
+  },
+  {
+    id: 'news',
+    name: '全球时事新闻',
+    provider: 'NewsAPI.org',
+    category: 'news',
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>`,
+    description: '检索全球 80,000+ 权威新闻媒体的实时头条快讯与深度时事报道',
+    defaultEnabled: false,
+    toolSchema: {
+      type: 'function',
+      function: {
+        name: 'news_search',
+        description: 'Search breaking news articles, international headlines, and current global events from 80,000+ trusted news sources worldwide via NewsAPI.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Targeted news search topic or current event keywords.'
+            }
+          },
+          required: ['query']
+        }
+      }
+    },
+    async execute(args, token) {
+      const query = (args && args.query) ? String(args.query).trim() : '';
+      const res = await fetch('/api/plugins/news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
+        body: JSON.stringify({ query, limit: 5 })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || (j && j.error)) {
+        throw new Error((j && j.error) || ('HTTP ' + res.status));
+      }
+      return {
+        query,
+        articles: j.articles || []
+      };
+    },
+    formatToolResult(data) {
+      const articles = (data && data.articles) || [];
+      if (!articles.length) return '未检索到相关新闻报道。';
+      const items = articles.map((a, idx) => {
+        return `[${idx + 1}] 《${a.title}》\n- 媒体来源: ${a.source} (发布时间: ${a.publishedAt})\n- 链接: ${a.url}\n- 摘要: ${a.description}`;
+      }).join('\n\n');
+      return `以下是通过 NewsAPI 检索到的最新时事新闻：\n\n${items}\n\n请基于上述新闻报道进行客观严谨的事实梳理，并在引用处标注 [1]、[2] 等序号。`;
+    },
+    formatCoTMarker(args, data) {
+      const query = (data && data.query) || (args && args.query) || '';
+      const count = (data && data.articles) ? data.articles.length : 0;
+      return `\n\n> ✦ **已检索全球新闻**：\`${query}\` (获取到 ${count} 条最新新闻资讯)\n\n`;
+    },
+    getSources(data) {
+      return ((data && data.articles) || []).map((a) => ({
+        title: `《${a.title}》 (${a.source})`,
+        url: a.url,
+        snippet: `发布: ${a.publishedAt} · ${a.description}`
+      }));
+    }
+  },
+  {
     id: 'weather',
     name: '全球精准气象',
     provider: 'Open-Meteo',

@@ -24,7 +24,9 @@
 * 🔌 **Modular Plugin & Tool Ecosystem**: Toggle specialized tools on the fly:
   - 🔍 **Live Web Search** (AnySearch)
   - 📄 **Deep Web Extraction** (Firecrawl v2 for dynamic React/SPA sites)
-  - 🎓 **Academic Research** (Semantic Scholar for 200M+ papers & citations)
+  - 🎓 **Semantic Scholar** (200M+ academic papers & citation graph)
+  - 📚 **OpenAlex Knowledge Base** (250M+ global scientific works, DOI & open-access PDFs)
+  - 📰 **Global News** (NewsAPI for 80,000+ international news outlets)
   - 🌤️ **Global Weather** (Open-Meteo real-time & 7-day forecasts)
   - 💻 **GitHub Explorer** (Repository metrics, releases & README inspection)
 * 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models, showing thoughts, search, and page extraction steps together.
@@ -50,7 +52,9 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `ZENMUX_API_KEY`: Your API Key from [ZenMux](https://zenmux.ai).
    - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch for real-time web search.
    - `FIRECRAWL_API_KEY` *(Optional)*: Your API Key from [Firecrawl](https://firecrawl.dev) for deep React/SPA webpage extraction.
-   - `SEMANTIC_SCHOLAR_KEY` *(Optional)*: For enhanced academic search rate limits.
+   - `OPENALEX_API_KEY` *(Optional)*: For enhanced OpenAlex academic search rate limits.
+   - `NEWSAPI_KEY` *(Optional)*: Your API Key from [NewsAPI.org](https://newsapi.org) for international breaking news.
+   - `SEMANTIC_SCHOLAR_KEY` *(Optional)*: For enhanced Semantic Scholar search rate limits.
    - `GITHUB_TOKEN` *(Optional)*: For higher GitHub API rate limits.
 4. Click **Deploy**. Your personal AI assistant is live!
 
@@ -80,7 +84,9 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 2. 🔌 **可插拔插件工具库**：支持随心开启或关闭专属扩展工具：
    - 🔍 **实时全网搜索** (AnySearch)
    - 📄 **深度网页抓取** (Firecrawl v2 解析 React/SPA 动态站点)
-   - 🎓 **学术文献检索** (Semantic Scholar 检索 2 亿+ 论文与引用)
+   - 🎓 **Semantic Scholar 文献检索** (检索 2 亿+ 论文与引用)
+   - 📚 **OpenAlex 学术智库** (检索 2.5 亿+ 全球开放科研作品与 DOI)
+   - 📰 **全球时事新闻** (NewsAPI 检索 80,000+ 国际权威媒体时事快讯)
    - 🌤️ **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
    - 💻 **GitHub 开源探索** (GitHub REST API 探索 Star、Release 与技术栈)
 3. 🧠 **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
@@ -98,6 +104,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `ZENMUX_API_KEY`：[ZenMux.ai](https://zenmux.ai) 平台的 API Key。
    - `ANYSEARCH_API_KEY`（可选）：联网检索服务的 API Key。
    - `FIRECRAWL_API_KEY`（可选）：[Firecrawl](https://firecrawl.dev) 深度网页抓取服务的 API Key。
+   - `OPENALEX_API_KEY`（可选）：OpenAlex 学术检索 API Key。
+   - `NEWSAPI_KEY`（可选）：[NewsAPI.org](https://newsapi.org) 新闻检索 API Key。
    - `SEMANTIC_SCHOLAR_KEY`（可选）：学术检索 API Key。
    - `GITHUB_TOKEN`（可选）：GitHub API Token。
 4. **一键部署**：点击部署，稍等 1 分钟即可拥有属于你自己的个人 AI 工作站！
