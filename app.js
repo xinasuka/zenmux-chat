@@ -26,7 +26,7 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var el = {
-    sidebar: $('sidebar'), sidebarBackdrop: $('sidebar-backdrop'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
+    sidebar: $('sidebar'), sidebarBackdrop: $('sidebar-backdrop'), sidebarToggle: $('sidebar-toggle'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
     model: $('model'), effort: $('effort'), searchDepth: $('search-depth'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
@@ -2087,6 +2087,14 @@
   /* ==========================================================================
      13. 界面事件监听与初始化 (UI & Startup)
      ========================================================================== */
+  var LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
+  var isMobileScreen = function () { return window.innerWidth <= 768; };
+
+  // 还原桌面端侧边栏收起状态
+  if (!isMobileScreen() && localStorage.getItem(LS_SIDEBAR_COLLAPSED) === 'true') {
+    document.body.classList.add('sidebar-collapsed');
+  }
+
   function autoGrow() {
     el.input.style.height = 'auto';
     el.input.style.height = Math.min(el.input.scrollHeight, 200) + 'px';
@@ -2121,12 +2129,30 @@
     });
   });
 
+  if (el.sidebarToggle) {
+    el.sidebarToggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (isMobileScreen()) {
+        closeSidebar();
+      } else {
+        document.body.classList.toggle('sidebar-collapsed');
+        var isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        localStorage.setItem(LS_SIDEBAR_COLLAPSED, isCollapsed ? 'true' : 'false');
+      }
+    });
+  }
+
   el.burger.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (el.sidebar.classList.contains('open')) {
-      closeSidebar();
+    if (isMobileScreen()) {
+      if (el.sidebar.classList.contains('open')) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
     } else {
-      openSidebar();
+      document.body.classList.remove('sidebar-collapsed');
+      localStorage.setItem(LS_SIDEBAR_COLLAPSED, 'false');
     }
   });
   if (el.sidebarBackdrop) {
