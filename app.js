@@ -30,7 +30,7 @@
     model: $('model'), effort: $('effort'), searchDepth: $('search-depth'), ctx: $('ctx'), logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
-    attachBtn: $('attach-btn'), webSearchBtn: $('web-search-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
+    attachBtn: $('attach-btn'), webSearchBtn: $('web-search-btn'), voiceBtn: $('voice-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
     dropOverlay: $('drop-overlay'),
     lightbox: $('lightbox'), lightboxImg: $('lightbox-img'), lightboxClose: $('lightbox-close'),
     gate: $('gate'), gateInput: $('gate-input'), gateGo: $('gate-go'), gateErr: $('gate-err'),
@@ -146,6 +146,61 @@
     var m = Math.floor(seconds / 60);
     var s = Math.floor(seconds % 60);
     return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  function getCuratedSpeechVoices() {
+    if (!('speechSynthesis' in window)) return [];
+    var all = window.speechSynthesis.getVoices() || [];
+    var NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|pipe organ|trinoids|whisper|zarvox|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|ralph|junior|kathy|fred|jester|organ|flo \(chinese|eddy \(chinese|grandma \(chinese|grandpa \(chinese|reed \(chinese|rocko \(chinese|sandy \(chinese|shelley \(chinese/i;
+
+    var filtered = all.filter(function (v) {
+      if (!v.name || !v.lang) return false;
+      if (NOVELTY.test(v.name)) return false;
+      var lang = v.lang.toLowerCase();
+      return lang.startsWith('zh') || lang.startsWith('cmn') || lang.startsWith('yue') || lang.startsWith('en');
+    });
+
+    function formatVoiceLabel(v) {
+      var n = v.name.toLowerCase();
+      if (/tingting/i.test(n)) return '婷婷 (标准普通话 · 女声)';
+      if (/xiaoxiao/i.test(n)) return '晓晓 (自然普通话 · 女声)';
+      if (/yunxi/i.test(n)) return '云希 (沉稳普通话 · 男声)';
+      if (/yunjian/i.test(n)) return '云健 (影视解说 · 男声)';
+      if (/meijia|mei-jia/i.test(n)) return '美佳 (台湾普通话 · 女声)';
+      if (/sin-ji|sinji/i.test(n)) return 'Sin-ji (标准粤语 · 女声)';
+      if (/google 普通话|google.*chinese/i.test(n)) return 'Google 普通话 (自然女声)';
+      if (/samantha/i.test(n)) return 'Samantha (标准美音 · 女声)';
+      if (/jenny/i.test(n)) return 'Jenny (自然美音 · 女声)';
+      if (/guy/i.test(n)) return 'Guy (自然美音 · 男声)';
+      if (/daniel/i.test(n)) return 'Daniel (标准英音 · 男声)';
+      if (/karen/i.test(n)) return 'Karen (澳大利亚音 · 女声)';
+      var clean = v.name.replace(/Microsoft|Google|Apple|Desktop|Online \(Natural\)/gi, '').trim();
+      return (clean || v.name) + ' (' + v.lang + ')';
+    }
+
+    var zhVoices = [];
+    var enVoices = [];
+    filtered.forEach(function (v) {
+      var l = v.lang.toLowerCase();
+      if (l.startsWith('zh') || l.startsWith('cmn') || l.startsWith('yue')) {
+        zhVoices.push(v);
+      } else if (l.startsWith('en')) {
+        enVoices.push(v);
+      }
+    });
+
+    var curatedZh = zhVoices.slice(0, 4);
+    var curatedEn = enVoices.slice(0, 3);
+    var finalVoices = curatedZh.concat(curatedEn);
+    return finalVoices.map(function (v) {
+      return {
+        voiceURI: v.voiceURI,
+        name: v.name,
+        lang: v.lang,
+        label: formatVoiceLabel(v),
+        raw: v
+      };
+    });
   }
 
   /* ==========================================================================
@@ -1177,11 +1232,7 @@
 
     function populateVoices() {
       if (!('speechSynthesis' in window)) return;
-      var all = window.speechSynthesis.getVoices() || [];
-      var zhAndEn = all.filter(function (v) {
-        return v.lang && (/^(zh|cmn|yue|en)/i.test(v.lang) || /chinese|mandarin|english/i.test(v.name));
-      });
-      var voices = zhAndEn.length ? zhAndEn : all;
+      var voices = getCuratedSpeechVoices();
       voiceSelect.innerHTML = '';
       if (!voices.length) {
         var opt = document.createElement('option');
@@ -1190,12 +1241,11 @@
         voiceSelect.appendChild(opt);
         return;
       }
-      voices.forEach(function (v) {
+      voices.forEach(function (v, idx) {
         var opt = document.createElement('option');
         opt.value = v.voiceURI;
-        var label = v.name.replace(/Microsoft|Google|Apple|Desktop|Online \(Natural\)/gi, '').trim();
-        opt.textContent = (label || v.name) + ' (' + v.lang + ')';
-        if (!currentVoiceURI && (v.default || /zh-CN|cmn|xiaoxiao|yunxi|tingting/i.test(v.name + v.lang))) {
+        opt.textContent = v.label;
+        if (!currentVoiceURI && (idx === 0 || /tingting|xiaoxiao|普通话/i.test(v.name))) {
           currentVoiceURI = v.voiceURI;
         }
         voiceSelect.appendChild(opt);
@@ -2086,6 +2136,108 @@
     if (e.key === 'Enter') { e.preventDefault(); submitGate(); }
   });
 
+  /* ==========================================================================
+     8. 浏览器原生语音听写 (SpeechRecognition / STT)
+     ========================================================================== */
+  function initVoiceInput() {
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      if (el.voiceBtn) el.voiceBtn.style.display = 'none';
+      return;
+    }
+
+    var recognition = null;
+    var isRecording = false;
+    var baseTextBeforeRecord = '';
+
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'zh-CN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+    } catch (e) {
+      if (el.voiceBtn) el.voiceBtn.style.display = 'none';
+      return;
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      if (el.voiceBtn) {
+        el.voiceBtn.classList.remove('recording');
+        el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+      }
+      try { recognition.stop(); } catch (e) {}
+    }
+
+    function startRecording() {
+      if (state.busy) {
+        toast('AI 正在回答中，请稍候…', 'info');
+        return;
+      }
+      baseTextBeforeRecord = el.input.value;
+      if (baseTextBeforeRecord && !/[\s\n]$/.test(baseTextBeforeRecord)) {
+        baseTextBeforeRecord += ' ';
+      }
+      try {
+        recognition.start();
+        isRecording = true;
+        if (el.voiceBtn) {
+          el.voiceBtn.classList.add('recording');
+          el.voiceBtn.title = '正在录音中… 点击结束说话';
+        }
+        toast('正在倾听… 说话即可实时转为文字', 'info');
+      } catch (err) {
+        isRecording = false;
+        if (el.voiceBtn) el.voiceBtn.classList.remove('recording');
+        toast('启动麦克风失败: ' + (err.message || '请检查权限'), 'error');
+      }
+    }
+
+    if (el.voiceBtn) {
+      el.voiceBtn.addEventListener('click', function () {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
+      });
+    }
+
+    recognition.onresult = function (event) {
+      var currentInterim = '';
+      var currentFinal = '';
+      for (var i = 0; i < event.results.length; i++) {
+        var res = event.results[i];
+        if (res.isFinal) {
+          currentFinal += res[0].transcript;
+        } else {
+          currentInterim += res[0].transcript;
+        }
+      }
+      var combined = (currentFinal + currentInterim).trim();
+      if (combined) {
+        el.input.value = baseTextBeforeRecord + combined;
+        autoGrow();
+        syncSend();
+      }
+    };
+
+    recognition.onerror = function (event) {
+      if (event.error === 'not-allowed') {
+        toast('麦克风权限被拒绝，请在浏览器地址栏允许使用麦克风', 'error');
+      } else if (event.error !== 'no-speech') {
+        toast('语音听写提示: ' + (event.error || '已停止'), 'info');
+      }
+      stopRecording();
+    };
+
+    recognition.onend = function () {
+      stopRecording();
+    };
+  }
+
   // 启动引导
   el.model.value = state.model;
   el.effort.value = state.effort;
@@ -2093,6 +2245,7 @@
   el.ctx.value = String(state.ctxN);
   syncModelCapabilities();
   syncWebSearchBtn();
+  initVoiceInput();
   autoGrow();
   syncSend();
 
