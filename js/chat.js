@@ -98,7 +98,7 @@ export function pump(res, onChunk) {
   });
 }
 
-export function executeAssistantStream(userMsg, options = {}) {
+export async function executeAssistantStream(userMsg, options = {}) {
   const c = state.currentConv;
   if (!c) return;
 
@@ -152,7 +152,7 @@ export function executeAssistantStream(userMsg, options = {}) {
 
   let acc = '';
   let reasonAcc = '';
-  let activeSources = null;
+  let activeSources = [];
   let isSearching = false;
   let searchStatusText = '';
   let capturedUsage = null;
@@ -221,89 +221,131 @@ export function executeAssistantStream(userMsg, options = {}) {
   // 初始渲染光标
   renderLiveUI(false);
 
-  // Turn 1 派发请求（若开启联网检索，附带 web_search tool 供模型自主决断）
-  const turn1Payload = buildPayload(history, true);
+  let currentHistory = history;
 
-  runStream(turn1Payload)
-    .then((streamResult) => {
+  try {
+    while (true) {
+      // 在所有连续轮次中始终保留 tools 定义，使模型可进行多步检索
+      const payload = buildPayload(currentHistory, true);
+      const streamResult = await runStream(payload);
+
       const toolCalls = streamResult && streamResult.toolCalls;
       const webSearchCall = (toolCalls && toolCalls.length) ? toolCalls.find((tc) => {
         return tc.function && tc.function.name === 'web_search';
       }) : null;
 
-      if (webSearchCall) {
-        let searchArgs = {};
-        try {
-          searchArgs = JSON.parse(webSearchCall.function.arguments || '{}');
-        } catch (e) {
-          searchArgs = { query: webSearchCall.function.arguments || userMsg.content };
-        }
-        const searchQuery = (searchArgs.query || userMsg.displayContent || userMsg.content || '').trim();
-
-        // 若模型在触发工具调用前输出了前置思考/正文，无损并入思考过程流
-        if (acc && acc.trim()) {
-          reasonAcc = (reasonAcc ? reasonAcc + '\n\n' : '') + acc.trim();
-          acc = '';
-        }
-
-        isSearching = true;
-        searchStatusText = `正在实时检索：${searchQuery}…`;
-        renderLiveUI(false);
-        toBottom();
-
-        const searchCount = getSearchCountByDepth(state.searchDepth);
-        return WebSearchService.search(searchQuery, state.token, searchCount)
-          .catch((err) => {
-            if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
-              toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
-            } else {
-              toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
-            }
-            return [];
-          })
-          .then((searchResults) => {
-            activeSources = searchResults;
-            isSearching = false;
-
-            const count = activeSources.length;
-            const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
-            reasonAcc += searchMarker;
-
-            const toolCallId = webSearchCall.id || ('call_' + uid());
-            const asstToolMsg = {
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCallId,
-                  type: 'function',
-                  function: {
-                    name: 'web_search',
-                    arguments: JSON.stringify(searchArgs)
-                  }
-                }
-              ]
-            };
-            const toolResultMsg = {
-              role: 'tool',
-              tool_call_id: toolCallId,
-              content: WebSearchService.formatToolResult(activeSources)
-            };
-
-            const turn2History = history.concat([asstToolMsg, toolResultMsg]);
-            const turn2Payload = buildPayload(turn2History, false);
-
-            acc = '';
-            renderLiveUI(false);
-
-            return runStream(turn2Payload);
-          });
+      if (!webSearchCall) {
+        // 模型已完成检索决策并生成最终回复
+        break;
       }
-    })
-    .then(() => {
-      renderLiveUI(true);
+
+      // 解析检索参数
+      let searchArgs = {};
+      try {
+        searchArgs = JSON.parse(webSearchCall.function.arguments || '{}');
+      } catch (e) {
+        searchArgs = { query: webSearchCall.function.arguments || userMsg.content };
+      }
+      const searchQuery = (searchArgs.query || userMsg.displayContent || userMsg.content || '').trim();
+
+      // 若模型在触发工具调用前输出了前置思考/正文，无损并入思考过程流
+      if (acc && acc.trim()) {
+        reasonAcc = (reasonAcc ? reasonAcc + '\n\n' : '') + acc.trim();
+        acc = '';
+      }
+
+      isSearching = true;
+      searchStatusText = `正在实时检索：${searchQuery}…`;
+      renderLiveUI(false);
+      toBottom();
+
+      const searchCount = getSearchCountByDepth(state.searchDepth);
+      let stepSources = [];
+      try {
+        stepSources = await WebSearchService.search(searchQuery, state.token, searchCount);
+      } catch (err) {
+        if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
+          toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
+        } else {
+          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
+        }
+        stepSources = [];
+      }
+
+      // 聚合参考来源并去重
+      stepSources.forEach((s) => {
+        if (!activeSources.some((existing) => existing.url === s.url)) {
+          activeSources.push(s);
+        }
+      });
+
+      isSearching = false;
+      const count = stepSources.length;
+      const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
+      reasonAcc += searchMarker;
+
+      const toolCallId = webSearchCall.id || ('call_' + uid());
+      const asstToolMsg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: toolCallId,
+            type: 'function',
+            function: {
+              name: 'web_search',
+              arguments: JSON.stringify(searchArgs)
+            }
+          }
+        ]
+      };
+      const toolResultMsg = {
+        role: 'tool',
+        tool_call_id: toolCallId,
+        content: WebSearchService.formatToolResult(stepSources)
+      };
+
+      currentHistory = currentHistory.concat([asstToolMsg, toolResultMsg]);
+      acc = '';
+      renderLiveUI(false);
+    }
+
+    renderLiveUI(true);
+    if (acc || reasonAcc) {
+      const asstMsg = {
+        id: uid(),
+        role: 'assistant',
+        content: acc,
+        reasoning: reasonAcc || undefined,
+        sources: (activeSources && activeSources.length) ? activeSources : undefined,
+        usage: capturedUsage || undefined,
+        model: state.model || undefined,
+        createdAt: Date.now()
+      };
+      c.messages.push(asstMsg);
+      c.updatedAt = Date.now();
+
+      if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
+        const refined = TitleExtractor.sniffAssistantTitle(acc);
+        if (refined && refined !== c.title) {
+          c.title = refined;
+        }
+      }
+
+      ZenMuxDB.putConversation(c).then(() => {
+        if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
+      });
+
+      const actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1, options.onRegenerate);
+      col.appendChild(actionsBar);
+      updateSidebarFooter();
+    }
+  } catch (e) {
+    isSearching = false;
+    renderLiveUI(true);
+    if (e.name === 'AbortError') {
       if (acc || reasonAcc) {
-        const asstMsg = {
+        const partialMsg = {
           id: uid(),
           role: 'assistant',
           content: acc,
@@ -313,60 +355,25 @@ export function executeAssistantStream(userMsg, options = {}) {
           model: state.model || undefined,
           createdAt: Date.now()
         };
-        c.messages.push(asstMsg);
+        c.messages.push(partialMsg);
         c.updatedAt = Date.now();
-
-        if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
-          const refined = TitleExtractor.sniffAssistantTitle(acc);
-          if (refined && refined !== c.title) {
-            c.title = refined;
-          }
-        }
-
-        ZenMuxDB.putConversation(c).then(() => {
-          if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
-        });
-
-        const actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1, options.onRegenerate);
+        ZenMuxDB.putConversation(c);
+        const actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1, options.onRegenerate);
         col.appendChild(actionsBar);
         updateSidebarFooter();
       }
-    })
-    .catch((e) => {
-      isSearching = false;
-      renderLiveUI(true);
-      if (e.name === 'AbortError') {
-        if (acc || reasonAcc) {
-          const partialMsg = {
-            id: uid(),
-            role: 'assistant',
-            content: acc,
-            reasoning: reasonAcc || undefined,
-            sources: (activeSources && activeSources.length) ? activeSources : undefined,
-            usage: capturedUsage || undefined,
-            model: state.model || undefined,
-            createdAt: Date.now()
-          };
-          c.messages.push(partialMsg);
-          c.updatedAt = Date.now();
-          ZenMuxDB.putConversation(c);
-          const actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1, options.onRegenerate);
-          col.appendChild(actionsBar);
-          updateSidebarFooter();
-        }
-        return;
-      }
-      toast(e.message || String(e), 'error');
-      if (!acc && !reasonAcc && col && col.parentNode) {
-        col.parentNode.removeChild(col);
-      }
-    })
-    .then(() => {
-      state.busy = false;
-      state.controller = null;
-      if (el.stop) el.stop.style.display = 'none';
-      if (el.send) el.send.style.display = 'flex';
-      if (typeof options.onSyncSend === 'function') options.onSyncSend();
-      toBottom();
-    });
+      return;
+    }
+    toast(e.message || String(e), 'error');
+    if (!acc && !reasonAcc && col && col.parentNode) {
+      col.parentNode.removeChild(col);
+    }
+  } finally {
+    state.busy = false;
+    state.controller = null;
+    if (el.stop) el.stop.style.display = 'none';
+    if (el.send) el.send.style.display = 'flex';
+    if (typeof options.onSyncSend === 'function') options.onSyncSend();
+    toBottom();
+  }
 }
