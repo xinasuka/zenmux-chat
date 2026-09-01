@@ -151,6 +151,12 @@
   function getCuratedSpeechVoices() {
     if (!('speechSynthesis' in window)) return [];
     var all = window.speechSynthesis.getVoices() || [];
+    var ua = navigator.userAgent.toLowerCase();
+    var isEdge = /edg\//i.test(ua);
+    var isSafari = /safari/i.test(ua) && !/chrome|crios|android/i.test(ua);
+    var isChrome = /chrome|crios/i.test(ua) && !isEdge;
+    var isApple = /macintosh|iphone|ipad|ipod/i.test(ua);
+
     var NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|pipe organ|trinoids|whisper|zarvox|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|ralph|junior|kathy|fred|jester|organ|flo \(chinese|eddy \(chinese|grandma \(chinese|grandpa \(chinese|reed \(chinese|rocko \(chinese|sandy \(chinese|shelley \(chinese/i;
 
     var filtered = all.filter(function (v) {
@@ -158,6 +164,34 @@
       if (NOVELTY.test(v.name)) return false;
       var lang = v.lang.toLowerCase();
       return lang.startsWith('zh') || lang.startsWith('cmn') || lang.startsWith('yue') || lang.startsWith('en');
+    });
+
+    function getVoiceScore(v) {
+      var n = v.name.toLowerCase();
+      var l = v.lang.toLowerCase();
+      var score = 0;
+      var isZh = l.startsWith('zh') || l.startsWith('cmn') || l.startsWith('yue');
+
+      if (isZh) score += 50;
+
+      // 针对 Edge 浏览器优选微软 Online (Natural) 神经网络原厂人声
+      if (isEdge && /online \(natural\)/i.test(v.name)) score += 40;
+      if (isEdge && /xiaoxiao|yunxi|yunjian/i.test(n)) score += 30;
+
+      // 针对 Apple / Safari 优选 Siri 与婷婷原生高清人声
+      if ((isSafari || isApple) && /tingting|ting-ting/i.test(n)) score += 35;
+      if ((isSafari || isApple) && /siri|enhanced|premium/i.test(n)) score += 40;
+      if ((isSafari || isApple) && /meijia|sinji/i.test(n)) score += 20;
+
+      // 针对 Google Chrome 优选 Google 原生服务
+      if (isChrome && /google/i.test(n)) score += 35;
+
+      if (v.default) score += 5;
+      return score;
+    }
+
+    filtered.sort(function (a, b) {
+      return getVoiceScore(b) - getVoiceScore(a);
     });
 
     function formatVoiceLabel(v) {
@@ -1306,6 +1340,7 @@
       utter = new SpeechSynthesisUtterance(textToRead);
       utter.rate = currentSpeed;
       utter.pitch = 1.0;
+      window._activeSpeechUtterance = utter; // 防止 Chromium/WebKit GC 回收导致长文本断音
 
       var voices = window.speechSynthesis.getVoices() || [];
       if (currentVoiceURI) {
