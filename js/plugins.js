@@ -12,19 +12,19 @@ const ALL_PLUGINS = [
     provider: 'AnySearch',
     category: 'search',
     icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
-    description: '实时检索全网最新资讯、新闻与实时事实数据',
+    description: '实时检索全网最新资讯、技术文档与通用网页事实',
     defaultEnabled: true,
     toolSchema: {
       type: 'function',
       function: {
         name: 'web_search',
-        description: 'Search the live internet for up-to-date facts, current events, recent news, official documentation, or real-time data when your internal knowledge is insufficient or temporal verification is needed.',
+        description: 'Search the live internet for general web information, technical documentation, coding tutorials, encyclopedic facts, company websites, and public pages across the entire web. When looking specifically for breaking journalistic news, headlines, or press reports from media outlets, prefer using `news_search`.',
         parameters: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'The targeted search query keywords optimized for search engines (concise and specific).'
+              description: 'Targeted keyword query optimized for general search engines (concise and specific).'
             }
           },
           required: ['query']
@@ -272,13 +272,13 @@ const ALL_PLUGINS = [
       type: 'function',
       function: {
         name: 'news_search',
-        description: 'Search breaking news articles, international headlines, and current global events from 80,000+ trusted news sources worldwide via NewsAPI.',
+        description: 'Search journalistic news articles, breaking international headlines, press releases, and editorial media coverage from 80,000+ trusted news agencies and journalism outlets worldwide via NewsAPI. For technical documentation, developer tutorials, company homepages, or general encyclopedic search, prefer `web_search`.',
         parameters: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Targeted news search topic or current event keywords.'
+              description: 'Targeted news search topic or current event keywords (e.g. "G7 summit climate agreement", "Federal Reserve interest rates").'
             }
           },
           required: ['query']
