@@ -17,6 +17,7 @@
     ctx: 'zm.ctx',
     webSearch: 'zm.webSearch',
     searchDepth: 'zm.searchDepth',
+    theme: 'zm.theme',
   };
 
   var DB_NAME = 'ZenMuxChatDB';
@@ -27,7 +28,9 @@
 
   var el = {
     sidebar: $('sidebar'), sidebarBackdrop: $('sidebar-backdrop'), sidebarToggle: $('sidebar-toggle'), burger: $('burger'), newChat: $('new-chat'), convList: $('conv-list'),
-    model: $('model'), effort: $('effort'), searchDepth: $('search-depth'), ctx: $('ctx'), logout: $('logout'),
+    model: $('model'), effort: $('effort'), searchDepth: $('search-depth'), ctx: $('ctx'),
+    themeToggle: $('theme-toggle'), themeIconSun: $('theme-icon-sun'), themeIconMoon: $('theme-icon-moon'),
+    logout: $('logout'),
     thread: $('thread'), threadInner: $('thread-inner'),
     input: $('input'), send: $('send'), stop: $('stop'),
     attachBtn: $('attach-btn'), webSearchBtn: $('web-search-btn'), voiceBtn: $('voice-btn'), fileInput: $('file-input'), attachmentsTray: $('composer-attachments'),
@@ -40,6 +43,7 @@
   var state = {
     token: localStorage.getItem(LS.token) || '',
     model: localStorage.getItem(LS.model) || '',
+    theme: localStorage.getItem(LS.theme) || 'dark',
     conversations: [],
     currentId: localStorage.getItem(LS.cur) || null,
     currentConv: null,
@@ -2158,7 +2162,38 @@
   if (el.sidebarBackdrop) {
     el.sidebarBackdrop.addEventListener('click', closeSidebar);
   }
-  el.thread.addEventListener('click', closeSidebar);
+  /* ---------- Theme (Dark / Light) Management ---------- */
+  function applyTheme(theme) {
+    var isLight = (theme === 'light');
+    if (isLight) {
+      document.documentElement.setAttribute('data-theme', 'light');
+      if (el.themeIconSun) el.themeIconSun.style.display = 'none';
+      if (el.themeIconMoon) el.themeIconMoon.style.display = 'block';
+      if (el.themeToggle) el.themeToggle.title = '切换为深色外观';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      if (el.themeIconSun) el.themeIconSun.style.display = 'block';
+      if (el.themeIconMoon) el.themeIconMoon.style.display = 'none';
+      if (el.themeToggle) el.themeToggle.title = '切换为浅色外观';
+    }
+    state.theme = isLight ? 'light' : 'dark';
+    localStorage.setItem(LS.theme, state.theme);
+  }
+
+  // 初始化主题（优先读取存储，次之跟随系统配色偏好）
+  var savedTheme = localStorage.getItem(LS.theme);
+  if (!savedTheme) {
+    savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  }
+  applyTheme(savedTheme);
+
+  if (el.themeToggle) {
+    el.themeToggle.addEventListener('click', function () {
+      var nextTheme = (state.theme === 'light') ? 'dark' : 'light';
+      applyTheme(nextTheme);
+      toast(nextTheme === 'light' ? '已切换至浅色模式' : '已切换至深色模式', 'info');
+    });
+  }
 
   el.model.addEventListener('change', function () {
     state.model = el.model.value.trim();
