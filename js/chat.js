@@ -1,6 +1,6 @@
-import { el, state, uid, esc, getSearchCountByDepth } from './state.js';
+import { el, state, uid, esc } from './state.js';
 import { ZenMuxDB } from './db.js';
-import { WebSearchService, WebExtractService } from './search.js';
+import { PluginRegistry } from './plugins.js';
 import { renderMd, renderParts } from './markdown.js';
 import { appendBubble, createSourcesElement, createActionsToolbar, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
 
@@ -144,11 +144,11 @@ export async function executeAssistantStream(userMsg, options = {}) {
       if (state.effort === 'off') p.reasoning = { enabled: false };
       else p.reasoning_effort = state.effort;
     }
-    if (allowTools && state.webSearch) {
-      p.tools = [
-        WebSearchService.getToolSchema(),
-        WebExtractService.getToolSchema()
-      ];
+    if (allowTools) {
+      const activePlugins = PluginRegistry.getActivePlugins();
+      if (activePlugins.length) {
+        p.tools = activePlugins.map((pl) => pl.toolSchema);
+      }
     }
     return p;
   }
@@ -172,7 +172,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
       col.appendChild(rDetails);
     }
 
-    // 2. 实时搜索/抓取状态动画 (Active Tool Execution Progress)
+    // 2. 实时插件调用状态动画 (Active Tool Execution Progress)
     if (isSearching) {
       const searchBox = document.createElement('div');
       searchBox.className = 'search-status';
@@ -228,7 +228,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
   try {
     while (true) {
-      // 在所有连续轮次中始终保留 tools 定义，使模型可进行多步检索与抓取
+      // 在所有连续轮次中始终保留当前激活插件的 tools 定义
       const payload = buildPayload(currentHistory, true);
       const streamResult = await runStream(payload);
 
@@ -257,76 +257,42 @@ export async function executeAssistantStream(userMsg, options = {}) {
       const toolCallId = activeCall.id || ('call_' + uid());
       let toolResultContent = '';
 
-      if (fnName === 'web_search') {
-        const searchQuery = (fnArgs.query || userMsg.displayContent || userMsg.content || '').trim();
+      const plugin = PluginRegistry.getByToolName(fnName);
+      if (plugin) {
         isSearching = true;
-        searchStatusText = `正在实时检索：${searchQuery}…`;
+        searchStatusText = `正在调用【${plugin.name}】插件…`;
         renderLiveUI(false);
         toBottom();
 
-        const searchCount = getSearchCountByDepth(state.searchDepth);
-        let stepSources = [];
+        let pluginResult = null;
         try {
-          stepSources = await WebSearchService.search(searchQuery, state.token, searchCount);
+          pluginResult = await plugin.execute(fnArgs, state.token);
         } catch (err) {
-          if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
-            toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
-          } else {
-            toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
-          }
-          stepSources = [];
-        }
-
-        // 聚合参考来源并去重
-        stepSources.forEach((s) => {
-          if (!activeSources.some((existing) => existing.url === s.url)) {
-            activeSources.push(s);
-          }
-        });
-
-        isSearching = false;
-        const count = stepSources.length;
-        const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
-        reasonAcc += searchMarker;
-
-        toolResultContent = WebSearchService.formatToolResult(stepSources);
-      } else if (fnName === 'web_extract') {
-        const targetUrl = (fnArgs.url || '').trim();
-        isSearching = true;
-        searchStatusText = `正在深度抓取网页：${targetUrl}…`;
-        renderLiveUI(false);
-        toBottom();
-
-        let extractResult = null;
-        try {
-          extractResult = await WebExtractService.extract(targetUrl, state.token);
-        } catch (err) {
-          if (err && /FIRECRAWL_API_KEY/.test(err.message)) {
-            toast('服务端未配置 FIRECRAWL_API_KEY 环境变量', 'info');
-          } else {
-            toast('网页提取提示: ' + (err.message || '抓取网页失败'), 'info');
-          }
-          extractResult = { url: targetUrl, title: targetUrl, markdown: `抓取失败: ${err.message}` };
-        }
-
-        if (extractResult && extractResult.url) {
-          if (!activeSources.some((existing) => existing.url === extractResult.url)) {
-            activeSources.push({
-              title: extractResult.title || extractResult.url,
-              url: extractResult.url,
-              snippet: extractResult.description || (extractResult.markdown ? extractResult.markdown.slice(0, 150) : '')
-            });
-          }
+          toast(`插件【${plugin.name}】提示: ${err.message || '调用失败'}`, 'info');
+          pluginResult = { error: err.message };
         }
 
         isSearching = false;
-        const charCount = extractResult && extractResult.length ? extractResult.length : (extractResult.markdown ? extractResult.markdown.length : 0);
-        const extractMarker = `\n\n> ✦ **已提取网页内容**：[${extractResult.title || targetUrl}](${targetUrl}) (共 ${charCount} 字符)\n\n`;
-        reasonAcc += extractMarker;
 
-        toolResultContent = WebExtractService.formatToolResult(extractResult);
+        // 格式化并并入思考过程时间线标记
+        if (typeof plugin.formatCoTMarker === 'function') {
+          const cotMarker = plugin.formatCoTMarker(fnArgs, pluginResult);
+          if (cotMarker) reasonAcc += cotMarker;
+        }
+
+        // 提取并聚合参考来源
+        if (typeof plugin.getSources === 'function') {
+          const sources = plugin.getSources(pluginResult) || [];
+          sources.forEach((s) => {
+            if (s && s.url && !activeSources.some((existing) => existing.url === s.url)) {
+              activeSources.push(s);
+            }
+          });
+        }
+
+        toolResultContent = plugin.formatToolResult(pluginResult);
       } else {
-        toolResultContent = `未知工具: ${fnName}`;
+        toolResultContent = `未知工具或插件未启用: ${fnName}`;
       }
 
       const asstToolMsg = {

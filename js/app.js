@@ -7,6 +7,7 @@ import { initTheme } from './theme.js';
 import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream } from './chat.js';
+import { PluginRegistry } from './plugins.js';
 
 /* ---------- Responsive Sidebar State Persistence ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -152,15 +153,73 @@ export function loadModels() {
     });
 }
 
-export function syncWebSearchBtn() {
-  if (!el.webSearchBtn) return;
-  if (state.webSearch) {
-    el.webSearchBtn.classList.add('active');
-    el.webSearchBtn.title = '联网搜索：已开启（实时全网检索增强，点击关闭）';
-  } else {
-    el.webSearchBtn.classList.remove('active');
-    el.webSearchBtn.title = '联网搜索：已关闭（点击开启实时全网检索）';
+export function syncPluginsUI() {
+  const count = PluginRegistry.getActiveCount();
+  if (el.pluginsBadge) el.pluginsBadge.textContent = String(count);
+  if (el.pluginsBtn) {
+    if (count > 0) {
+      el.pluginsBtn.classList.add('active');
+      el.pluginsBtn.title = `扩展插件与工具（已激活 ${count} 个插件，点击配置）`;
+    } else {
+      el.pluginsBtn.classList.remove('active');
+      el.pluginsBtn.title = '扩展插件与工具（当前未开启任何插件，点击配置）';
+    }
   }
+  const summaryEl = document.getElementById('plugins-active-summary');
+  if (summaryEl) {
+    summaryEl.textContent = count > 0 ? `已启用 ${count} 个插件` : '当前未启用任何插件';
+  }
+}
+
+export function renderPluginsModalList() {
+  if (!el.pluginsList) return;
+  const all = PluginRegistry.getAll();
+  el.pluginsList.innerHTML = '';
+
+  all.forEach((plugin) => {
+    const isChecked = PluginRegistry.isEnabled(plugin.id);
+    const card = document.createElement('div');
+    card.className = `plugin-card ${isChecked ? 'active' : ''}`;
+    card.innerHTML = `
+      <div class="plugin-card-left">
+        <div class="plugin-icon-box">${plugin.icon}</div>
+        <div class="plugin-info">
+          <div class="plugin-title-row">
+            <span class="plugin-name">${esc(plugin.name)}</span>
+            <span class="plugin-provider">${esc(plugin.provider || '')}</span>
+          </div>
+          <div class="plugin-desc">${esc(plugin.description || '')}</div>
+        </div>
+      </div>
+      <label class="plugin-switch" title="开启/关闭此插件">
+        <input type="checkbox" data-plugin-id="${plugin.id}" ${isChecked ? 'checked' : ''}>
+        <span class="plugin-switch-slider"></span>
+      </label>
+    `;
+
+    const checkbox = card.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        PluginRegistry.toggle(plugin.id, e.target.checked);
+        if (e.target.checked) card.classList.add('active');
+        else card.classList.remove('active');
+        syncPluginsUI();
+      });
+    }
+
+    el.pluginsList.appendChild(card);
+  });
+
+  syncPluginsUI();
+}
+
+export function openPluginsModal() {
+  renderPluginsModalList();
+  if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.remove('hide');
+}
+
+export function closePluginsModal() {
+  if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.add('hide');
 }
 
 export function renderAttachments() {
@@ -689,12 +748,24 @@ function initEventListeners() {
     });
   }
 
-  if (el.webSearchBtn) {
-    el.webSearchBtn.addEventListener('click', () => {
-      state.webSearch = !state.webSearch;
-      localStorage.setItem(LS.webSearch, state.webSearch ? '1' : '0');
-      syncWebSearchBtn();
-      toast('联网搜索已' + (state.webSearch ? '开启' : '关闭'), 'info');
+  // Plugins Modal triggers
+  if (el.pluginsBtn) el.pluginsBtn.addEventListener('click', openPluginsModal);
+  if (el.pluginsClose) el.pluginsClose.addEventListener('click', closePluginsModal);
+  if (el.pluginsModalBackdrop) {
+    el.pluginsModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === el.pluginsModalBackdrop) closePluginsModal();
+    });
+  }
+  if (el.pluginsEnableAll) {
+    el.pluginsEnableAll.addEventListener('click', () => {
+      PluginRegistry.getAll().forEach((p) => PluginRegistry.toggle(p.id, true));
+      renderPluginsModalList();
+    });
+  }
+  if (el.pluginsDisableAll) {
+    el.pluginsDisableAll.addEventListener('click', () => {
+      PluginRegistry.getAll().forEach((p) => PluginRegistry.toggle(p.id, false));
+      renderPluginsModalList();
     });
   }
 
@@ -706,8 +777,9 @@ function initEventListeners() {
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && el.lightbox && !el.lightbox.classList.contains('hide')) {
-      closeLightbox();
+    if (e.key === 'Escape') {
+      if (el.lightbox && !el.lightbox.classList.contains('hide')) closeLightbox();
+      if (el.pluginsModalBackdrop && !el.pluginsModalBackdrop.classList.contains('hide')) closePluginsModal();
     }
   });
 
@@ -780,7 +852,7 @@ export function initApp() {
   if (el.ctx) el.ctx.value = String(state.ctxN);
 
   syncModelCapabilities();
-  syncWebSearchBtn();
+  syncPluginsUI();
   initVoiceInput();
   autoGrow();
   syncSend();

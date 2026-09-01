@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.2.0';
+export const APP_VERSION = '2.3.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -12,6 +12,7 @@ export const LS = {
   ctx: 'zm.ctx',
   webSearch: 'zm.webSearch',
   searchDepth: 'zm.searchDepth',
+  activePlugins: 'zm.plugins.active',
   theme: 'zm.theme',
 };
 
@@ -45,10 +46,19 @@ export const el = {
 
   attachBtn: $('attach-btn'),
   webSearchBtn: $('web-search-btn'),
+  pluginsBtn: $('plugins-btn'),
+  pluginsBadge: $('plugins-badge'),
   voiceBtn: $('voice-btn'),
   fileInput: $('file-input'),
   attachmentsTray: $('composer-attachments'),
   dropOverlay: $('drop-overlay'),
+
+  pluginsModal: $('plugins-modal'),
+  pluginsModalBackdrop: $('plugins-modal-backdrop'),
+  pluginsList: $('plugins-list'),
+  pluginsClose: $('plugins-close'),
+  pluginsEnableAll: $('plugins-enable-all'),
+  pluginsDisableAll: $('plugins-disable-all'),
 
   lightbox: $('lightbox'),
   lightboxImg: $('lightbox-img'),
