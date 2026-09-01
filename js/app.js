@@ -554,10 +554,10 @@ function initVoiceInput() {
       };
 
       recognition.onresult = (event) => {
-        let interimTranscript = '';
         let finalTranscript = '';
+        let interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
           } else {
@@ -565,9 +565,10 @@ function initVoiceInput() {
           }
         }
 
-        const combined = (finalTranscript || interimTranscript).trim();
-        if (combined && el.input) {
-          el.input.value = (initialText ? initialText + ' ' : '') + combined;
+        const currentSpoken = (finalTranscript + interimTranscript).trim();
+        if (el.input) {
+          const prefix = initialText.trim();
+          el.input.value = (prefix ? prefix + ' ' : '') + currentSpoken;
           autoGrow();
           syncSend();
         }
