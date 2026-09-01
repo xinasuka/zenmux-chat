@@ -2285,14 +2285,12 @@
           var err = event && event.error ? event.error : '';
           if (err === 'not-allowed' || err === 'permission-denied') {
             toast('麦克风权限未开启，请在手机浏览器或系统设置中允许使用麦克风', 'error');
-          } else if (err === 'network') {
-            toast('语音识别网络连接失败（手机 Chrome 需系统支持 Google 语音服务并保持联网）', 'error');
-          } else if (err === 'service-not-allowed') {
-            toast('手机当前环境未启用语音识别服务', 'error');
+          } else if (err === 'network' || err === 'service-not-allowed') {
+            toast('当前手机浏览器语音引擎不可用，建议直接使用手机输入法自带的语音输入 🎙️', 'info');
           } else if (err === 'no-speech') {
             toast('未检测到说话声音，已自动结束', 'info');
           } else if (err && err !== 'aborted') {
-            toast('语音识别提示: ' + err, 'info');
+            toast('语音输入提示: ' + err + '，建议使用手机键盘自带语音', 'info');
           }
           forceReset();
         };
