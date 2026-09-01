@@ -1,8 +1,13 @@
 # ZenMux Chat
 
-<p align="left">
-  <b>简体中文</b> | <a href="./README_EN.md">English</a>
+<p align="center">
+  <b>高性能个人 AI 工作站 · 腾讯云 EdgeOne 边缘函数反代 · 纯原生双向神经语音 · 客户端全模态解析 · 零成本免代理直连</b>
 </p>
+
+---
+
+<details open>
+<summary><h2 style="display:inline-block; cursor:pointer;">🇨🇳 简体中文文档 (点击展开/折叠)</h2></summary>
 
 基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代极简前端 + 客户端全模态解析引擎 + 边缘函数安全反代 + AI 原生实时联网检索 + 纯原生神经语音双向交互**。
 
@@ -39,7 +44,7 @@ sequenceDiagram
 
 ---
 
-## 一、 核心设计理念（Design Rationale）
+### 一、 核心设计理念（Design Rationale）
 
 1. **解决跨境直连与网络阻断痛点**：
    ZenMux.ai 聚合了全球顶尖的商业与开源大模型，但在中国大陆常规网络环境下受阻。通过部署在 EdgeOne 国际版境外 Anycast 边缘节点，客户端发起一跳请求直达边缘节点，再由边缘节点同域转发至 ZenMux，**彻底摆脱了客户端代理工具的束缚**。
@@ -56,9 +61,9 @@ sequenceDiagram
 
 ---
 
-## 二、 核心功能与模块实现
+### 二、 核心功能与模块实现
 
-### 1. 纯原生神经语音双向交互 (`Web Speech Engine`)
+#### 1. 纯原生神经语音双向交互 (`Web Speech Engine`)
 * **专属下拉音频播放器面板（`.msg-tts-player`）**：
   点击回复底部的 `[ 🔊 朗读 ]`，顺滑展开深色磨砂播放器：
   - **进度自由拖拽**：支持在进度条任意位置点击或拖动直接跳转（Seek）；
@@ -69,21 +74,21 @@ sequenceDiagram
   - 输入框一键点击说话，麦克风呈现呼吸发光录音态，字随声动实时注入输入框；
   - 智能环境适配与友好指引（iOS 提示使用 Safari，安卓引导配合键盘语音）。
 
-### 2. 移动端双层复合输入布局 (`styles.css` & `index.html`)
+#### 2. 移动端双层复合输入布局 (`styles.css` & `index.html`)
 * **移动端排版革命**：在手机或窄屏设备下，自动重构为双层布局：
   - **顶部功能条（`.composer-toolbar`）**：附件、联网搜索、语音输入集中排布在上方，触控间距舒适；
   - **底部整行输入区（`.composer-main-row`）**：输入框独享 100% 完整屏宽，彻底告别被多个按钮横向挤压的痛点。
 * **桌面端自适应**：宽屏下自动还原为沉浸式一体化水平单行布局。
 
-### 3. Token 消耗统计卡片与会话累计计数器
+#### 3. Token 消耗统计卡片与会话累计计数器
 * **消息级消耗详情抽屉**：每轮 AI 回答操作栏紧跟 `[ ℹ️ X Tokens ]` 按钮，点击顺滑展开卡片，清晰呈现 **输入 Tokens、输出 Tokens、本轮总计、会话累计 Tokens 与响应模型**；
 * **侧边栏全局计数器**：侧边栏底部实时显示当前会话的累计总 Token 消耗。
 
-### 4. 模型无关自适应参数降级与容错重试 (`api/chat.js`)
+#### 4. 模型无关自适应参数降级与容错重试 (`api/chat.js`)
 * **全模型通用适配**：自动探测并适配不同模型对参数的苛刻要求（如 OpenAI `o1`/`o3` 与 Anthropic 对 `temperature` 或 `stream_options` 的报错）；
 * **边缘自治重试**：当上游因弃用参数返回 HTTP 400 时，边缘函数自动剔除冲突字段并即时发起重试，对用户端完全透明。
 
-### 5. 客户端多模态与文件解析引擎 (`app.js`)
+#### 5. 客户端多模态与文件解析引擎 (`app.js`)
 * **图像智能降采样与压缩（`ImageProcessor`）**：
   在客户端利用 HTML5 Canvas 2D 进行自适应双线性插值压缩，将 5~15MB 原始图片无损压缩至 80~250KB，**完美规避边缘函数 1MB 请求体硬上限**；
 * **代码与文档就地文本提取（`FileTextExtractor`）**：
@@ -92,7 +97,7 @@ sequenceDiagram
   - **标准上下文注入**：以 Markdown 围栏隔离注入 Prompt，让所有大模型均可直接分析长文档；
 * **Token 容量防御安全阀**：单文件设立 10 万字符防御性截断机制。
 
-### 6. 实时全网检索与多档位控制 (`api/search.js`)
+#### 6. 实时全网检索与多档位控制 (`api/search.js`)
 * **AI 原生前置检索**：用户提问直接由搜索引擎进行意图分析与向量检索，提取高密度 Snippet 构建 Grounding Context，较抓取整页 HTML **节省 80%+ Prompt Token**；
 * **4 级搜索深度调节**：
   - **`搜索 精炼` (3 条)**：极速低消耗，适合简单事实与天气查询；
@@ -101,91 +106,167 @@ sequenceDiagram
   - **`搜索 全面` (20 条)**：触达 API 物理上限，适合研报级事实汇总；
 * **来源溯源卡片**：底部自适应渲染 `<details class="msg-sources">` 折叠卡片，包含序号、标题、域名与直达链接。
 
-### 7. 高性能异步存储引擎 (`ZenMuxDB`)
+#### 7. 高性能异步存储引擎 (`ZenMuxDB`)
 * 基于浏览器原生 **IndexedDB**（数据库：`ZenMuxChatDB`，对象仓库：`conversations`）；
 * 突破传统 `localStorage` 5MB 配额限制，支持海量历史会话、长文与图片数据的流畅持久化。
 
 ---
 
-## 三、 快速部署指南
+### 三、 快速部署指南
 
-### 前置准备
+#### 前置准备
 1. **EdgeOne 国际站账号**：注册于 [edgeone.ai](https://edgeone.ai)（非腾讯云国内站）；
 2. **GitHub 账号与代码仓库**：Fork 或推送本项目；
 3. **自定义域名**：准备一个二级域名（如 `chat.yourdomain.com`），**免备案且无 401 限制**；
 4. **ZenMux API Key**：在 [zenmux.ai](https://zenmux.ai) 控制台生成；
 5. **AnySearch API Key** *(可选)*：在 [anysearch.com](https://anysearch.com) 控制台生成（用于联网搜索）。
 
----
+#### 部署步骤
+1. **导入项目**：登录 [edgeone.ai](https://edgeone.ai) → **Pages** → **Create project** → 选择本仓库；
+2. **加速区域配置**：**Acceleration Region 务必选择 `Global availability zone (exclude Chinese mainland)`**（全球免备案）；
+3. **构建配置**：Framework Preset 选 `Other`，Build Command 留空，Output Directory 填 `.`；
+4. **绑定域名**：添加自定义二级域名，并在 DNS 处添加 TXT 与 CNAME 记录，开启免费 HTTPS；
+5. **配置环境变量 (Secrets)**：在 **Settings** → **Environment Variables** 添加：
+   - `ZENMUX_API_KEY`: ZenMux 聚合大模型 API Key
+   - `ACCESS_TOKEN`: 自定义前端访问密码
+   - `ANYSEARCH_API_KEY`: *(可选)* AnySearch 检索 Key
+6. 点击 **Redeploy** 即可上线使用！
 
-### 部署步骤
+</details>
 
-#### 第 1 步：导入 EdgeOne Pages 项目
-1. 登录 [edgeone.ai 控制台](https://edgeone.ai) → 进入 **Pages**（或 **Makers**）；
-2. 点击 **Create project** → **Import a Git Repository** → 选择本仓库；
-3. 构建配置填入：
-   - **Framework Preset**: 留空或选择 `Other`
-   - **Build Command**: 留空
-   - **Output Directory**: `.`（一个英文点，表示项目根目录）
-4. **Acceleration Region（加速区域）务必选择 `Global availability zone (exclude Chinese mainland)`**
-   > ⚠️ **极为重要**：选择“全球可用区（不含中国大陆）”**完全免 ICP 备案**。
-5. 点击 **Start deployment** 完成初次构建。
+<br>
 
-#### 第 2 步：绑定自定义域名与申请 SSL 证书
-1. 进入项目页 → **Domain Management** → **Add custom domain**；
-2. 填入您的二级域名（如 `chat.yourdomain.com`）；
-3. 在域名解析服务商（Cloudflare / DNSPod / 阿里云等）添加 EdgeOne 给出的 **两项解析记录**：
-   - **TXT 记录**（用于域名所有权校验）
-   - **CNAME 记录**（用于流量接入调度）
-4. 校验通过后，在域名列表点击 **HTTPS configuration** → 选择 **Apply for free certificate**（免费自动续期证书）并开启 **Force HTTPS Access**。
+<details>
+<summary><h2 style="display:inline-block; cursor:pointer;">🇺🇸 English Documentation (Click to expand/collapse)</h2></summary>
 
-#### 第 3 步：配置环境变量（Secrets）
-进入项目页 → **Settings** → **Environment Variables**，添加以下加密变量：
+A high-performance, serverless personal AI workstation built on **Tencent Cloud EdgeOne Pages (Global Edition - edgeone.ai)**: **Modern Minimalist UI + Client-Side Multimodal Parsing Engine + Secure Edge Function Proxy + AI-Native Real-Time Web Search + Native Neural Voice Integration**.
 
-| 变量名 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| `ZENMUX_API_KEY` | **Secret** | 在 zenmux.ai 获取的大模型 API 密钥 |
-| `ACCESS_TOKEN` | **Secret** | 自行设定的前端访问口令（防止接口被盗刷） |
-| `ANYSEARCH_API_KEY` | **Secret** | *(可选)* 在 anysearch.com 获取的检索密钥，用于开启实时全网联网搜索 |
+Enables **zero-proxy, high-speed direct access** to the full spectrum of state-of-the-art LLMs via the ZenMux platform (OpenAI / Anthropic / Gemini / DeepSeek / Qwen / LLaMA, etc.) within mainland China network environments. API keys remain strictly encapsulated within the edge runtime, paired with local IndexedDB persistence, incurring **¥0 monthly infrastructure overhead**.
 
-添加完成后，点击项目右上角 **Redeploy** 重新部署以使变量生效。
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 Client / Browser
+    participant Edge as ⚡ EdgeOne Global Anycast Node
+    participant Search as 🌐 AnySearch Engine
+    participant ZenMux as 🤖 ZenMux Aggregation Platform
 
----
-
-## 四、 本地开发与联调
-
-由于本项目前端为零依赖纯静态架构，可直接启动本地服务器：
-
-```bash
-# 方式 1：Node 本地预览
-npm run dev
-
-# 方式 2：Python 快速服务
-python3 -m http.server 8088
+    Note over User: Canvas Compression / 40+ Source & PDF Extraction / Native Dictation (STT)
+    User->>Edge: Dispatch Chat Request (Carries X-Access-Token)
+    Edge->>Edge: Validate Gate Token & Ingest Encrypted Secrets
+    opt Real-Time Web Search Enabled
+        Edge->>Search: Dense Semantic Web Search (4 Depth Levels)
+        Search-->>Edge: Return High-Density Snippets
+        Edge->>Edge: Synthesize RAG Grounding Context
+    end
+    Edge->>ZenMux: Stream Prompt Forwarding (Inject Secret ZENMUX_API_KEY)
+    ZenMux-->>Edge: SSE Zero-Buffered Token Stream & Usage Metadata
+    Edge-->>User: ReadableStream Zero-Copy Relay
+    Note over User: Lightweight Markdown Rendering / Native TTS Player / Token Usage Metrics / IndexedDB Storage
 ```
 
-如需在本地同时模拟 EdgeOne 边缘函数环境，可安装官方 CLI：
-```bash
-npm i -g edgeone
-edgeone login
-edgeone pages link
-edgeone pages dev
-```
-
----
-
-## 五、 工程边界与注意事项 (Engineering Guardrails)
-
-| 维度 | 限制与边界 | 应对与保障机制 |
+| Architectural Tier | Execution Host | Core Responsibilities & Key Technologies |
 | :--- | :--- | :--- |
-| **边缘函数请求体上限** | 单次 POST 请求体约为 **1MB ~ 2MB** | 客户端 Canvas 自动将图片采样压缩至 200KB 内，保证多图请求依然稳健 |
-| **函数执行生命周期** | Edge Functions 最长单次连接为 **120 秒** | 避免开启超长推理耗时任务，支持前端随时点击「■ 停止」中断流式 |
-| **域名访问限制** | EdgeOne 默认赠送的 `*.edgeone.app` 在大陆访问会触发 401 限制 | 绑定免备案自定义域名并开启全球加速（不含大陆区）彻底解决 |
-| **大模型上下文窗口** | 超大文件注入可能耗尽 Token 配额 | `FileTextExtractor` 设立 10 万字符防御性截断机制 |
+| **💻 Client Tier** | Local Browser (Local-First) | Canvas adaptive image compression, 40+ code/PDF local extraction, Native TTS/STT, Dual-tier mobile layout, IndexedDB persistence |
+| **⚡ Edge Gateway Tier** | EdgeOne Anycast Edge Nodes | `X-Access-Token` gate authentication, Secret encapsulation, Adaptive parameter self-healing (HTTP 400 pruning), `X-Accel-Buffering: no` SSE zero-copy relay |
+| **🌐 Web Search Tier** | AnySearch Engine | AI-native semantic retrieval, dense snippet extraction saving 80%+ tokens, 4-tier granular search depth |
+| **🤖 Compute Tier** | ZenMux Aggregation Platform | Seamless upstream connectivity across cutting-edge LLMs (DeepSeek-V3/R1, Claude 3.7/3.5, GPT-4o/o1/o3, Qwen 2.5, etc.) |
 
 ---
 
-## 六、 仓库目录结构
+### 1. Core Design Philosophy
+
+1. **Circumventing Cross-Border Network Latency & Blockades**:
+   ZenMux.ai aggregates premier global commercial and open-source models, yet is hindered under conventional mainland Chinese networks. By deploying onto EdgeOne Global Anycast edge nodes, client requests travel in a single hop to offshore edge workers, which subsequently forward payloads within the same geographical zone—**completely obviating client-side proxy tools**.
+2. **Defensive Cryptographic Isolation (API Keys Never Leak)**:
+   The frontend authenticates solely via a custom gate token (`ACCESS_TOKEN`). Sensitive upstream `API_KEY`s for ZenMux and AnySearch reside strictly within EdgeOne's encrypted Secret environment variables, preventing exposure via client-side inspect tools or packet analysis.
+3. **Zero-Cost Bidirectional Native Voice Ecosystem**:
+   - **TTS Audio Player**: Built upon the W3C Web Speech API, with runtime browser-native sniffing that dynamically binds premier voices (Edge Xiaoxiao/Yunxi Neural, Apple Tingting/Siri, Chrome Mandarin), paired with an interactive collapsible drawer offering zero-latency `0.75x ~ 2.0x` lossless speed control;
+   - **STT Voice Dictation**: One-touch voice input streaming live transcription into the textarea, optimized with session isolation and pause-commit heuristics for mobile devices.
+4. **Pre-Retrieval Dense Semantic RAG (AnySearch Integration)**:
+   Avoids traditional multi-step LLM Tool Calls that incur double round-trip latencies (4~8s) and excessive token billing. Natural language semantic queries retrieve dense fact snippets prior to generation, **endowing 100% of upstream models (including pure reasoning models) with real-time web search capability**.
+5. **Radical Zero-Maintenance & Zero-Cost Footprint (Serverless & Local-First)**:
+   - **Client-Side Compute**: Image downsampling, PDF parsing, source extraction, Markdown rendering, and title generation occur locally on the user's hardware;
+   - **Local-First Persistence**: Conversation history and attachment metadata are persisted in `IndexedDB`, guaranteeing privacy with zero cloud database fees.
+
+---
+
+### 2. Feature Highlights & Technical Implementation
+
+#### 1. Pure Native Neural Voice Interaction (`Web Speech Engine`)
+* **Collapsible Audio Player Drawer (`.msg-tts-player`)**:
+  Clicking `[ 🔊 Read Aloud ]` expands a frosted dark-themed audio control drawer:
+  - **Interactive Seek Scrubbing**: Scrub or click any point along the timeline to seek instantly;
+  - **Zero-Latency Lossless Speed Control**: Instantaneous `0.75x`, `1.0x`, `1.25x`, `1.5x`, and `2.0x` playback adjustments with 0ms network latency;
+  - **Curated Whitelist Filter**: Strips dozens of legacy synthetic/novelty sound effects, retaining only studio-grade natural voices and auto-prioritizing the host OS default;
+  - **GC Keep-Alive Protection**: Retains global active references to eliminate the notorious 15-second speech cutoff bug in Chromium/WebKit.
+* **Native Voice Dictation (`SpeechRecognition`)**:
+  - One-tap speech-to-text with animated glowing mic indicator, streaming words live into the textarea;
+  - Intelligent fallback diagnostics (guiding iOS users to Safari and Android users to native keyboard voice typing).
+
+#### 2. Dual-Tier Responsive Mobile Layout (`styles.css` & `index.html`)
+* **Mobile Layout Paradigm**: On mobile viewports (`< 768px`), automatically switches to a dual-tier arrangement:
+  - **Top Action Toolbar (`.composer-toolbar`)**: Attachment, web search, and voice dictation buttons are clustered above with comfortable 30px tap targets;
+  - **Bottom Full-Width Input (`.composer-main-row`)**: The `<textarea id="input">` commands 100% full screen width, preventing horizontal compression.
+* **Desktop Consistency**: Seamlessly transitions to a single horizontal integrated bar on widescreen displays.
+
+#### 3. Granular Token Usage Metrics & Session Counter
+* **Per-Turn Consumption Drawer**: Each assistant message features an `[ ℹ️ X Tokens ]` button that smoothly reveals **Prompt Tokens, Completion Tokens, Turn Total, Cumulative Session Tokens, and Model Metadata**;
+* **Sidebar Global Counter**: Real-time cumulative token expenditure displayed in the sidebar footer.
+
+#### 4. Model-Agnostic Parameter Pruning & Autonomous Fallback (`api/chat.js`)
+* **Universal Compatibility**: Intelligently normalizes payloads across disparate model schemas (e.g., pruning unsupported `temperature` or `stream_options` on OpenAI `o1`/`o3` or Anthropic);
+* **Edge Autonomous Retry**: Automatically strips conflicting parameters and retries upon HTTP 400 responses, remaining entirely transparent to the user.
+
+#### 5. Client Multimodal & File Parsing Engine (`app.js`)
+* **Adaptive Canvas Downsampling (`ImageProcessor`)**:
+  Uses HTML5 Canvas 2D bilinear interpolation to compress 5~15MB raw images down to 80~250KB, **bypassing EdgeOne's 1MB request body threshold**;
+* **In-Place Source & Document Extraction (`FileTextExtractor`)**:
+  - **40+ Extensions Natively Parsed**: `.py`, `.js`, `.ts`, `.go`, `.rs`, `.java`, `.c`, `.cpp`, `.sh`, `.sql`, `.json`, `.csv`, `.yaml`, `.xml`, `.log`, `.md`, etc.;
+  - **On-Demand PDF Parsing**: Dynamically ingests PDF.js to extract text;
+  - **Semantic Context Isolation**: Encapsulates files within Markdown fences to allow file analysis on all text models;
+* **Context Capacity Guardrail**: 100,000 character defensive truncation threshold prevents token overflow.
+
+#### 6. Real-Time Web Search with 4 Depth Levels (`api/search.js`)
+* **AI-Native Dense RAG**: Ingests concise fact snippets, saving **80%+ prompt tokens** compared to raw HTML scraping;
+* **Granular Search Depth**:
+  - **`Search Quick` (3 results)**: Minimal latency and low token usage;
+  - **`Search Standard` (5 results, default)**: Optimal balance of coverage and cost;
+  - **`Search Deep` (10 results)**: Multi-source validation for technical research;
+  - **`Search Pro` (20 results)**: Maximum API threshold for comprehensive fact aggregation;
+* **Source Attribution Cards**: Expandable `<details class="msg-sources">` drawer displaying indices, titles, domains, and outbound URLs.
+
+#### 7. High-Capacity Asynchronous Storage (`ZenMuxDB`)
+* Built on browser-native **IndexedDB** (`ZenMuxChatDB`, Object Store: `conversations`);
+* Overcomes the 5MB `localStorage` ceiling, accommodating extensive chat histories, long-form documents, and image assets.
+
+---
+
+### 3. Quick Deployment Guide
+
+#### Prerequisites
+1. **EdgeOne Global Account**: Registered at [edgeone.ai](https://edgeone.ai) (offshore edition);
+2. **GitHub Account & Repository**: Fork or push this repository;
+3. **Custom Domain**: A secondary domain (e.g., `chat.yourdomain.com`), **ICP-exempt with no 401 restrictions**;
+4. **ZenMux API Key**: Generated via [zenmux.ai](https://zenmux.ai);
+5. **AnySearch API Key** *(Optional)*: Generated via [anysearch.com](https://anysearch.com) for real-time web search.
+
+#### Deployment Steps
+1. **Import Project**: Log in to [edgeone.ai](https://edgeone.ai) → **Pages** → **Create project** → Select this repository;
+2. **Acceleration Region**: **MUST select `Global availability zone (exclude Chinese mainland)`** (100% ICP exempt);
+3. **Build Config**: Framework Preset `Other`, Build Command leave empty, Output Directory `.`;
+4. **Bind Domain**: Add your secondary custom domain, configure TXT and CNAME DNS records, enable free HTTPS;
+5. **Configure Secrets**: In **Settings** → **Environment Variables**, add:
+   - `ZENMUX_API_KEY`: API key from zenmux.ai
+   - `ACCESS_TOKEN`: Custom client-side access gate token
+   - `ANYSEARCH_API_KEY`: *(Optional)* Search API key from anysearch.com
+6. Click **Redeploy** to take changes live!
+
+</details>
+
+---
+
+## 仓库目录结构 / Repository Structure
 
 ```text
 ├── index.html                  # 页面结构骨架、移动端双层复合输入框与操作工具条
@@ -198,7 +279,6 @@ edgeone pages dev
 │       └── search.js           # 边缘检索函数：AnySearch 搜索引擎安全代理与鉴权中继
 ├── edgeone.json                # EdgeOne Pages 部署构建规范描述文件
 ├── package.json                # 项目元数据与开发命令
-├── README.md                   # 中文说明文档
-├── README_EN.md                # 英文说明文档 (English Documentation)
+├── README.md                   # 统一双语说明文档 (Unified Bilingual Documentation)
 └── .env.example                # 环境变量配置模板参考
 ```
