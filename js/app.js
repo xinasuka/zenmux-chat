@@ -1,0 +1,778 @@
+// js/app.js
+// Main entrypoint and orchestrator for ZenMux Chat.
+
+import { el, state, LS, uid, formatSize, getHostname } from './state.js';
+import { ZenMuxDB } from './db.js';
+import { initTheme } from './theme.js';
+import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
+import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
+import { executeAssistantStream } from './chat.js';
+
+/* ---------- Responsive Sidebar State Persistence ---------- */
+const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
+const isMobileScreen = () => window.innerWidth <= 768;
+
+if (!isMobileScreen() && localStorage.getItem(LS_SIDEBAR_COLLAPSED) === 'true') {
+  document.body.classList.add('sidebar-collapsed');
+}
+
+export function closeSidebar() {
+  if (el.sidebar) el.sidebar.classList.remove('open');
+  if (el.sidebarBackdrop) el.sidebarBackdrop.classList.remove('active');
+}
+
+export function openSidebar() {
+  if (el.sidebar) el.sidebar.classList.add('open');
+  if (el.sidebarBackdrop) el.sidebarBackdrop.classList.add('active');
+}
+
+export function autoGrow() {
+  if (!el.input) return;
+  el.input.style.height = 'auto';
+  el.input.style.height = Math.min(el.input.scrollHeight, 200) + 'px';
+}
+
+export function syncSend() {
+  const hasContent = !!(el.input && el.input.value.trim()) || state.pendingAttachments.length > 0;
+  if (el.send) el.send.disabled = state.busy || !hasContent || !state.model;
+}
+
+export function hasVision(m) {
+  if (!m) return false;
+  if (Array.isArray(m.input_modalities)) {
+    return m.input_modalities.indexOf('image') !== -1;
+  }
+  if (m.capabilities && m.capabilities.vision) return true;
+  const id = (m.id || '').toLowerCase();
+  return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
+}
+
+function isFree(m) {
+  const p = m.pricings || {};
+  function zero(arr) {
+    if (!arr || !arr.length) return false;
+    for (let i = 0; i < arr.length; i++) if (Number(arr[i].value) !== 0) return false;
+    return true;
+  }
+  return zero(p.prompt) && zero(p.completion);
+}
+
+export function fillModels(list) {
+  if (!el.model) return;
+  el.model.innerHTML = '';
+  state.modelMeta = {};
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = list.length ? '选择模型…' : '无可用模型';
+  el.model.appendChild(ph);
+
+  const groups = {};
+  list.forEach((m) => {
+    state.modelMeta[m.id] = m;
+    const g = m.owned_by || '其他';
+    (groups[g] = groups[g] || []).push(m);
+  });
+
+  Object.keys(groups).sort().forEach((g) => {
+    const og = document.createElement('optgroup');
+    og.label = g;
+    groups[g].forEach((m) => {
+      const o = document.createElement('option');
+      o.value = m.id;
+      let label = m.display_name || m.id;
+      if (hasVision(m)) label += ' ·视觉';
+      if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
+      if (isFree(m)) label += ' ·免费';
+      o.textContent = label;
+      og.appendChild(o);
+    });
+    el.model.appendChild(og);
+  });
+}
+
+export function syncEffort() {
+  if (!el.effort) return;
+  const m = state.modelMeta[state.model];
+  const can = !!(m && m.capabilities && m.capabilities.reasoning);
+  const unknown = !m;
+  el.effort.disabled = !can && !unknown;
+  el.effort.title = can
+    ? '推理强度：ZenMux 不传此参数时默认 medium'
+    : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
+}
+
+export function syncModelCapabilities() {
+  syncEffort();
+}
+
+export function loadModels() {
+  return fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
+    .then((r) => {
+      if (!r.ok) throw new Error(r.status === 401 ? '口令不正确' : `HTTP ${r.status}`);
+      return r.json();
+    })
+    .then((j) => {
+      const list = (j && j.data) || [];
+      if (!list.length) throw new Error('模型列表为空');
+      fillModels(list);
+      const ids = list.map((m) => m.id);
+      if (!state.model || ids.indexOf(state.model) === -1) {
+        state.model = list[0].id;
+      }
+      el.model.value = state.model;
+      localStorage.setItem(LS.model, state.model);
+      syncModelCapabilities();
+      renderThread();
+    })
+    .catch((e) => {
+      toast(`模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
+    });
+}
+
+export function syncWebSearchBtn() {
+  if (!el.webSearchBtn) return;
+  if (state.webSearch) {
+    el.webSearchBtn.classList.add('active');
+    el.webSearchBtn.title = '联网搜索：已开启（实时全网检索增强，点击关闭）';
+  } else {
+    el.webSearchBtn.classList.remove('active');
+    el.webSearchBtn.title = '联网搜索：已关闭（点击开启实时全网检索）';
+  }
+}
+
+export function renderAttachments() {
+  if (!el.attachmentsTray) return;
+  renderAttachmentsTray(
+    state.pendingAttachments,
+    el.attachmentsTray,
+    (idx) => {
+      state.pendingAttachments.splice(idx, 1);
+      renderAttachments();
+      syncSend();
+    },
+    (src) => openLightbox(src)
+  );
+}
+
+export function handleIncomingFiles(fileList) {
+  const m = state.modelMeta[state.model];
+  const canVision = hasVision(m);
+  processIncomingFiles(fileList, state.pendingAttachments, canVision, toast).then((newItems) => {
+    if (newItems && newItems.length) {
+      state.pendingAttachments.push(...newItems);
+      renderAttachments();
+      syncSend();
+      if (el.input) el.input.focus();
+    }
+  });
+}
+
+export function renderConvList() {
+  if (!el.convList) return;
+  el.convList.innerHTML = '';
+  state.conversations.forEach((c) => {
+    const row = document.createElement('div');
+    row.className = 'conv' + (c.id === state.currentId ? ' active' : '');
+
+    let isEditing = false;
+
+    const txt = document.createElement('span');
+    txt.className = 'txt';
+    txt.textContent = c.title || '新对话';
+    txt.title = '双击可修改标题';
+
+    const actions = document.createElement('span');
+    actions.className = 'actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'conv-btn edit';
+    editBtn.title = '重命名';
+    editBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'conv-btn del';
+    delBtn.title = '删除对话';
+    delBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
+    function startEdit() {
+      if (isEditing || state.busy) return;
+      isEditing = true;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'conv-edit-input';
+      input.value = c.title || '';
+
+      function commitEdit() {
+        if (!isEditing) return;
+        isEditing = false;
+        const val = input.value.trim();
+        if (val && val !== c.title) {
+          c.title = val;
+          c.customTitle = true;
+          ZenMuxDB.putConversation(c);
+        }
+        renderConvList();
+      }
+
+      function cancelEdit() {
+        if (!isEditing) return;
+        isEditing = false;
+        renderConvList();
+      }
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+      });
+      input.addEventListener('blur', commitEdit);
+      input.addEventListener('click', (e) => e.stopPropagation());
+
+      row.innerHTML = '';
+      row.appendChild(input);
+      setTimeout(() => { input.focus(); input.select(); }, 20);
+    }
+
+    editBtn.addEventListener('click', (e) => { e.stopPropagation(); startEdit(); });
+    txt.addEventListener('dblclick', (e) => { e.stopPropagation(); startEdit(); });
+
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.busy) return;
+      const titleToDel = c.title || '此对话';
+      if (!window.confirm(`确定要删除对话「${titleToDel}」吗？此操作不可撤销。`)) return;
+      ZenMuxDB.deleteConversation(c.id).then(() => {
+        state.conversations = state.conversations.filter((x) => x.id !== c.id);
+        if (state.currentId === c.id) {
+          state.currentId = state.conversations.length ? state.conversations[0].id : null;
+          state.currentConv = state.conversations.length ? state.conversations[0] : null;
+          if (state.currentId) localStorage.setItem(LS.cur, state.currentId);
+          else localStorage.removeItem(LS.cur);
+        }
+        if (!state.conversations.length) {
+          createNewConversation();
+        } else {
+          renderConvList();
+          renderThread();
+        }
+        syncSend();
+      }).catch((err) => {
+        toast(`删除失败: ${err.message}`, 'error');
+      });
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    row.appendChild(txt);
+    row.appendChild(actions);
+
+    row.addEventListener('click', () => {
+      if (state.busy || state.currentId === c.id || isEditing) return;
+      state.currentId = c.id;
+      state.currentConv = c;
+      localStorage.setItem(LS.cur, c.id);
+      renderConvList();
+      renderThread();
+      closeSidebar();
+    });
+    el.convList.appendChild(row);
+  });
+}
+
+export function createNewConversation() {
+  const c = {
+    id: uid(),
+    title: '新对话',
+    messages: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  return ZenMuxDB.putConversation(c).then(() => {
+    state.conversations.unshift(c);
+    state.currentId = c.id;
+    state.currentConv = c;
+    localStorage.setItem(LS.cur, c.id);
+    renderConvList();
+    renderThread();
+    return c;
+  });
+}
+
+export function loadAllConversations() {
+  return ZenMuxDB.getAllConversations().then((list) => {
+    state.conversations = list;
+    if (!list.length) {
+      return createNewConversation();
+    }
+    const found = list.find((c) => c.id === state.currentId);
+    if (!found) {
+      state.currentId = list[0].id;
+      state.currentConv = list[0];
+    } else {
+      state.currentConv = found;
+    }
+    localStorage.setItem(LS.cur, state.currentId);
+    renderConvList();
+    renderThread();
+  }).catch((err) => {
+    toast(`读取 IndexedDB 会话失败: ${err.message}`, 'error');
+  });
+}
+
+export function regenerateFrom(asstIndex) {
+  const c = state.currentConv;
+  if (!c || !c.messages || state.busy) return;
+
+  let userIndex = asstIndex - 1;
+  while (userIndex >= 0 && c.messages[userIndex].role !== 'user') {
+    userIndex--;
+  }
+  if (userIndex < 0) {
+    toast('未找到上一轮提问', 'info');
+    return;
+  }
+
+  const userMsg = c.messages[userIndex];
+  c.messages = c.messages.slice(0, userIndex + 1);
+  ZenMuxDB.putConversation(c).then(() => {
+    renderThread();
+    executeAssistantStream(userMsg, {
+      onUpdateConvList: renderConvList,
+      onRegenerate: regenerateFrom,
+      onSyncSend: syncSend,
+    });
+  });
+}
+
+export function renderThread() {
+  const c = state.currentConv;
+  if (!el.threadInner) return;
+  el.threadInner.innerHTML = '';
+
+  if (!c || !c.messages || !c.messages.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.innerHTML = `
+      <div class="empty-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </div>
+      <span>${state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '请先在上方选择模型'}</span>
+    `;
+    el.threadInner.appendChild(empty);
+    updateSidebarFooter();
+    return;
+  }
+
+  c.messages.forEach((m, idx) => {
+    el.threadInner.appendChild(
+      bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources, m.usage, m.model, idx, regenerateFrom)
+    );
+  });
+  updateSidebarFooter();
+  if (el.thread) el.thread.scrollTop = el.thread.scrollHeight;
+}
+
+export function send() {
+  const text = (el.input ? el.input.value : '').trim();
+  const atts = state.pendingAttachments.slice();
+  if ((!text && !atts.length) || state.busy) return;
+  if (!state.model) {
+    toast('请先选择模型', 'info');
+    if (el.model) el.model.focus();
+    return;
+  }
+
+  const images = atts.filter((a) => a.type === 'image');
+  const files = atts.filter((a) => a.type === 'file');
+
+  const meta = state.modelMeta[state.model];
+  if (images.length && meta && !hasVision(meta)) {
+    toast('当前模型不支持图片输入，请切换至支持视觉的模型', 'info');
+    return;
+  }
+
+  const c = state.currentConv;
+  if (!c) return;
+
+  const first = c.messages.length === 0;
+
+  if (el.input) el.input.value = '';
+  state.pendingAttachments = [];
+  renderAttachments();
+  autoGrow();
+  syncSend();
+
+  const emptyNode = el.threadInner ? el.threadInner.querySelector('.empty') : null;
+  if (emptyNode && emptyNode.parentNode) {
+    emptyNode.parentNode.removeChild(emptyNode);
+  }
+
+  let fullPrompt = text;
+  if (files.length) {
+    const fileContextBlocks = files.map((f) => {
+      const lang = f.ext || 'text';
+      return `--- 附件文件: ${f.name} (${formatSize(f.size)}${f.lines ? `, ${f.lines}行` : ''}) ---\n\`\`\`${lang}\n${f.text}\n\`\`\`\n--- 附件结束 ---`;
+    }).join('\n\n');
+
+    fullPrompt = fileContextBlocks + (text ? '\n\n' + text : '\n\n请分析以上文件内容。');
+  }
+
+  if (first && !c.customTitle) {
+    c.title = TitleExtractor.cleanUserPrompt(text, files, images);
+    c.autoTitled = true;
+  }
+
+  const userMsg = {
+    id: uid(),
+    role: 'user',
+    content: fullPrompt,
+    displayContent: text,
+    images: images.length ? images : undefined,
+    files: files.length ? files : undefined,
+    createdAt: Date.now()
+  };
+  c.messages.push(userMsg);
+  c.updatedAt = Date.now();
+
+  ZenMuxDB.putConversation(c).then(() => {
+    renderConvList();
+  });
+
+  if (el.threadInner) {
+    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text, null, null, null, c.messages.length - 1, regenerateFrom));
+  }
+
+  executeAssistantStream(userMsg, {
+    onUpdateConvList: renderConvList,
+    onRegenerate: regenerateFrom,
+    onSyncSend: syncSend,
+  });
+}
+
+export function showGate(err) {
+  if (el.gate) el.gate.classList.remove('hide');
+  if (el.gateErr) el.gateErr.textContent = err || '';
+  setTimeout(() => { if (el.gateInput) el.gateInput.focus(); }, 30);
+}
+
+export function hideGate() {
+  if (el.gate) el.gate.classList.add('hide');
+}
+
+export function submitGate() {
+  if (!el.gateInput) return;
+  const v = el.gateInput.value.trim();
+  if (el.gateErr) el.gateErr.textContent = '验证中…';
+  fetch('/api/models', { headers: { 'X-Access-Token': v } })
+    .then((r) => {
+      if (r.status === 401) throw new Error('口令不正确');
+      if (!r.ok) throw new Error('服务端 HTTP ' + r.status);
+      return r.json();
+    })
+    .then((j) => {
+      state.token = v;
+      localStorage.setItem(LS.token, v);
+      localStorage.setItem(LS.gated, '1');
+      hideGate();
+      const list = (j && j.data) || [];
+      fillModels(list);
+      const ids = list.map((m) => m.id);
+      if (list.length && (!state.model || ids.indexOf(state.model) === -1)) {
+        state.model = list[0].id;
+      }
+      if (el.model) el.model.value = state.model;
+      localStorage.setItem(LS.model, state.model);
+      syncModelCapabilities();
+      renderThread();
+      syncSend();
+    })
+    .catch((e) => {
+      showGate(e.message || String(e));
+    });
+}
+
+function initVoiceInput() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isRecording = false;
+
+  function stopRecording() {
+    if (recognition) {
+      try { recognition.stop(); } catch (e) { }
+    }
+    isRecording = false;
+    if (el.voiceBtn) {
+      el.voiceBtn.classList.remove('recording');
+      el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+    }
+  }
+
+  function startRecording() {
+    if (!SpeechRec) {
+      toast('当前浏览器不支持内置语音识别，建议使用手机输入法自带的语音输入功能 🎙️', 'info');
+      return;
+    }
+    try {
+      recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'zh-CN';
+
+      let initialText = el.input ? el.input.value : '';
+
+      recognition.onstart = () => {
+        isRecording = true;
+        if (el.voiceBtn) {
+          el.voiceBtn.classList.add('recording');
+          el.voiceBtn.title = '正在聆听… 再次点击结束语音输入';
+        }
+        toast('正在聆听中，请说话…', 'info');
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const combined = (finalTranscript || interimTranscript).trim();
+        if (combined && el.input) {
+          el.input.value = (initialText ? initialText + ' ' : '') + combined;
+          autoGrow();
+          syncSend();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        const err = event && event.error ? event.error : '';
+        if (err === 'not-allowed' || err === 'permission-denied') {
+          toast('麦克风权限未开启，请在手机浏览器或系统设置中允许使用麦克风', 'error');
+        } else if (err === 'network' || err === 'service-not-allowed') {
+          toast('当前手机浏览器语音引擎不可用，建议直接使用手机输入法自带的语音输入 🎙️', 'info');
+        } else if (err === 'no-speech') {
+          toast('未检测到说话声音，已自动结束', 'info');
+        } else if (err && err !== 'aborted') {
+          toast(`语音输入提示: ${err}，建议使用手机键盘自带语音`, 'info');
+        }
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        if (el.voiceBtn) {
+          el.voiceBtn.classList.remove('recording');
+          el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+        }
+        recognition = null;
+      };
+
+      recognition.start();
+    } catch (err) {
+      stopRecording();
+      toast(`启动麦克风失败: ${err.message || '请检查权限'}`, 'error');
+    }
+  }
+
+  if (el.voiceBtn) {
+    el.voiceBtn.addEventListener('click', () => {
+      if (isRecording) stopRecording();
+      else startRecording();
+    });
+  }
+}
+
+/* ---------- Global Event Listeners Registration ---------- */
+function initEventListeners() {
+  if (el.input) {
+    el.input.addEventListener('input', () => { autoGrow(); syncSend(); });
+    el.input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        send();
+      }
+    });
+  }
+
+  if (el.send) el.send.addEventListener('click', send);
+  if (el.stop) el.stop.addEventListener('click', () => {
+    if (state.controller) state.controller.abort();
+  });
+
+  if (el.burger) el.burger.addEventListener('click', openSidebar);
+  if (el.sidebarToggle) {
+    el.sidebarToggle.addEventListener('click', () => {
+      if (isMobileScreen()) {
+        closeSidebar();
+      } else {
+        const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem(LS_SIDEBAR_COLLAPSED, isCollapsed ? 'true' : 'false');
+      }
+    });
+  }
+
+  if (el.sidebarBackdrop) el.sidebarBackdrop.addEventListener('click', closeSidebar);
+  if (el.newChat) el.newChat.addEventListener('click', () => {
+    if (state.busy) return;
+    createNewConversation();
+    closeSidebar();
+  });
+
+  if (el.logout) {
+    el.logout.addEventListener('click', () => {
+      localStorage.removeItem(LS.token);
+      localStorage.removeItem(LS.gated);
+      state.token = '';
+      showGate('');
+    });
+  }
+
+  if (el.model) {
+    el.model.addEventListener('change', () => {
+      state.model = el.model.value.trim();
+      localStorage.setItem(LS.model, state.model);
+      syncSend();
+      syncModelCapabilities();
+      renderThread();
+    });
+  }
+
+  if (el.effort) {
+    el.effort.addEventListener('change', () => {
+      state.effort = el.effort.value;
+      localStorage.setItem(LS.effort, state.effort);
+    });
+  }
+
+  if (el.searchDepth) {
+    el.searchDepth.addEventListener('change', () => {
+      state.searchDepth = el.searchDepth.value;
+      localStorage.setItem(LS.searchDepth, state.searchDepth);
+    });
+  }
+
+  if (el.ctx) {
+    el.ctx.addEventListener('change', () => {
+      state.ctxN = parseInt(el.ctx.value, 10) || 0;
+      localStorage.setItem(LS.ctx, String(state.ctxN));
+    });
+  }
+
+  if (el.attachBtn && el.fileInput) {
+    el.attachBtn.addEventListener('click', () => el.fileInput.click());
+    el.fileInput.addEventListener('change', () => {
+      handleIncomingFiles(el.fileInput.files);
+      el.fileInput.value = '';
+    });
+  }
+
+  if (el.webSearchBtn) {
+    el.webSearchBtn.addEventListener('click', () => {
+      state.webSearch = !state.webSearch;
+      localStorage.setItem(LS.webSearch, state.webSearch ? '1' : '0');
+      syncWebSearchBtn();
+      toast('联网搜索已' + (state.webSearch ? '开启' : '关闭'), 'info');
+    });
+  }
+
+  // Lightbox close listeners
+  if (el.lightboxClose) el.lightboxClose.addEventListener('click', closeLightbox);
+  if (el.lightbox) {
+    el.lightbox.addEventListener('click', (e) => {
+      if (e.target === el.lightbox || e.target === el.lightboxClose) closeLightbox();
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && el.lightbox && !el.lightbox.classList.contains('hide')) {
+      closeLightbox();
+    }
+  });
+
+  // Clipboard paste listener
+  window.addEventListener('paste', (e) => {
+    if (!e.clipboardData || !e.clipboardData.items) return;
+    const items = e.clipboardData.items;
+    const pastedFiles = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const blob = items[i].getAsFile();
+        if (blob) pastedFiles.push(blob);
+      }
+    }
+    if (pastedFiles.length > 0) {
+      e.preventDefault();
+      handleIncomingFiles(pastedFiles);
+    }
+  });
+
+  // Drag & drop file overlay
+  let dragCounter = 0;
+  window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (el.dropOverlay) el.dropOverlay.classList.add('active');
+  });
+
+  window.addEventListener('dragover', (e) => e.preventDefault());
+
+  window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      if (el.dropOverlay) el.dropOverlay.classList.remove('active');
+    }
+  });
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    if (el.dropOverlay) el.dropOverlay.classList.remove('active');
+    if (e.dataTransfer && e.dataTransfer.files) {
+      handleIncomingFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Gate form
+  if (el.gateGo) el.gateGo.addEventListener('click', submitGate);
+  if (el.gateInput) {
+    el.gateInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submitGate(); }
+    });
+  }
+}
+
+/* ---------- Bootstrap Application Lifecycle ---------- */
+export function initApp() {
+  initTheme(toast);
+  initEventListeners();
+
+  if (el.model) el.model.value = state.model;
+  if (el.effort) el.effort.value = state.effort;
+  if (el.searchDepth) el.searchDepth.value = state.searchDepth;
+  if (el.ctx) el.ctx.value = String(state.ctxN);
+
+  syncModelCapabilities();
+  syncWebSearchBtn();
+  initVoiceInput();
+  autoGrow();
+  syncSend();
+
+  loadAllConversations().then(() => {
+    if (localStorage.getItem(LS.gated) === '1') {
+      hideGate();
+      loadModels();
+    } else {
+      showGate('');
+    }
+  });
+}
+
+// Kickstart
+initApp();
