@@ -408,6 +408,23 @@
   }
   .reasoning-body p{margin:0 0 8px}
   .reasoning-body p:last-child{margin-bottom:0}
+  .reasoning-body blockquote{
+    margin:8px 0;padding:6px 12px;
+    background:var(--accent-glow);
+    border-left:3px solid var(--accent);
+    border-radius:7px;
+    color:var(--fg);
+    font-size:12px;
+    line-height:1.5;
+  }
+  .reasoning-body blockquote p{margin:0}
+  .reasoning-body blockquote code{
+    background:rgba(127,119,221,.15);
+    color:var(--accent);
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:11.5px;
+  }
   .reasoning-body pre{
     background:rgba(0,0,0,.04);border:1px solid var(--thought-border);
     margin:6px 0 8px;padding:8px 10px;border-radius:8px;

@@ -2,7 +2,7 @@
 // DOM component constructors: message bubbles, actions toolbar, web sources card, lightbox, toasts, and title sniffer.
 
 import { el, state, esc, formatSize, getHostname, calculateSessionTokens } from './state.js';
-import { renderParts } from './markdown.js';
+import { renderMd, renderParts } from './markdown.js';
 import { createAudioPlayerDrawer, stopGlobalAudio } from './tts.js';
 
 let toastTimer = null;
@@ -303,26 +303,42 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
     col.appendChild(fileBox);
   }
 
-  // 3. 若附带联网检索来源，渲染参考来源卡片（仅在 AI Assistant 消息上方展示）
-  if (role === 'assistant' && sources && sources.length) {
-    const srcElement = createSourcesElement(sources);
-    if (srcElement) col.appendChild(srcElement);
-  }
+  // 3. AI Assistant 结构: 思考过程 (Reasoning) -> 参考来源 (Sources) -> 正文 (Text) -> 工具栏 (Toolbar)
+  if (role === 'assistant') {
+    // (a) 思考过程 (Thinking Process)
+    if (reasoning && reasoning.trim()) {
+      const rDetails = document.createElement('details');
+      rDetails.className = 'reasoning';
+      rDetails.open = true;
+      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>思考过程</span></summary><div class="reasoning-body">${renderMd(reasoning)}</div>`;
+      col.appendChild(rDetails);
+    }
 
-  // 4. 正文
-  const textNode = document.createElement('div');
-  textNode.className = 'msg-text';
-  if (role === 'user') {
-    textNode.textContent = displayContent || content || '';
+    // (b) 参考来源 (Reference Sources Drawer)
+    if (sources && sources.length) {
+      const srcElement = createSourcesElement(sources);
+      if (srcElement) col.appendChild(srcElement);
+    }
+
+    // (c) 正文回复 (Markdown Text)
+    if (content || !reasoning) {
+      const textNode = document.createElement('div');
+      textNode.className = 'msg-text';
+      textNode.innerHTML = renderMd(content || '');
+      col.appendChild(textNode);
+    }
+
+    // (d) 操作工具栏（仅对已生成完毕的 Assistant 消息）
+    if (content || reasoning) {
+      const actionsBar = createActionsToolbar({ content, usage, model }, msgIndex, onRegenerate);
+      col.appendChild(actionsBar);
+    }
   } else {
-    textNode.innerHTML = renderParts(reasoning, content);
-  }
-  col.appendChild(textNode);
-
-  // 5. 操作工具栏（仅对已生成完毕的 Assistant 消息）
-  if (role === 'assistant' && (content || reasoning)) {
-    const actionsBar = createActionsToolbar({ content, usage, model }, msgIndex, onRegenerate);
-    col.appendChild(actionsBar);
+    // 4. 用户消息正文
+    const textNode = document.createElement('div');
+    textNode.className = 'msg-text';
+    textNode.textContent = displayContent || content || '';
+    col.appendChild(textNode);
   }
 
   wrap.appendChild(avatar);
@@ -333,5 +349,5 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
 export function appendBubble(role, sources) {
   const wrap = bubble(role, '', null, '', null, '', sources, null, null, null, null);
   if (el.threadInner) el.threadInner.appendChild(wrap);
-  return wrap.querySelector('.msg-text');
+  return wrap.querySelector('.body');
 }

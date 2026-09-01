@@ -1,10 +1,7 @@
-// js/chat.js
-// SSE stream processor, error translator, and model-driven autonomous tool calling loop.
-
 import { el, state, uid, esc, getSearchCountByDepth } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { WebSearchService } from './search.js';
-import { renderParts } from './markdown.js';
+import { renderMd, renderParts } from './markdown.js';
 import { appendBubble, createSourcesElement, createActionsToolbar, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
 
 export function explainError(raw, status) {
@@ -106,8 +103,7 @@ export function executeAssistantStream(userMsg, options = {}) {
   if (!c) return;
 
   const meta = state.modelMeta[state.model];
-  const body = appendBubble('assistant', null);
-  const col = body.parentNode;
+  const col = appendBubble('assistant', null); // Returns .body container element
   
   const toBottom = () => { if (el.thread) el.thread.scrollTop = el.thread.scrollHeight; };
   const nearBottom = () => el.thread ? (el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 120) : true;
@@ -156,11 +152,47 @@ export function executeAssistantStream(userMsg, options = {}) {
 
   let acc = '';
   let reasonAcc = '';
-  const stick = true;
-  let capturedUsage = null;
   let activeSources = null;
+  let isSearching = false;
+  let searchStatusText = '';
+  let capturedUsage = null;
 
-  function runStream(payload, isTurn2) {
+  function renderLiveUI(isFinal) {
+    col.innerHTML = '';
+
+    // 1. 思考过程 (Thinking Process)
+    if (reasonAcc && reasonAcc.trim()) {
+      const rDetails = document.createElement('details');
+      rDetails.className = 'reasoning';
+      rDetails.open = true;
+      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>思考过程</span></summary><div class="reasoning-body">${renderMd(reasonAcc)}</div>`;
+      col.appendChild(rDetails);
+    }
+
+    // 2. 实时搜索状态动画 (Active Search Progress)
+    if (isSearching) {
+      const searchBox = document.createElement('div');
+      searchBox.className = 'search-status';
+      searchBox.innerHTML = `<span class="search-spinner"></span> ${esc(searchStatusText)}`;
+      col.appendChild(searchBox);
+    }
+
+    // 3. 参考来源卡片 (Reference Sources Drawer)
+    if (activeSources && activeSources.length) {
+      const srcElement = createSourcesElement(activeSources);
+      if (srcElement) col.appendChild(srcElement);
+    }
+
+    // 4. 正文回复 (Markdown Response)
+    if (acc || !isFinal) {
+      const textNode = document.createElement('div');
+      textNode.className = 'msg-text';
+      textNode.innerHTML = renderMd(acc) + (isFinal ? '' : '<span class="caret"></span>');
+      col.appendChild(textNode);
+    }
+  }
+
+  function runStream(payload) {
     return fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
@@ -175,25 +207,24 @@ export function executeAssistantStream(userMsg, options = {}) {
         }
         if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
 
-        if (!isTurn2) {
-          body.innerHTML = '<span class="caret"></span>';
-        }
-
         return pump(res, (cDelta, rDelta, done, lastUsage) => {
           if (rDelta) reasonAcc += rDelta;
           if (cDelta) acc += cDelta;
           if (lastUsage) capturedUsage = lastUsage;
-          if (stick && nearBottom()) toBottom();
-          body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
+          if (nearBottom()) toBottom();
+          renderLiveUI(done);
           if (!done && nearBottom()) toBottom();
         });
       });
   }
 
+  // 初始渲染光标
+  renderLiveUI(false);
+
   // Turn 1 派发请求（若开启联网检索，附带 web_search tool 供模型自主决断）
   const turn1Payload = buildPayload(history, true);
 
-  runStream(turn1Payload, false)
+  runStream(turn1Payload)
     .then((streamResult) => {
       const toolCalls = streamResult && streamResult.toolCalls;
       const webSearchCall = (toolCalls && toolCalls.length) ? toolCalls.find((tc) => {
@@ -209,7 +240,15 @@ export function executeAssistantStream(userMsg, options = {}) {
         }
         const searchQuery = (searchArgs.query || userMsg.displayContent || userMsg.content || '').trim();
 
-        body.innerHTML = `<div class="search-status"><span class="search-spinner"></span> 正在实时检索：${esc(searchQuery)}…</div><span class="caret"></span>`;
+        // 若模型在触发工具调用前输出了前置思考/正文，无损并入思考过程流
+        if (acc && acc.trim()) {
+          reasonAcc = (reasonAcc ? reasonAcc + '\n\n' : '') + acc.trim();
+          acc = '';
+        }
+
+        isSearching = true;
+        searchStatusText = `正在实时检索：${searchQuery}…`;
+        renderLiveUI(false);
         toBottom();
 
         const searchCount = getSearchCountByDepth(state.searchDepth);
@@ -224,18 +263,16 @@ export function executeAssistantStream(userMsg, options = {}) {
           })
           .then((searchResults) => {
             activeSources = searchResults;
+            isSearching = false;
 
-            if (col && activeSources && activeSources.length) {
-              const srcElement = createSourcesElement(activeSources);
-              if (srcElement) {
-                col.insertBefore(srcElement, body);
-              }
-            }
+            const count = activeSources.length;
+            const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
+            reasonAcc += searchMarker;
 
             const toolCallId = webSearchCall.id || ('call_' + uid());
             const asstToolMsg = {
               role: 'assistant',
-              content: acc || null,
+              content: null,
               tool_calls: [
                 {
                   id: toolCallId,
@@ -257,14 +294,14 @@ export function executeAssistantStream(userMsg, options = {}) {
             const turn2Payload = buildPayload(turn2History, false);
 
             acc = '';
-            reasonAcc = '';
-            body.innerHTML = '<span class="caret"></span>';
+            renderLiveUI(false);
 
-            return runStream(turn2Payload, true);
+            return runStream(turn2Payload);
           });
       }
     })
     .then(() => {
+      renderLiveUI(true);
       if (acc || reasonAcc) {
         const asstMsg = {
           id: uid(),
@@ -290,15 +327,14 @@ export function executeAssistantStream(userMsg, options = {}) {
           if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
         });
 
-        if (col) {
-          const actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1, options.onRegenerate);
-          col.appendChild(actionsBar);
-        }
+        const actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1, options.onRegenerate);
+        col.appendChild(actionsBar);
         updateSidebarFooter();
       }
-      body.innerHTML = renderParts(reasonAcc, acc);
     })
     .catch((e) => {
+      isSearching = false;
+      renderLiveUI(true);
       if (e.name === 'AbortError') {
         if (acc || reasonAcc) {
           const partialMsg = {
@@ -314,13 +350,10 @@ export function executeAssistantStream(userMsg, options = {}) {
           c.messages.push(partialMsg);
           c.updatedAt = Date.now();
           ZenMuxDB.putConversation(c);
-          if (col) {
-            const actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1, options.onRegenerate);
-            col.appendChild(actionsBar);
-          }
+          const actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1, options.onRegenerate);
+          col.appendChild(actionsBar);
           updateSidebarFooter();
         }
-        body.innerHTML = renderParts(reasonAcc, acc);
         return;
       }
       toast(e.message || String(e), 'error');
