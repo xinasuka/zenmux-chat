@@ -2185,7 +2185,7 @@
     var isRecording = false;
     var baseTextBeforeRecord = '';
 
-    function cleanUpRecognition() {
+    function forceReset() {
       isRecording = false;
       if (el.voiceBtn) {
         el.voiceBtn.classList.remove('recording');
@@ -2202,13 +2202,20 @@
     }
 
     function stopRecording() {
-      if (!isRecording && !recognition) return;
+      if (!isRecording) return;
+      isRecording = false;
+      if (el.voiceBtn) {
+        el.voiceBtn.classList.remove('recording');
+        el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+      }
       if (recognition) {
-        try { recognition.stop(); } catch (e) {
-          try { recognition.abort(); } catch (e2) {}
+        try {
+          // 关键：仅停止拾音，保留 onresult 监听等待底层返回识别文字
+          recognition.stop();
+        } catch (e) {
+          forceReset();
         }
       }
-      cleanUpRecognition();
     }
 
     function startRecording() {
@@ -2217,8 +2224,8 @@
         return;
       }
 
-      // 如果已有实例，先彻底重置释放
-      cleanUpRecognition();
+      // 若上一轮未彻底释放，强制重置
+      forceReset();
 
       baseTextBeforeRecord = el.input.value || '';
       if (baseTextBeforeRecord && !/[\s\n]$/.test(baseTextBeforeRecord)) {
@@ -2227,12 +2234,8 @@
 
       try {
         recognition = new SpeechRecognition();
-        var sysLang = navigator.language || 'zh-CN';
-        recognition.lang = /^zh/i.test(sysLang) ? 'zh-CN' : sysLang;
-        
-        // 移动端核心兼容性优化：在手机 Chrome 上开启 continuous 会导致部分设备丢失事件流
-        var isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
-        recognition.continuous = !isMobile;
+        recognition.lang = 'zh-CN';
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
@@ -2240,7 +2243,7 @@
           isRecording = true;
           if (el.voiceBtn) {
             el.voiceBtn.classList.add('recording');
-            el.voiceBtn.title = '正在录音中… 点击结束说话';
+            el.voiceBtn.title = '正在倾听中… 点击结束说话';
           }
           toast('正在倾听… 说话即可实时转为文字', 'info');
         };
@@ -2256,28 +2259,36 @@
             el.input.value = baseTextBeforeRecord + transcript;
             autoGrow();
             syncSend();
+            el.input.scrollTop = el.input.scrollHeight;
           }
         };
 
         recognition.onerror = function (event) {
           var err = event && event.error ? event.error : '';
           if (err === 'not-allowed' || err === 'permission-denied') {
-            toast('麦克风权限被拒绝，请在浏览器或系统设置中允许使用麦克风', 'error');
+            toast('麦克风权限被拒绝，请在浏览器或系统设置中允许麦克风', 'error');
+          } else if (err === 'network') {
+            toast('语音识别网络连接超时，请检查网络设置', 'error');
           } else if (err === 'no-speech') {
-            toast('未检测到声音，已自动停止', 'info');
+            toast('未检测到声音，已自动结束', 'info');
           } else if (err && err !== 'aborted') {
-            toast('语音听写提示: ' + err, 'info');
+            toast('语音识别提示: ' + err, 'info');
           }
-          cleanUpRecognition();
+          forceReset();
         };
 
         recognition.onend = function () {
-          cleanUpRecognition();
+          isRecording = false;
+          if (el.voiceBtn) {
+            el.voiceBtn.classList.remove('recording');
+            el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+          }
+          recognition = null;
         };
 
         recognition.start();
       } catch (err) {
-        cleanUpRecognition();
+        forceReset();
         toast('启动麦克风失败: ' + (err.message || '请检查权限'), 'error');
       }
     }
