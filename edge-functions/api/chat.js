@@ -83,6 +83,11 @@ export async function onRequestPost(context) {
       delete payload.reasoning_effort;
       modified = true;
     }
+    if (/(?:tools|tool_choice|function)/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      delete payload.tools;
+      delete payload.tool_choice;
+      modified = true;
+    }
     if (/stream_options/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
       delete payload.stream_options;
       modified = true;

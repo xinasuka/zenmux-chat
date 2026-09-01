@@ -537,6 +537,26 @@
      4. 全模型实时联网检索服务 (WebSearchService)
      ========================================================================== */
   var WebSearchService = {
+    getToolSchema: function () {
+      return {
+        type: 'function',
+        function: {
+          name: 'web_search',
+          description: 'Search the live internet for up-to-date facts, current events, recent news, official documentation, or real-time data when your internal knowledge is insufficient or temporal verification is needed.',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'The targeted search query keywords optimized for search engines (concise and specific).'
+              }
+            },
+            required: ['query']
+          }
+        }
+      };
+    },
+
     search: function (query, token, count) {
       var maxResults = count || 5;
       return fetch('/api/search', {
@@ -562,6 +582,18 @@
             });
           });
         });
+    },
+
+    formatToolResult: function (results) {
+      if (!results || !results.length) return '未检索到相关网页内容。请基于现有知识回答并向用户说明未找到检索结果。';
+      var items = results.map(function (r, idx) {
+        var domain = getHostname(r.url);
+        return '[' + (idx + 1) + '] 《' + r.title + '》' + (domain ? ' (' + domain + ')' : '') + '\n' +
+               '链接: ' + r.url + '\n' +
+               '摘要: ' + (r.snippet || '').trim();
+      }).join('\n\n');
+
+      return '以下是检索到的实时网页事实资料：\n\n' + items + '\n\n请结合上述资料回答，并使用 [1]、[2] 形式标注引用的来源序号。';
     },
 
     formatGroundingPrompt: function (query, results) {
@@ -1567,44 +1599,50 @@
       col.appendChild(fileBox);
     }
 
+  function createSourcesElement(sources) {
+    if (!sources || !sources.length) return null;
+    var srcBox = document.createElement('details');
+    srcBox.className = 'msg-sources';
+    var srcSummary = document.createElement('summary');
+    srcSummary.innerHTML = '<span class="source-icon">✦</span> <strong>参考来源</strong> (' + sources.length + ' 个网页)';
+
+    var list = document.createElement('div');
+    list.className = 'sources-list';
+    sources.forEach(function (s, idx) {
+      var link = document.createElement('a');
+      link.className = 'source-item';
+      link.href = s.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+
+      var idxSpan = document.createElement('span');
+      idxSpan.className = 'source-index';
+      idxSpan.textContent = '[' + (idx + 1) + ']';
+
+      var titleSpan = document.createElement('span');
+      titleSpan.className = 'source-title';
+      titleSpan.textContent = s.title || s.url;
+      titleSpan.title = s.title;
+
+      var domSpan = document.createElement('span');
+      domSpan.className = 'source-domain';
+      domSpan.textContent = getHostname(s.url);
+
+      link.appendChild(idxSpan);
+      link.appendChild(titleSpan);
+      link.appendChild(domSpan);
+      list.appendChild(link);
+    });
+
+    srcBox.appendChild(srcSummary);
+    srcBox.appendChild(list);
+    return srcBox;
+  }
+
     // 3. 若附带联网检索来源，渲染参考来源卡片（仅在 AI Assistant 消息上方展示）
     if (role === 'assistant' && sources && sources.length) {
-      var srcBox = document.createElement('details');
-      srcBox.className = 'msg-sources';
-      var srcSummary = document.createElement('summary');
-      srcSummary.innerHTML = '<span class="source-icon">✦</span> <strong>参考来源</strong> (' + sources.length + ' 个网页)';
-
-      var list = document.createElement('div');
-      list.className = 'sources-list';
-      sources.forEach(function (s, idx) {
-        var link = document.createElement('a');
-        link.className = 'source-item';
-        link.href = s.url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-
-        var idxSpan = document.createElement('span');
-        idxSpan.className = 'source-index';
-        idxSpan.textContent = '[' + (idx + 1) + ']';
-
-        var titleSpan = document.createElement('span');
-        titleSpan.className = 'source-title';
-        titleSpan.textContent = s.title || s.url;
-        titleSpan.title = s.title;
-
-        var domSpan = document.createElement('span');
-        domSpan.className = 'source-domain';
-        domSpan.textContent = getHostname(s.url);
-
-        link.appendChild(idxSpan);
-        link.appendChild(titleSpan);
-        link.appendChild(domSpan);
-        list.appendChild(link);
-      });
-
-      srcBox.appendChild(srcSummary);
-      srcBox.appendChild(list);
-      col.appendChild(srcBox);
+      var srcElement = createSourcesElement(sources);
+      if (srcElement) col.appendChild(srcElement);
     }
 
     // 4. 正文
@@ -1757,12 +1795,13 @@
     el.send.disabled = state.busy || !hasContent || !state.model;
   }
 
-  function executeAssistantStream(userMsg, activeSources) {
+  function executeAssistantStream(userMsg) {
     var c = state.currentConv;
     if (!c) return;
 
     var meta = state.modelMeta[state.model];
-    var body = appendBubble('assistant', activeSources);
+    var body = appendBubble('assistant', null);
+    var col = body.parentNode;
     toBottom();
 
     state.busy = true;
@@ -1793,42 +1832,134 @@
       return { role: m.role, content: m.content || '' };
     });
 
-    var payload = { model: state.model, messages: history };
     var canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
-    if (canReason && state.effort) {
-      if (state.effort === 'off') payload.reasoning = { enabled: false };
-      else payload.reasoning_effort = state.effort;
+
+    function buildPayload(msgs, allowTools) {
+      var p = { model: state.model, messages: msgs };
+      if (canReason && state.effort) {
+        if (state.effort === 'off') p.reasoning = { enabled: false };
+        else p.reasoning_effort = state.effort;
+      }
+      if (allowTools && state.webSearch) {
+        p.tools = [WebSearchService.getToolSchema()];
+      }
+      return p;
     }
 
     var acc = '';
     var reasonAcc = '';
     var stick = true;
     var capturedUsage = null;
+    var activeSources = null;
 
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
-      body: JSON.stringify(payload),
-      signal: state.controller.signal,
-    })
-      .then(function (res) {
-        if (!res.ok) {
-          return res.text().then(function (t) {
-            throw new Error(explainError(t, res.status));
+    function runStream(payload, isTurn2) {
+      return fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': state.token },
+        body: JSON.stringify(payload),
+        signal: state.controller.signal,
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (t) {
+              throw new Error(explainError(t, res.status));
+            });
+          }
+          if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
+
+          if (!isTurn2) {
+            body.innerHTML = '<span class="caret"></span>';
+          }
+
+          return pump(res, function (cDelta, rDelta, done, lastUsage) {
+            if (rDelta) reasonAcc += rDelta;
+            if (cDelta) acc += cDelta;
+            if (lastUsage) capturedUsage = lastUsage;
+            if (stick && nearBottom()) toBottom();
+            body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
+            if (!done && nearBottom()) toBottom();
           });
-        }
-        if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
-
-        body.innerHTML = '<span class="caret"></span>';
-
-        return pump(res, function (cDelta, rDelta, done, lastUsage) {
-          if (rDelta) reasonAcc += rDelta;
-          if (cDelta) acc += cDelta;
-          if (lastUsage) capturedUsage = lastUsage;
-          if (stick && nearBottom()) toBottom();
-          body.innerHTML = renderParts(reasonAcc, acc) + (done ? '' : '<span class="caret"></span>');
-          if (!done && nearBottom()) toBottom();
         });
+    }
+
+    // Turn 1 派发请求（若开启联网检索，附带 web_search tool 供模型自主决断）
+    var turn1Payload = buildPayload(history, true);
+
+    runStream(turn1Payload, false)
+      .then(function (streamResult) {
+        var toolCalls = streamResult && streamResult.toolCalls;
+        var webSearchCall = (toolCalls && toolCalls.length) ? toolCalls.find(function (tc) {
+          return tc.function && tc.function.name === 'web_search';
+        }) : null;
+
+        if (webSearchCall) {
+          // 模型自主决定调用联网检索
+          var searchArgs = {};
+          try {
+            searchArgs = JSON.parse(webSearchCall.function.arguments || '{}');
+          } catch (e) {
+            searchArgs = { query: webSearchCall.function.arguments || userMsg.content };
+          }
+          var searchQuery = (searchArgs.query || userMsg.displayContent || userMsg.content || '').trim();
+
+          // 呈现动态检索动画
+          body.innerHTML = '<div class="search-status"><span class="search-spinner"></span> 正在实时检索：' + esc(searchQuery) + '…</div><span class="caret"></span>';
+          toBottom();
+
+          var searchCount = getSearchCountByDepth(state.searchDepth);
+          return WebSearchService.search(searchQuery, state.token, searchCount)
+            .catch(function (err) {
+              if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
+                toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
+              } else {
+                toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
+              }
+              return [];
+            })
+            .then(function (searchResults) {
+              activeSources = searchResults;
+
+              // 挂载参考来源卡片到 AI 消息体上方
+              if (col && activeSources && activeSources.length) {
+                var srcElement = createSourcesElement(activeSources);
+                if (srcElement) {
+                  col.insertBefore(srcElement, body);
+                }
+              }
+
+              // 构造 Turn 2 上下文历史
+              var toolCallId = webSearchCall.id || ('call_' + uid());
+              var asstToolMsg = {
+                role: 'assistant',
+                content: acc || null,
+                tool_calls: [
+                  {
+                    id: toolCallId,
+                    type: 'function',
+                    function: {
+                      name: 'web_search',
+                      arguments: JSON.stringify(searchArgs)
+                    }
+                  }
+                ]
+              };
+              var toolResultMsg = {
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: WebSearchService.formatToolResult(activeSources)
+              };
+
+              var turn2History = history.concat([asstToolMsg, toolResultMsg]);
+              var turn2Payload = buildPayload(turn2History, false);
+
+              // 清空第一轮可能的暂存，流式输出 Turn 2 最终回答
+              acc = '';
+              reasonAcc = '';
+              body.innerHTML = '<span class="caret"></span>';
+
+              return runStream(turn2Payload, true);
+            });
+        }
       })
       .then(function () {
         if (acc || reasonAcc) {
@@ -1837,7 +1968,7 @@
             role: 'assistant',
             content: acc,
             reasoning: reasonAcc || undefined,
-            sources: activeSources || undefined,
+            sources: (activeSources && activeSources.length) ? activeSources : undefined,
             usage: capturedUsage || undefined,
             model: state.model || undefined,
             createdAt: Date.now()
@@ -1858,9 +1989,9 @@
           });
 
           // 挂载消息底部操作栏
-          if (body && body.parentNode) {
+          if (col) {
             var actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1);
-            body.parentNode.appendChild(actionsBar);
+            col.appendChild(actionsBar);
           }
           updateSidebarFooter();
         }
@@ -1874,7 +2005,7 @@
               role: 'assistant',
               content: acc,
               reasoning: reasonAcc || undefined,
-              sources: activeSources || undefined,
+              sources: (activeSources && activeSources.length) ? activeSources : undefined,
               usage: capturedUsage || undefined,
               model: state.model || undefined,
               createdAt: Date.now()
@@ -1882,9 +2013,9 @@
             c.messages.push(partialMsg);
             c.updatedAt = Date.now();
             ZenMuxDB.putConversation(c);
-            if (body && body.parentNode) {
+            if (col) {
               var actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1);
-              body.parentNode.appendChild(actionsBar);
+              col.appendChild(actionsBar);
             }
             updateSidebarFooter();
           }
@@ -1892,8 +2023,8 @@
           return;
         }
         toast(e.message || String(e), 'error');
-        if (!acc && !reasonAcc && body && body.parentNode && body.parentNode.parentNode) {
-          body.parentNode.parentNode.removeChild(body.parentNode);
+        if (!acc && !reasonAcc && col && col.parentNode) {
+          col.parentNode.removeChild(col);
         }
       })
       .then(function () {
@@ -1959,52 +2090,27 @@
       c.autoTitled = true;
     }
 
-    // 异步执行实时联网检索（若开启）
-    var searchPromise = Promise.resolve(null);
-    if (state.webSearch && text) {
-      toast('正在检索实时网络事实…', 'info');
-      var searchCount = getSearchCountByDepth(state.searchDepth);
-      searchPromise = WebSearchService.search(text, state.token, searchCount).catch(function (err) {
-        if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
-          toast('服务端未配置联网搜索密钥（将以常规方式回答，可在控制台配置）', 'info');
-        } else {
-          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
-        }
-        return null;
-      });
-    }
+    var userMsg = {
+      id: uid(),
+      role: 'user',
+      content: fullPrompt,
+      displayContent: text,
+      images: images.length ? images : undefined,
+      files: files.length ? files : undefined,
+      createdAt: Date.now()
+    };
+    c.messages.push(userMsg);
+    c.updatedAt = Date.now();
 
-    searchPromise.then(function (searchResults) {
-      var finalPrompt = fullPrompt;
-      var activeSources = (searchResults && searchResults.length) ? searchResults : null;
-
-      if (activeSources) {
-        var groundingBlock = WebSearchService.formatGroundingPrompt(text, activeSources);
-        finalPrompt = groundingBlock + '\n\n' + finalPrompt;
-      }
-
-      var userMsg = {
-        id: uid(),
-        role: 'user',
-        content: finalPrompt,
-        displayContent: text,
-        images: images.length ? images : undefined,
-        files: files.length ? files : undefined,
-        createdAt: Date.now()
-      };
-      c.messages.push(userMsg);
-      c.updatedAt = Date.now();
-
-      ZenMuxDB.putConversation(c).then(function () {
-        renderConvList();
-      });
-
-      // 挂载用户气泡（纯用户输入与附件）
-      el.threadInner.appendChild(bubble('user', finalPrompt, images, '', files, text, null, null, null, c.messages.length - 1));
-
-      // 执行 Assistant 回答流（检索来源挂载在 AI 回复侧）
-      executeAssistantStream(userMsg, activeSources);
+    ZenMuxDB.putConversation(c).then(function () {
+      renderConvList();
     });
+
+    // 挂载用户气泡（纯净用户输入）
+    el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text, null, null, null, c.messages.length - 1));
+
+    // 执行模型驱动的流式回复（若开启搜索，自动包含 web_search tool）
+    executeAssistantStream(userMsg);
   }
 
   function pump(res, onChunk) {
@@ -2012,9 +2118,16 @@
     var dec = new TextDecoder('utf-8');
     var buf = '';
     var lastUsage = null;
+    var accumulatedToolCalls = [];
 
     return reader.read().then(function step(part) {
-      if (part.done) { onChunk('', '', true, lastUsage); return; }
+      if (part.done) {
+        onChunk('', '', true, lastUsage, accumulatedToolCalls.length ? accumulatedToolCalls : null);
+        return {
+          toolCalls: accumulatedToolCalls.length ? accumulatedToolCalls : null,
+          usage: lastUsage
+        };
+      }
       buf += dec.decode(part.value, { stream: true });
 
       var lines = buf.split('\n');
@@ -2040,10 +2153,34 @@
           if (!ch) continue;
           var d = ch.delta || {};
           if (d.reasoning) r += d.reasoning;
+          if (d.reasoning_content) r += d.reasoning_content;
           if (d.content) c += d.content;
+
+          if (Array.isArray(d.tool_calls)) {
+            d.tool_calls.forEach(function (tc) {
+              var idx = tc.index !== undefined ? tc.index : accumulatedToolCalls.length;
+              if (!accumulatedToolCalls[idx]) {
+                accumulatedToolCalls[idx] = {
+                  id: tc.id || '',
+                  type: tc.type || 'function',
+                  function: {
+                    name: (tc.function && tc.function.name) || '',
+                    arguments: (tc.function && tc.function.arguments) || ''
+                  }
+                };
+              } else {
+                if (tc.id) accumulatedToolCalls[idx].id = tc.id;
+                if (tc.type) accumulatedToolCalls[idx].type = tc.type;
+                if (tc.function) {
+                  if (tc.function.name) accumulatedToolCalls[idx].function.name += tc.function.name;
+                  if (tc.function.arguments) accumulatedToolCalls[idx].function.arguments += tc.function.arguments;
+                }
+              }
+            });
+          }
         } catch (e) { }
       }
-      if (c || r) onChunk(c, r, false, lastUsage);
+      if (c || r) onChunk(c, r, false, lastUsage, accumulatedToolCalls.length ? accumulatedToolCalls : null);
       return reader.read().then(step);
     });
   }

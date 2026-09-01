@@ -611,9 +611,16 @@
     flex:0 0 auto;font-size:11px;color:var(--fg-faint);margin-left:auto;
   }
   .search-status{
-    display:flex;align-items:center;gap:8px;font-size:13px;color:var(--accent);
-    padding:4px 0 8px;
+    display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--accent);
+    background:var(--accent-glow);border:1px solid var(--line-soft);border-radius:8px;
+    padding:6px 12px;margin-bottom:10px;animation:pulseStatus 2s infinite ease-in-out;
   }
+  .search-spinner{
+    width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;
+    border-radius:50%;animation:spinStatus .8s linear infinite;display:inline-block;flex-shrink:0;
+  }
+  @keyframes spinStatus{to{transform:rotate(360deg)}}
+  @keyframes pulseStatus{0%,100%{opacity:1}50%{opacity:.75}}
 
   /* ---------- drop overlay ---------- */
   .drop-overlay{
