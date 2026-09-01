@@ -9,9 +9,72 @@ import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream } from './chat.js';
 import { PluginRegistry } from './plugins.js';
 
-/* ---------- Responsive Sidebar State Persistence ---------- */
+/* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
 const isMobileScreen = () => window.innerWidth <= 768;
+
+const DEFAULT_SIDEBAR_WIDTH = 248;
+const MIN_SIDEBAR_WIDTH = 180;
+const getMaxSidebarWidth = () => Math.min(520, Math.floor(window.innerWidth * 0.45));
+
+// Restore sidebar width immediately before first render to prevent layout jump
+const initialSavedWidth = localStorage.getItem(LS.sidebarWidth);
+if (initialSavedWidth) {
+  const num = parseInt(initialSavedWidth, 10);
+  if (!isNaN(num) && num >= MIN_SIDEBAR_WIDTH && num <= 600) {
+    document.documentElement.style.setProperty('--sidebar-width', `${num}px`);
+  }
+}
+
+export function initSidebarResizer() {
+  const resizer = el.sidebarResizer || document.getElementById('sidebar-resizer');
+  if (!resizer) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startWidth = DEFAULT_SIDEBAR_WIDTH;
+
+  resizer.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || isMobileScreen()) return;
+    e.preventDefault();
+    isDragging = true;
+    startX = e.clientX;
+    startWidth = el.sidebar ? el.sidebar.getBoundingClientRect().width : DEFAULT_SIDEBAR_WIDTH;
+    resizer.setPointerCapture(e.pointerId);
+    document.body.classList.add('is-resizing');
+  });
+
+  resizer.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const delta = e.clientX - startX;
+    const maxW = getMaxSidebarWidth();
+    const newWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxW, Math.round(startWidth + delta)));
+    document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
+  });
+
+  const stopDragging = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    try { resizer.releasePointerCapture(e.pointerId); } catch (err) {}
+    document.body.classList.remove('is-resizing');
+    if (el.sidebar) {
+      const currentWidth = Math.round(el.sidebar.getBoundingClientRect().width);
+      if (currentWidth >= MIN_SIDEBAR_WIDTH) {
+        localStorage.setItem(LS.sidebarWidth, String(currentWidth));
+      }
+    }
+  };
+
+  resizer.addEventListener('pointerup', stopDragging);
+  resizer.addEventListener('pointercancel', stopDragging);
+
+  // Double-click to reset to default width
+  resizer.addEventListener('dblclick', () => {
+    if (isMobileScreen()) return;
+    document.documentElement.style.setProperty('--sidebar-width', `${DEFAULT_SIDEBAR_WIDTH}px`);
+    localStorage.setItem(LS.sidebarWidth, String(DEFAULT_SIDEBAR_WIDTH));
+  });
+}
 
 if (!isMobileScreen() && localStorage.getItem(LS_SIDEBAR_COLLAPSED) === 'true') {
   document.body.classList.add('sidebar-collapsed');
@@ -845,6 +908,7 @@ export function initApp() {
 
   initTheme(toast);
   initEventListeners();
+  initSidebarResizer();
 
   if (el.model) el.model.value = state.model;
   if (el.effort) el.effort.value = state.effort;

@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.4.1';
+export const APP_VERSION = '2.5.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -14,12 +14,14 @@ export const LS = {
   searchDepth: 'zm.searchDepth',
   activePlugins: 'zm.plugins.active',
   theme: 'zm.theme',
+  sidebarWidth: 'zm.sidebar.width',
 };
 
 const $ = (id) => document.getElementById(id);
 
 export const el = {
   sidebar: $('sidebar'),
+  sidebarResizer: $('sidebar-resizer'),
   sidebarBackdrop: $('sidebar-backdrop'),
   sidebarToggle: $('sidebar-toggle'),
   burger: $('burger'),
