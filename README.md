@@ -7,7 +7,7 @@
 ---
 
 <details open>
-<summary><h2 style="display:inline-block; cursor:pointer;">🇺🇸 English</h2></summary>
+<summary><h2 style="display:inline-block; cursor:pointer;">English</h2></summary>
 
 A high-performance, serverless personal AI workstation built on **Tencent Cloud EdgeOne Pages (Global Edition - edgeone.ai)**: **Modern Minimalist UI + Client-Side Multimodal Parsing Engine + Secure Edge Function Proxy + AI-Native Real-Time Web Search + Native Neural Voice Integration**.
 
@@ -16,10 +16,10 @@ Enables **zero-proxy, high-speed direct access** to the full spectrum of state-o
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 👤 Client / Browser
-    participant Edge as ⚡ EdgeOne Global Anycast Node
-    participant Search as 🌐 AnySearch Engine
-    participant ZenMux as 🤖 ZenMux Aggregation Platform
+    actor User as Client / Browser
+    participant Edge as EdgeOne Global Anycast Node
+    participant Search as AnySearch Engine
+    participant ZenMux as ZenMux Aggregation Platform
 
     Note over User: Canvas Compression / 40+ Source & PDF Extraction / Native Dictation (STT)
     User->>Edge: Dispatch Chat Request (Carries X-Access-Token)
@@ -37,10 +37,10 @@ sequenceDiagram
 
 | Architectural Tier | Execution Host | Core Responsibilities & Key Technologies |
 | :--- | :--- | :--- |
-| **💻 Client Tier** | Local Browser (Local-First) | Canvas adaptive image compression, 40+ code/PDF local extraction, Native TTS/STT, Dual-tier mobile layout, IndexedDB persistence |
-| **⚡ Edge Gateway Tier** | EdgeOne Anycast Edge Nodes | `X-Access-Token` gate authentication, Secret encapsulation, Adaptive parameter self-healing (HTTP 400 pruning), `X-Accel-Buffering: no` SSE zero-copy relay |
-| **🌐 Web Search Tier** | AnySearch Engine | AI-native semantic retrieval, dense snippet extraction saving 80%+ tokens, 4-tier granular search depth |
-| **🤖 Compute Tier** | ZenMux Aggregation Platform | Seamless upstream connectivity across cutting-edge LLMs (DeepSeek-V3/R1, Claude 3.7/3.5, GPT-4o/o1/o3, Qwen 2.5, etc.) |
+| **Client Tier** | Local Browser (Local-First) | Canvas adaptive image compression, 40+ code/PDF local extraction, Native TTS/STT, Dual-tier mobile layout, IndexedDB persistence |
+| **Edge Gateway Tier** | EdgeOne Anycast Edge Nodes | `X-Access-Token` gate authentication, Secret encapsulation, Adaptive parameter self-healing (HTTP 400 pruning), `X-Accel-Buffering: no` SSE zero-copy relay |
+| **Web Search Tier** | AnySearch Engine | AI-native semantic retrieval, dense snippet extraction saving 80%+ tokens, 4-tier granular search depth |
+| **Compute Tier** | ZenMux Aggregation Platform | Seamless upstream connectivity across cutting-edge LLMs (DeepSeek-V3/R1, Claude 3.7/3.5, GPT-4o/o1/o3, Qwen 2.5, etc.) |
 
 ---
 
@@ -65,7 +65,7 @@ sequenceDiagram
 
 #### 1. Pure Native Neural Voice Interaction (`Web Speech Engine`)
 * **Collapsible Audio Player Drawer (`.msg-tts-player`)**:
-  Clicking `[ 🔊 Read Aloud ]` expands a frosted dark-themed audio control drawer:
+  Clicking `[ Read Aloud ]` expands a frosted dark-themed audio control drawer:
   - **Interactive Seek Scrubbing**: Scrub or click any point along the timeline to seek instantly;
   - **Zero-Latency Lossless Speed Control**: Instantaneous `0.75x`, `1.0x`, `1.25x`, `1.5x`, and `2.0x` playback adjustments with 0ms network latency;
   - **Curated Whitelist Filter**: Strips dozens of legacy synthetic/novelty sound effects, retaining only studio-grade natural voices and auto-prioritizing the host OS default;
@@ -81,7 +81,7 @@ sequenceDiagram
 * **Desktop Consistency**: Seamlessly transitions to a single horizontal integrated bar on widescreen displays.
 
 #### 3. Granular Token Usage Metrics & Session Counter
-* **Per-Turn Consumption Drawer**: Each assistant message features an `[ ℹ️ X Tokens ]` button that smoothly reveals **Prompt Tokens, Completion Tokens, Turn Total, Cumulative Session Tokens, and Model Metadata**;
+* **Per-Turn Consumption Drawer**: Each assistant message features an `[ X Tokens ]` button that smoothly reveals **Prompt Tokens, Completion Tokens, Turn Total, Cumulative Session Tokens, and Model Metadata**;
 * **Sidebar Global Counter**: Real-time cumulative token expenditure displayed in the sidebar footer.
 
 #### 4. Model-Agnostic Parameter Pruning & Autonomous Fallback (`api/chat.js`)
@@ -156,7 +156,7 @@ sequenceDiagram
 <br>
 
 <details>
-<summary><h2 style="display:inline-block; cursor:pointer;">🇨🇳 中文</h2></summary>
+<summary><h2 style="display:inline-block; cursor:pointer;">中文</h2></summary>
 
 基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代极简前端 + 客户端全模态解析引擎 + 边缘函数安全反代 + AI 原生实时联网检索 + 纯原生神经语音双向交互**。
 
@@ -165,10 +165,10 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 👤 用户 / 浏览器端
-    participant Edge as ⚡ EdgeOne 境外边缘节点
-    participant Search as 🌐 AnySearch 搜索引擎
-    participant ZenMux as 🤖 ZenMux 聚合大模型平台
+    actor User as 用户 / 浏览器端
+    participant Edge as EdgeOne 境外边缘节点
+    participant Search as AnySearch 搜索引擎
+    participant ZenMux as ZenMux 聚合大模型平台
 
     Note over User: Canvas 压缩 / 40+ 源码及 PDF 本地提取 / 原生语音听写 (STT)
     User->>Edge: 发起对话请求 (携带 X-Access-Token 访问口令)
@@ -186,10 +186,10 @@ sequenceDiagram
 
 | 架构层级 | 运行载体 | 核心职责与关键技术 |
 | :--- | :--- | :--- |
-| **💻 客户端层** | 本地浏览器 (Local-First) | Canvas 图像自适应压缩、40+ 源码/PDF 就地提取、原生语音合成 (TTS) 与听写 (STT)、双层移动端布局、IndexedDB 本地持久化 |
-| **⚡ 边缘网关层** | EdgeOne 境外 Anycast 节点 | `X-Access-Token` 门禁鉴权、Secret 密钥安全隔离、参数自适应智能降级 (400 容错重试)、`X-Accel-Buffering: no` SSE 零缓冲中继 |
-| **🌐 联网检索层** | AnySearch 搜索引擎 | AI 原生自然语言语义检索、高密度 Snippet 摘要提取、大幅节省 80%+ Tokens、4 级检索深度调节 |
-| **🤖 算力供给层** | ZenMux 聚合平台 | 全量主流大模型无缝中继（DeepSeek-V3/R1、Claude 3.7/3.5、GPT-4o/o1/o3、Qwen 2.5 等） |
+| **客户端层** | 本地浏览器 (Local-First) | Canvas 图像自适应压缩、40+ 源码/PDF 就地提取、原生语音合成 (TTS) 与听写 (STT)、双层移动端布局、IndexedDB 本地持久化 |
+| **边缘网关层** | EdgeOne 境外 Anycast 节点 | `X-Access-Token` 门禁鉴权、Secret 密钥安全隔离、参数自适应智能降级 (400 容错重试)、`X-Accel-Buffering: no` SSE 零缓冲中继 |
+| **联网检索层** | AnySearch 搜索引擎 | AI 原生自然语言语义检索、高密度 Snippet 摘要提取、大幅节省 80%+ Tokens、4 级检索深度调节 |
+| **算力供给层** | ZenMux 聚合平台 | 全量主流大模型无缝中继（DeepSeek-V3/R1、Claude 3.7/3.5、GPT-4o/o1/o3、Qwen 2.5 等） |
 
 ---
 
@@ -214,7 +214,7 @@ sequenceDiagram
 
 #### 1. 纯原生神经语音双向交互 (`Web Speech Engine`)
 * **专属下拉音频播放器面板（`.msg-tts-player`）**：
-  点击回复底部的 `[ 🔊 朗读 ]`，顺滑展开深色磨砂播放器：
+  点击回复底部的 `[ 朗读 ]`，顺滑展开深色磨砂播放器：
   - **进度自由拖拽**：支持在进度条任意位置点击或拖动直接跳转（Seek）；
   - **0 延迟无损倍速胶囊**：提供 `0.75x`、`1.0x`、`1.25x`、`1.5x`、`2.0x`，原生即时调速无需重新请求；
   - **精选高保真白名单**：彻底过滤数十种系统搞笑杂音，仅保留顶级自然人声，并在各浏览器自动绑定最佳音色；
@@ -230,7 +230,7 @@ sequenceDiagram
 * **桌面端自适应**：宽屏下自动还原为沉浸式一体化水平单行布局。
 
 #### 3. Token 消耗统计卡片与会话累计计数器
-* **消息级消耗详情抽屉**：每轮 AI 回答操作栏紧跟 `[ ℹ️ X Tokens ]` 按钮，点击顺滑展开卡片，清晰呈现 **输入 Tokens、输出 Tokens、本轮总计、会话累计 Tokens 与响应模型**；
+* **消息级消耗详情抽屉**：每轮 AI 回答操作栏紧跟 `[ X Tokens ]` 按钮，点击顺滑展开卡片，清晰呈现 **输入 Tokens、输出 Tokens、本轮总计、会话累计 Tokens 与响应模型**；
 * **侧边栏全局计数器**：侧边栏底部实时显示当前会话的累计总 Token 消耗。
 
 #### 4. 模型无关自适应参数降级与容错重试 (`api/chat.js`)
