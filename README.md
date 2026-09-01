@@ -22,7 +22,7 @@
 
 * ⚡ **Direct Access Everywhere**: Fast, stable connections without needing any VPN or proxy tools.
 * 🔍 **Smart Live Web Search & Deep Extraction**: The AI autonomously searches the web for facts and deeply parses complex React/SPA websites via Firecrawl v2.
-* 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models (DeepSeek-R1, OpenAI o1/o3, Claude), showing thoughts, search, and page extraction steps together.
+* 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models, showing thoughts, search, and page extraction steps together.
 * 🎙️ **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices (with speed controls) or speak your prompt directly.
 * 📎 **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
 * 🔒 **Private & Safe**: Your chat history is stored locally in your browser (IndexedDB). Your API keys are encrypted securely on the edge server and never exposed to the browser.
