@@ -116,39 +116,28 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   stopGlobalAudio();
 
   const playerDrawer = document.createElement('div');
-  playerDrawer.className = 'tts-player-bar';
+  playerDrawer.className = 'msg-tts-player';
 
   playerDrawer.innerHTML = `
-    <div class="tts-player-header">
-      <div class="tts-player-title">
-        <span class="tts-wave-icon">
-          <span></span><span></span><span></span><span></span>
-        </span>
-        <strong>语音朗读控制台</strong>
+    <div class="tts-main-row">
+      <button class="tts-play-btn" title="播放 / 暂停">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+      </button>
+      <div class="tts-progress-wrap">
+        <span class="tts-time tts-cur-time">00:00</span>
+        <input type="range" class="tts-slider" min="0" max="100" value="0" step="0.1">
+        <span class="tts-time tts-dur-time">00:00</span>
       </div>
-      <div class="tts-player-actions">
-        <button class="tts-close-btn" title="关闭播放器">✕</button>
-      </div>
-    </div>
-    <div class="tts-progress-row">
-      <span class="tts-time-cur">00:00</span>
-      <input type="range" class="tts-slider" min="0" max="100" value="0" step="0.5">
-      <span class="tts-time-dur">00:00</span>
+      <button class="tts-close-btn" title="关闭播放器">✕</button>
     </div>
     <div class="tts-controls-row">
-      <div class="tts-control-group">
-        <button class="tts-btn-play" title="播放 / 暂停">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-        </button>
-        <button class="tts-btn-stop" title="停止">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
-        </button>
+      <div class="tts-ctrl-group">
+        <span>音色:</span>
+        <select class="tts-voice-select"><option value="">系统自然人声</option></select>
       </div>
-      <div class="tts-voice-group">
-        <select class="tts-voice-select"></select>
-      </div>
-      <div class="tts-speed-group">
-        <button class="tts-speed-btn" data-speed="0.8">0.8x</button>
+      <div class="tts-ctrl-group">
+        <span>倍速:</span>
+        <button class="tts-speed-btn" data-speed="0.75">0.75x</button>
         <button class="tts-speed-btn active" data-speed="1.0">1.0x</button>
         <button class="tts-speed-btn" data-speed="1.25">1.25x</button>
         <button class="tts-speed-btn" data-speed="1.5">1.5x</button>
@@ -156,12 +145,11 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     </div>
   `;
 
-  const playBtn = playerDrawer.querySelector('.tts-btn-play');
-  const stopBtn = playerDrawer.querySelector('.tts-btn-stop');
+  const playBtn = playerDrawer.querySelector('.tts-play-btn');
   const closeBtn = playerDrawer.querySelector('.tts-close-btn');
   const slider = playerDrawer.querySelector('.tts-slider');
-  const curTimeSpan = playerDrawer.querySelector('.tts-time-cur');
-  const durTimeSpan = playerDrawer.querySelector('.tts-time-dur');
+  const curTimeSpan = playerDrawer.querySelector('.tts-cur-time');
+  const durTimeSpan = playerDrawer.querySelector('.tts-dur-time');
   const voiceSelect = playerDrawer.querySelector('.tts-voice-select');
   const speedBtns = playerDrawer.querySelectorAll('.tts-speed-btn');
 
