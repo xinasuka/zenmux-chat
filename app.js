@@ -2185,25 +2185,30 @@
     var isRecording = false;
     var baseTextBeforeRecord = '';
 
-    try {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'zh-CN';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-    } catch (e) {
-      if (el.voiceBtn) el.voiceBtn.style.display = 'none';
-      return;
-    }
-
-    function stopRecording() {
-      if (!isRecording) return;
+    function cleanUpRecognition() {
       isRecording = false;
       if (el.voiceBtn) {
         el.voiceBtn.classList.remove('recording');
         el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
       }
-      try { recognition.stop(); } catch (e) {}
+      if (recognition) {
+        recognition.onstart = null;
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        try { recognition.abort(); } catch (e) {}
+        recognition = null;
+      }
+    }
+
+    function stopRecording() {
+      if (!isRecording && !recognition) return;
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {
+          try { recognition.abort(); } catch (e2) {}
+        }
+      }
+      cleanUpRecognition();
     }
 
     function startRecording() {
@@ -2211,21 +2216,68 @@
         toast('AI 正在回答中，请稍候…', 'info');
         return;
       }
-      baseTextBeforeRecord = el.input.value;
+
+      // 如果已有实例，先彻底重置释放
+      cleanUpRecognition();
+
+      baseTextBeforeRecord = el.input.value || '';
       if (baseTextBeforeRecord && !/[\s\n]$/.test(baseTextBeforeRecord)) {
         baseTextBeforeRecord += ' ';
       }
+
       try {
+        recognition = new SpeechRecognition();
+        var sysLang = navigator.language || 'zh-CN';
+        recognition.lang = /^zh/i.test(sysLang) ? 'zh-CN' : sysLang;
+        
+        // 移动端核心兼容性优化：在手机 Chrome 上开启 continuous 会导致部分设备丢失事件流
+        var isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+        recognition.continuous = !isMobile;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = function () {
+          isRecording = true;
+          if (el.voiceBtn) {
+            el.voiceBtn.classList.add('recording');
+            el.voiceBtn.title = '正在录音中… 点击结束说话';
+          }
+          toast('正在倾听… 说话即可实时转为文字', 'info');
+        };
+
+        recognition.onresult = function (event) {
+          var transcript = '';
+          for (var i = 0; i < event.results.length; i++) {
+            if (event.results[i] && event.results[i][0]) {
+              transcript += event.results[i][0].transcript;
+            }
+          }
+          if (transcript) {
+            el.input.value = baseTextBeforeRecord + transcript;
+            autoGrow();
+            syncSend();
+          }
+        };
+
+        recognition.onerror = function (event) {
+          var err = event && event.error ? event.error : '';
+          if (err === 'not-allowed' || err === 'permission-denied') {
+            toast('麦克风权限被拒绝，请在浏览器或系统设置中允许使用麦克风', 'error');
+          } else if (err === 'no-speech') {
+            toast('未检测到声音，已自动停止', 'info');
+          } else if (err && err !== 'aborted') {
+            toast('语音听写提示: ' + err, 'info');
+          }
+          cleanUpRecognition();
+        };
+
+        recognition.onend = function () {
+          cleanUpRecognition();
+        };
+
         recognition.start();
-        isRecording = true;
-        if (el.voiceBtn) {
-          el.voiceBtn.classList.add('recording');
-          el.voiceBtn.title = '正在录音中… 点击结束说话';
-        }
-        toast('正在倾听… 说话即可实时转为文字', 'info');
       } catch (err) {
-        isRecording = false;
-        if (el.voiceBtn) el.voiceBtn.classList.remove('recording');
+        cleanUpRecognition();
         toast('启动麦克风失败: ' + (err.message || '请检查权限'), 'error');
       }
     }
@@ -2239,38 +2291,6 @@
         }
       });
     }
-
-    recognition.onresult = function (event) {
-      var currentInterim = '';
-      var currentFinal = '';
-      for (var i = 0; i < event.results.length; i++) {
-        var res = event.results[i];
-        if (res.isFinal) {
-          currentFinal += res[0].transcript;
-        } else {
-          currentInterim += res[0].transcript;
-        }
-      }
-      var combined = (currentFinal + currentInterim).trim();
-      if (combined) {
-        el.input.value = baseTextBeforeRecord + combined;
-        autoGrow();
-        syncSend();
-      }
-    };
-
-    recognition.onerror = function (event) {
-      if (event.error === 'not-allowed') {
-        toast('麦克风权限被拒绝，请在浏览器地址栏允许使用麦克风', 'error');
-      } else if (event.error !== 'no-speech') {
-        toast('语音听写提示: ' + (event.error || '已停止'), 'info');
-      }
-      stopRecording();
-    };
-
-    recognition.onend = function () {
-      stopRecording();
-    };
   }
 
   // 启动引导
