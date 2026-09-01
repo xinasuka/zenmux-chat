@@ -1,8 +1,8 @@
-# ZenMux Chat
-
-<p align="center">
-  <b>High-Performance Personal AI Workstation · Tencent Cloud EdgeOne Serverless Proxy · Zero-Cost Native Bidirectional Voice · Client-Side Multimodal Parser · Direct Proxy-Free Access</b>
-</p>
+<div align="center">
+  <img src="./icon.png" width="100" height="100" alt="ZenMux Chat Logo" style="border-radius: 22px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
+  <h1>ZenMux Chat</h1>
+  <p><b>High-Performance Personal AI Workstation · Tencent Cloud EdgeOne Serverless Proxy · Zero-Cost Native Bidirectional Voice · Client-Side Multimodal Parser · Direct Proxy-Free Access</b></p>
+</div>
 
 ---
 
