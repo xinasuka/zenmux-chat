@@ -1,6 +1,6 @@
 // edge-functions/api/plugins/github.js
-// 在 EdgeOne Pages 边缘节点上代理 GitHub REST API，提供开源仓库详情、Star 数、Release 及 Issue 检索。
-// GITHUB_TOKEN 为可选 Secret 环境变量（未配置时可使用官方匿名 60 次/小时配额）。
+// 在 EdgeOne Pages 边缘节点上代理 GitHub REST API，提供开源仓库详情检索与热门项目关键词搜索探索。
+// GITHUB_TOKEN 为可选 Secret 环境变量（配置后可获得 5,000 次/小时高配额）。
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -26,7 +26,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   // 1. 门禁鉴权
-  const accessToken = env.ACCESS_TOKEN;
+  const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
   if (accessToken) {
     const auth = request.headers.get('X-Access-Token') || '';
     if (auth !== accessToken) {
@@ -41,82 +41,109 @@ export async function onRequestPost(context) {
     return json({ error: '请求体不是合法 JSON' }, 400);
   }
 
-  const rawRepo = (payload && (payload.repo || payload.query)) ? String(payload.repo || payload.query).trim() : '';
-  if (!rawRepo) {
-    return json({ error: '缺少 repo 参数（格式为 owner/repo 或仓库名）' }, 400);
+  const query = (payload && (payload.query || payload.repo)) ? String(payload.query || payload.repo).trim() : '';
+  if (!query) {
+    return json({ error: '缺少 GitHub 检索 query 或 repo 参数' }, 400);
   }
-
-  // 清洗 repo 参数（支持输入完整 github url 如 https://github.com/facebook/react）
-  const match = rawRepo.match(/(?:github\.com\/)?([^/\s]+\/[^/\s#?]+)/i);
-  let repoPath = match ? match[1] : '';
 
   const headers = {
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'ZenMux-Chat-GitHub-Plugin/2.5',
+    'User-Agent': 'ZenMux-Chat-GitHub-Plugin/2.5 (contact@zenmux.ai)',
   };
-  if (env.GITHUB_TOKEN) {
-    headers['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
+
+  const ghToken = env.GITHUB_TOKEN ? String(env.GITHUB_TOKEN).trim() : '';
+  if (ghToken) {
+    headers['Authorization'] = `Bearer ${ghToken}`;
   }
 
-  // 若用户未提供 owner/repo 格式（如只输入 "react" 或 "zustand"），自动调用 search 接口检索最相关的开源仓库
-  if (!repoPath) {
+  // 2. 检查是否为指定仓库查询（例如 facebook/react 或 https://github.com/facebook/react）
+  const match = query.match(/(?:https?:\/\/github\.com\/)?([a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+)/i);
+  const isDirectRepo = !!match && !query.includes(' ') && !query.includes(':');
+
+  if (isDirectRepo) {
+    const repoPath = match[1].replace(/\.git$/i, '');
     try {
-      const searchRes = await fetch(`${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(rawRepo)}&per_page=1`, { headers });
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        if (searchData && searchData.items && searchData.items.length > 0) {
-          repoPath = searchData.items[0].full_name;
-        }
+      const repoRes = await fetch(`${GITHUB_API_BASE}/repos/${repoPath}`, { headers });
+      if (repoRes.ok) {
+        const data = await repoRes.json();
+
+        // 尝试拉取最新 Release
+        let releaseTag = '暂无发布版本';
+        try {
+          const relRes = await fetch(`${GITHUB_API_BASE}/repos/${repoPath}/releases/latest`, { headers });
+          if (relRes.ok) {
+            const relData = await relRes.json();
+            if (relData && relData.tag_name) {
+              releaseTag = `${relData.tag_name}${relData.name ? ` (${relData.name})` : ''}`;
+            }
+          }
+        } catch (e) { }
+
+        return json({
+          success: true,
+          mode: 'repo',
+          query,
+          repo: {
+            fullName: data.full_name,
+            description: data.description || '无描述',
+            htmlUrl: data.html_url,
+            stars: data.stargazers_count,
+            forks: data.forks_count,
+            openIssues: data.open_issues_count,
+            language: data.language || '未知',
+            license: (data.license && data.license.name) || '无 License',
+            topics: (data.topics || []).slice(0, 8),
+            latestRelease: releaseTag,
+            updatedAt: data.updated_at,
+          }
+        }, 200);
       }
     } catch (e) { }
   }
 
-  if (!repoPath) repoPath = rawRepo;
-
-  let repoRes;
+  // 3. 通用搜索探索模式（Search & Discover Repositories）
   try {
-    repoRes = await fetch(`${GITHUB_API_BASE}/repos/${repoPath}`, { headers });
-  } catch (e) {
-    return json({ error: '连接 GitHub API 失败', detail: String(e && e.message) }, 502);
-  }
+    const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 5, 1), 10);
+    // 处理通用搜索词（支持自动补充 stars 排序）
+    const searchUrl = `${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=${limit}`;
 
-  if (!repoRes.ok) {
-    if (repoRes.status === 404) {
-      return json({ error: `未找到 GitHub 仓库【${repoPath}】，请检查名称是否正确或仓库是否为 Private。` }, 404);
-    }
-    const detail = await repoRes.text().catch(() => '');
-    return json({ error: `GitHub API 返回 HTTP ${repoRes.status}`, detail: detail.slice(0, 500) }, repoRes.status || 502);
-  }
-
-  const data = await repoRes.json().catch(() => null);
-  if (!data) return json({ error: '解析 GitHub 响应失败' }, 502);
-
-  // 尝试拉取最新 Release
-  let releaseTag = '暂无发布版本';
-  try {
-    const relRes = await fetch(`${GITHUB_API_BASE}/repos/${repoPath}/releases/latest`, { headers });
-    if (relRes.ok) {
-      const relData = await relRes.json();
-      if (relData && relData.tag_name) {
-        releaseTag = `${relData.tag_name}${relData.name ? ` (${relData.name})` : ''}`;
+    const searchRes = await fetch(searchUrl, { headers });
+    if (!searchRes.ok) {
+      const detail = await searchRes.text().catch(() => '');
+      if (searchRes.status === 403) {
+        return json({
+          error: 'GitHub API 访问速率超限。建议在 EdgeOne 控制台添加 GITHUB_TOKEN 环境变量提升至 5,000 次/小时配额。',
+          rateLimited: true
+        }, 429);
       }
+      return json({ error: `GitHub 搜索返回 HTTP ${searchRes.status}`, detail: detail.slice(0, 300) }, searchRes.status || 502);
     }
-  } catch (e) { }
 
-  return json({
-    success: true,
-    fullName: data.full_name,
-    description: data.description || '无描述',
-    htmlUrl: data.html_url,
-    stars: data.stargazers_count,
-    forks: data.forks_count,
-    openIssues: data.open_issues_count,
-    language: data.language || '未知',
-    license: (data.license && data.license.name) || '无 License',
-    topics: (data.topics || []).slice(0, 8),
-    latestRelease: releaseTag,
-    updatedAt: data.updated_at,
-    defaultBranch: data.default_branch,
-  }, 200);
+    const searchData = await searchRes.json().catch(() => null);
+    const items = (searchData && searchData.items) || [];
+
+    const repos = items.map((item) => {
+      return {
+        fullName: item.full_name,
+        description: item.description || '无描述',
+        htmlUrl: item.html_url,
+        stars: item.stargazers_count,
+        forks: item.forks_count,
+        language: item.language || '未知',
+        topics: (item.topics || []).slice(0, 6),
+        updatedAt: item.updated_at,
+      };
+    });
+
+    return json({
+      success: true,
+      mode: 'search',
+      query,
+      totalCount: (searchData && searchData.total_count) || repos.length,
+      repos
+    }, 200);
+  } catch (err) {
+    return json({ error: '调用 GitHub 搜索服务失败', detail: String(err && err.message) }, 502);
+  }
 }

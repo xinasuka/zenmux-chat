@@ -386,31 +386,31 @@ const ALL_PLUGINS = [
     provider: 'GitHub REST API',
     category: 'dev',
     icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>`,
-    description: '查询开源仓库详情、Star 趋势、Release 版本日志及技术栈信息',
+    description: '搜索探索 GitHub 热门开源项目，或查询指定仓库详情、Star 榜单与最新 Release',
     defaultEnabled: false,
     toolSchema: {
       type: 'function',
       function: {
-        name: 'github_repo',
-        description: 'Inspect a GitHub open-source repository to get real-time stars, forks, open issues, license, programming languages, latest release notes, and description.',
+        name: 'github_search',
+        description: 'Search and explore GitHub repositories, discover trending/popular open-source projects by keywords or topics (e.g., "AI agent", "web framework", "stars:>1000 language:rust"), or inspect a specific repository (e.g. "facebook/react", "zustand") to retrieve stars, forks, latest release version, topics, description, and link.',
         parameters: {
           type: 'object',
           properties: {
-            repo: {
+            query: {
               type: 'string',
-              description: 'The GitHub repository identifier in "owner/repo" format or full URL (e.g. "facebook/react", "vercel/next.js", "vllm-project/vllm").'
+              description: 'Search keywords, topic, technology name, or specific repository name (e.g. "trending AI agents", "react state management", "pmndrs/zustand", "facebook/react").'
             }
           },
-          required: ['repo']
+          required: ['query']
         }
       }
     },
     async execute(args, token) {
-      const repo = (args && (args.repo || args.query)) ? String(args.repo || args.query).trim() : '';
+      const query = (args && (args.query || args.repo)) ? String(args.query || args.repo).trim() : '';
       const res = await fetch('/api/plugins/github', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
-        body: JSON.stringify({ repo })
+        body: JSON.stringify({ query, limit: 5 })
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || (j && j.error)) {
@@ -419,22 +419,42 @@ const ALL_PLUGINS = [
       return j;
     },
     formatToolResult(data) {
-      if (!data || !data.fullName) return '未能获取到该 GitHub 仓库的信息。';
-      return `以下是 GitHub 仓库【${data.fullName}】的实时信息：\n\n- 仓库地址: ${data.htmlUrl}\n- 项目描述: ${data.description}\n- 关注与分支: ⭐ ${data.stars.toLocaleString()} Stars | 🍴 ${data.forks.toLocaleString()} Forks | ❗ ${data.openIssues} Issues\n- 主要语言: ${data.language}\n- 开源协议: ${data.license}\n- 最新发布版本: ${data.latestRelease}\n- 标签主题: ${(data.topics || []).join(', ') || '无'}\n- 默认分支: ${data.defaultBranch}\n\n请向用户详细介绍该开源项目的定位、流行度指标与最新动态。`;
+      if (!data) return '未能获取到 GitHub 信息。';
+      if (data.mode === 'repo' && data.repo) {
+        const r = data.repo;
+        return `以下是 GitHub 仓库【${r.fullName}】的实时信息：\n\n- 仓库地址: ${r.htmlUrl}\n- 项目描述: ${r.description}\n- 关注与分支: ⭐ ${r.stars.toLocaleString()} Stars | 🍴 ${r.forks.toLocaleString()} Forks | ❗ ${r.openIssues} Issues\n- 主要语言: ${r.language}\n- 开源协议: ${r.license}\n- 最新发布版本: ${r.latestRelease}\n- 标签主题: ${(r.topics || []).join(', ') || '无'}\n\n请向用户详细介绍该开源项目的定位、流行度指标与最新动态。`;
+      }
+      const repos = data.repos || [];
+      if (!repos.length) return `在 GitHub 上未检索到与【${data.query}】匹配的开源仓库。`;
+      const items = repos.map((r, idx) => {
+        return `[${idx + 1}] 《${r.fullName}》\n- 项目地址: ${r.htmlUrl}\n- 描述: ${r.description}\n- 指标: ⭐ ${r.stars.toLocaleString()} Stars | 🍴 ${r.forks.toLocaleString()} Forks | 语言: ${r.language}\n- 标签: ${(r.topics || []).join(', ') || '无'}`;
+      }).join('\n\n');
+      return `以下是通过 GitHub 检索到的热门开源项目（按 Star 排序）：\n\n${items}\n\n请结合上述开源项目信息进行专业推荐与技术栈对比，并在引用处标注 [1]、[2] 等序号。`;
     },
     formatCoTMarker(args, data) {
-      const name = (data && data.fullName) || (args && args.repo) || '';
-      const url = (data && data.htmlUrl) || '';
-      const stars = (data && data.stars) ? ` (⭐ ${data.stars.toLocaleString()})` : '';
-      return `\n\n> ✦ **已分析 GitHub 仓库**：[${name}](${url})${stars}\n\n`;
+      if (data && data.mode === 'repo' && data.repo) {
+        const r = data.repo;
+        const stars = r.stars ? ` (⭐ ${r.stars.toLocaleString()})` : '';
+        return `\n\n> ✦ **已分析 GitHub 仓库**：[${r.fullName}](${r.htmlUrl})${stars}\n\n`;
+      }
+      const query = (data && data.query) || (args && (args.query || args.repo)) || '';
+      const count = (data && data.repos) ? data.repos.length : 0;
+      return `\n\n> ✦ **已检索 GitHub 开源项目**：\`${query}\` (发现 ${count} 个相关热门开源仓库)\n\n`;
     },
     getSources(data) {
-      if (!data || !data.htmlUrl) return [];
-      return [{
-        title: `GitHub: ${data.fullName}`,
-        url: data.htmlUrl,
-        snippet: `⭐ ${data.stars} Stars · ${data.language} · ${data.description}`
-      }];
+      if (data && data.mode === 'repo' && data.repo) {
+        const r = data.repo;
+        return [{
+          title: `GitHub: ${r.fullName}`,
+          url: r.htmlUrl,
+          snippet: `⭐ ${r.stars} Stars · ${r.language} · ${r.description}`
+        }];
+      }
+      return ((data && data.repos) || []).map((r) => ({
+        title: `GitHub: ${r.fullName} (⭐ ${r.stars.toLocaleString()})`,
+        url: r.htmlUrl,
+        snippet: `${r.language} · ${r.description}`
+      }));
     }
   }
 ];

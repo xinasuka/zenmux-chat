@@ -3,6 +3,7 @@
 // OPENALEX_API_KEY 为可选 Secret 环境变量（配置后可获得 100,000 credits/day 高额度与高速通道）。
 
 const OPENALEX_ENDPOINT = 'https://api.openalex.org/works';
+const SELECT_FIELDS = 'id,doi,title,publication_year,cited_by_count,primary_location,authorships,abstract_inverted_index';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +29,7 @@ function reconstructAbstract(invertedIndex) {
       }
     }
   }
-  return words.filter(Boolean).join(' ');
+  return words.filter(Boolean).join(' ').trim();
 }
 
 export function onRequestOptions() {
@@ -39,7 +40,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   // 1. 门禁鉴权
-  const accessToken = env.ACCESS_TOKEN;
+  const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
   if (accessToken) {
     const auth = request.headers.get('X-Access-Token') || '';
     if (auth !== accessToken) {
@@ -60,18 +61,20 @@ export async function onRequestPost(context) {
   }
 
   const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 5, 1), 10);
-  let targetUrl = `${OPENALEX_ENDPOINT}?search=${encodeURIComponent(query)}&per-page=${limit}&select=${selectFields}`;
-  if (env.OPENALEX_API_KEY) {
-    targetUrl += `&api_key=${encodeURIComponent(env.OPENALEX_API_KEY)}`;
+  const apiKey = env.OPENALEX_API_KEY ? String(env.OPENALEX_API_KEY).trim() : '';
+
+  let targetUrl = `${OPENALEX_ENDPOINT}?search=${encodeURIComponent(query)}&per-page=${limit}&select=${SELECT_FIELDS}`;
+  if (apiKey) {
+    targetUrl += `&api_key=${encodeURIComponent(apiKey)}`;
   }
 
   const headers = {
     'User-Agent': 'ZenMux-Chat-OpenAlex-Plugin/2.5 (mailto:contact@zenmux.ai)',
     'Accept': 'application/json',
   };
-  if (env.OPENALEX_API_KEY) {
-    headers['Authorization'] = `Bearer ${env.OPENALEX_API_KEY}`;
-    headers['api-key'] = env.OPENALEX_API_KEY;
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['api-key'] = apiKey;
   }
 
   let res;

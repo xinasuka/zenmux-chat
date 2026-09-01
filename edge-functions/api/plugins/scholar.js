@@ -26,7 +26,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   // 1. 门禁鉴权
-  const accessToken = env.ACCESS_TOKEN;
+  const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
   if (accessToken) {
     const auth = request.headers.get('X-Access-Token') || '';
     if (auth !== accessToken) {
@@ -51,9 +51,13 @@ export async function onRequestPost(context) {
 
   const targetUrl = `${SCHOLAR_ENDPOINT}?query=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}`;
 
-  const headers = { 'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.5' };
-  if (env.SEMANTIC_SCHOLAR_KEY) {
-    headers['x-api-key'] = env.SEMANTIC_SCHOLAR_KEY;
+  const headers = {
+    'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.5 (contact@zenmux.ai)',
+    'Accept': 'application/json',
+  };
+  const scholarKey = env.SEMANTIC_SCHOLAR_KEY ? String(env.SEMANTIC_SCHOLAR_KEY).trim() : '';
+  if (scholarKey) {
+    headers['x-api-key'] = scholarKey;
   }
 
   let res;
@@ -65,6 +69,17 @@ export async function onRequestPost(context) {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    if (res.status === 429) {
+      return json({
+        error: 'Semantic Scholar 公共服务访问频率超限 (HTTP 429)。建议在 EdgeOne 控制台配置 SEMANTIC_SCHOLAR_KEY，或开启【OpenAlex 学术智库】进行文献检索。',
+        rateLimited: true
+      }, 429);
+    }
+    if (res.status === 500) {
+      return json({
+        error: 'Semantic Scholar 官方服务暂时繁忙 (HTTP 500)。建议使用【OpenAlex 学术智库】或稍后重试。'
+      }, 502);
+    }
     return json(
       { error: `Semantic Scholar 接口返回 HTTP ${res.status}`, detail: detail.slice(0, 500) },
       res.status || 502
