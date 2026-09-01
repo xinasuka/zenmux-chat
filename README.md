@@ -21,8 +21,8 @@
 ## 🚀 Key Features
 
 * ⚡ **Direct Access Everywhere**: Fast, stable connections without needing any VPN or proxy tools.
-* 🔍 **Smart Live Web Search**: The AI autonomously searches the web to find up-to-date facts, displaying reference links cleanly alongside its answer.
-* 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models (DeepSeek-R1, OpenAI o1/o3, Claude), showing thoughts and search steps together.
+* 🔍 **Smart Live Web Search & Deep Extraction**: The AI autonomously searches the web for facts and deeply parses complex React/SPA websites via Firecrawl v2.
+* 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models (DeepSeek-R1, OpenAI o1/o3, Claude), showing thoughts, search, and page extraction steps together.
 * 🎙️ **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices (with speed controls) or speak your prompt directly.
 * 📎 **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
 * 🔒 **Private & Safe**: Your chat history is stored locally in your browser (IndexedDB). Your API keys are encrypted securely on the edge server and never exposed to the browser.
@@ -43,7 +43,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 3. Configure the following **Environment Variables**:
    - `ACCESS_TOKEN`: A private password of your choice to protect your chat site (e.g. `mysecret123`).
    - `ZENMUX_API_KEY`: Your API Key from [ZenMux](https://zenmux.ai).
-   - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch if you want real-time web search.
+   - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch for real-time web search.
+   - `FIRECRAWL_API_KEY` *(Optional)*: Your API Key from [Firecrawl](https://firecrawl.dev) for deep React/SPA webpage extraction.
 4. Click **Deploy**. Your personal AI assistant is live!
 
 ---
@@ -69,8 +70,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 ### 核心亮点
 
 1. 🌐 **高速直连**：腾讯云全球边缘节点加速，告别繁琐的网络代理配置。
-2. 🔍 **智能联网搜索**：模型自主决断是否需要搜索网络，实时展示参考网页来源。
-3. 🧠 **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在搜索前后的完整思路与检索动作。
+2. 🔍 **智能联网与深度抓取**：模型自主决断是否需要搜索网络，并借助 Firecrawl v2 深度解析复杂的 React/SPA 动态网页。
+3. 🧠 **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在搜索与网页解析前后的完整思路与动作轨迹。
 4. 🎙️ **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 5. 📎 **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
 6. 🔒 **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
@@ -84,6 +85,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `ACCESS_TOKEN`：你的专属访问密码（打开网页时输入验证）。
    - `ZENMUX_API_KEY`：[ZenMux.ai](https://zenmux.ai) 平台的 API Key。
    - `ANYSEARCH_API_KEY`（可选）：联网检索服务的 API Key。
+   - `FIRECRAWL_API_KEY`（可选）：[Firecrawl](https://firecrawl.dev) 深度网页抓取服务的 API Key。
 4. **一键部署**：点击部署，稍等 1 分钟即可拥有属于你自己的个人 AI 工作站！
 
 ---

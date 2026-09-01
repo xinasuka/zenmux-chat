@@ -1,6 +1,6 @@
 import { el, state, uid, esc, getSearchCountByDepth } from './state.js';
 import { ZenMuxDB } from './db.js';
-import { WebSearchService } from './search.js';
+import { WebSearchService, WebExtractService } from './search.js';
 import { renderMd, renderParts } from './markdown.js';
 import { appendBubble, createSourcesElement, createActionsToolbar, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
 
@@ -145,7 +145,10 @@ export async function executeAssistantStream(userMsg, options = {}) {
       else p.reasoning_effort = state.effort;
     }
     if (allowTools && state.webSearch) {
-      p.tools = [WebSearchService.getToolSchema()];
+      p.tools = [
+        WebSearchService.getToolSchema(),
+        WebExtractService.getToolSchema()
+      ];
     }
     return p;
   }
@@ -169,7 +172,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
       col.appendChild(rDetails);
     }
 
-    // 2. 实时搜索状态动画 (Active Search Progress)
+    // 2. 实时搜索/抓取状态动画 (Active Tool Execution Progress)
     if (isSearching) {
       const searchBox = document.createElement('div');
       searchBox.className = 'search-status';
@@ -225,28 +228,25 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
   try {
     while (true) {
-      // 在所有连续轮次中始终保留 tools 定义，使模型可进行多步检索
+      // 在所有连续轮次中始终保留 tools 定义，使模型可进行多步检索与抓取
       const payload = buildPayload(currentHistory, true);
       const streamResult = await runStream(payload);
 
       const toolCalls = streamResult && streamResult.toolCalls;
-      const webSearchCall = (toolCalls && toolCalls.length) ? toolCalls.find((tc) => {
-        return tc.function && tc.function.name === 'web_search';
-      }) : null;
+      const activeCall = (toolCalls && toolCalls.length) ? toolCalls[0] : null;
 
-      if (!webSearchCall) {
-        // 模型已完成检索决策并生成最终回复
+      if (!activeCall || !activeCall.function) {
+        // 模型已完成所有工具调用决策并生成最终回复
         break;
       }
 
-      // 解析检索参数
-      let searchArgs = {};
+      const fnName = activeCall.function.name;
+      let fnArgs = {};
       try {
-        searchArgs = JSON.parse(webSearchCall.function.arguments || '{}');
+        fnArgs = JSON.parse(activeCall.function.arguments || '{}');
       } catch (e) {
-        searchArgs = { query: webSearchCall.function.arguments || userMsg.content };
+        fnArgs = {};
       }
-      const searchQuery = (searchArgs.query || userMsg.displayContent || userMsg.content || '').trim();
 
       // 若模型在触发工具调用前输出了前置思考/正文，无损并入思考过程流
       if (acc && acc.trim()) {
@@ -254,37 +254,81 @@ export async function executeAssistantStream(userMsg, options = {}) {
         acc = '';
       }
 
-      isSearching = true;
-      searchStatusText = `正在实时检索：${searchQuery}…`;
-      renderLiveUI(false);
-      toBottom();
+      const toolCallId = activeCall.id || ('call_' + uid());
+      let toolResultContent = '';
 
-      const searchCount = getSearchCountByDepth(state.searchDepth);
-      let stepSources = [];
-      try {
-        stepSources = await WebSearchService.search(searchQuery, state.token, searchCount);
-      } catch (err) {
-        if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
-          toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
-        } else {
-          toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
+      if (fnName === 'web_search') {
+        const searchQuery = (fnArgs.query || userMsg.displayContent || userMsg.content || '').trim();
+        isSearching = true;
+        searchStatusText = `正在实时检索：${searchQuery}…`;
+        renderLiveUI(false);
+        toBottom();
+
+        const searchCount = getSearchCountByDepth(state.searchDepth);
+        let stepSources = [];
+        try {
+          stepSources = await WebSearchService.search(searchQuery, state.token, searchCount);
+        } catch (err) {
+          if (err && /ANYSEARCH_API_KEY/.test(err.message)) {
+            toast('服务端未配置 ANYSEARCH_API_KEY 环境变量', 'info');
+          } else {
+            toast('联网检索提示: ' + (err.message || '未获取到有效搜索结果'), 'info');
+          }
+          stepSources = [];
         }
-        stepSources = [];
+
+        // 聚合参考来源并去重
+        stepSources.forEach((s) => {
+          if (!activeSources.some((existing) => existing.url === s.url)) {
+            activeSources.push(s);
+          }
+        });
+
+        isSearching = false;
+        const count = stepSources.length;
+        const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
+        reasonAcc += searchMarker;
+
+        toolResultContent = WebSearchService.formatToolResult(stepSources);
+      } else if (fnName === 'web_extract') {
+        const targetUrl = (fnArgs.url || '').trim();
+        isSearching = true;
+        searchStatusText = `正在深度抓取网页：${targetUrl}…`;
+        renderLiveUI(false);
+        toBottom();
+
+        let extractResult = null;
+        try {
+          extractResult = await WebExtractService.extract(targetUrl, state.token);
+        } catch (err) {
+          if (err && /FIRECRAWL_API_KEY/.test(err.message)) {
+            toast('服务端未配置 FIRECRAWL_API_KEY 环境变量', 'info');
+          } else {
+            toast('网页提取提示: ' + (err.message || '抓取网页失败'), 'info');
+          }
+          extractResult = { url: targetUrl, title: targetUrl, markdown: `抓取失败: ${err.message}` };
+        }
+
+        if (extractResult && extractResult.url) {
+          if (!activeSources.some((existing) => existing.url === extractResult.url)) {
+            activeSources.push({
+              title: extractResult.title || extractResult.url,
+              url: extractResult.url,
+              snippet: extractResult.description || (extractResult.markdown ? extractResult.markdown.slice(0, 150) : '')
+            });
+          }
+        }
+
+        isSearching = false;
+        const charCount = extractResult && extractResult.length ? extractResult.length : (extractResult.markdown ? extractResult.markdown.length : 0);
+        const extractMarker = `\n\n> ✦ **已提取网页内容**：[${extractResult.title || targetUrl}](${targetUrl}) (共 ${charCount} 字符)\n\n`;
+        reasonAcc += extractMarker;
+
+        toolResultContent = WebExtractService.formatToolResult(extractResult);
+      } else {
+        toolResultContent = `未知工具: ${fnName}`;
       }
 
-      // 聚合参考来源并去重
-      stepSources.forEach((s) => {
-        if (!activeSources.some((existing) => existing.url === s.url)) {
-          activeSources.push(s);
-        }
-      });
-
-      isSearching = false;
-      const count = stepSources.length;
-      const searchMarker = `\n\n> ✦ **已联网检索**：\`${searchQuery}\` (获取到 ${count} 个网页参考资料)\n\n`;
-      reasonAcc += searchMarker;
-
-      const toolCallId = webSearchCall.id || ('call_' + uid());
       const asstToolMsg = {
         role: 'assistant',
         content: null,
@@ -293,8 +337,8 @@ export async function executeAssistantStream(userMsg, options = {}) {
             id: toolCallId,
             type: 'function',
             function: {
-              name: 'web_search',
-              arguments: JSON.stringify(searchArgs)
+              name: fnName,
+              arguments: JSON.stringify(fnArgs)
             }
           }
         ]
@@ -302,7 +346,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
       const toolResultMsg = {
         role: 'tool',
         tool_call_id: toolCallId,
-        content: WebSearchService.formatToolResult(stepSources)
+        content: toolResultContent
       };
 
       currentHistory = currentHistory.concat([asstToolMsg, toolResultMsg]);
