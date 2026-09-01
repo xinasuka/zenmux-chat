@@ -16,14 +16,37 @@ if (!isMobileScreen() && localStorage.getItem(LS_SIDEBAR_COLLAPSED) === 'true') 
   document.body.classList.add('sidebar-collapsed');
 }
 
-export function closeSidebar() {
-  if (el.sidebar) el.sidebar.classList.remove('open');
-  if (el.sidebarBackdrop) el.sidebarBackdrop.classList.remove('active');
+export function openSidebar() {
+  if (isMobileScreen()) {
+    if (el.sidebar) el.sidebar.classList.add('open');
+    if (el.sidebarBackdrop) el.sidebarBackdrop.classList.add('active');
+  } else {
+    document.body.classList.remove('sidebar-collapsed');
+    localStorage.setItem(LS_SIDEBAR_COLLAPSED, 'false');
+  }
 }
 
-export function openSidebar() {
-  if (el.sidebar) el.sidebar.classList.add('open');
-  if (el.sidebarBackdrop) el.sidebarBackdrop.classList.add('active');
+export function closeSidebar() {
+  if (isMobileScreen()) {
+    if (el.sidebar) el.sidebar.classList.remove('open');
+    if (el.sidebarBackdrop) el.sidebarBackdrop.classList.remove('active');
+  } else {
+    document.body.classList.add('sidebar-collapsed');
+    localStorage.setItem(LS_SIDEBAR_COLLAPSED, 'true');
+  }
+}
+
+export function toggleSidebar() {
+  if (isMobileScreen()) {
+    if (el.sidebar && el.sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  } else {
+    const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem(LS_SIDEBAR_COLLAPSED, isCollapsed ? 'true' : 'false');
+  }
 }
 
 export function autoGrow() {
@@ -272,7 +295,7 @@ export function renderConvList() {
       localStorage.setItem(LS.cur, c.id);
       renderConvList();
       renderThread();
-      closeSidebar();
+      if (isMobileScreen()) closeSidebar();
     });
     el.convList.appendChild(row);
   });
@@ -607,21 +630,14 @@ function initEventListeners() {
 
   if (el.burger) el.burger.addEventListener('click', openSidebar);
   if (el.sidebarToggle) {
-    el.sidebarToggle.addEventListener('click', () => {
-      if (isMobileScreen()) {
-        closeSidebar();
-      } else {
-        const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
-        localStorage.setItem(LS_SIDEBAR_COLLAPSED, isCollapsed ? 'true' : 'false');
-      }
-    });
+    el.sidebarToggle.addEventListener('click', toggleSidebar);
   }
 
   if (el.sidebarBackdrop) el.sidebarBackdrop.addEventListener('click', closeSidebar);
   if (el.newChat) el.newChat.addEventListener('click', () => {
     if (state.busy) return;
     createNewConversation();
-    closeSidebar();
+    if (isMobileScreen()) closeSidebar();
   });
 
   if (el.logout) {
