@@ -7,7 +7,7 @@
 ---
 
 <details open>
-<summary><h2 style="display:inline-block; cursor:pointer;">🇨🇳 简体中文文档 (点击展开/折叠)</h2></summary>
+<summary><h2 style="display:inline-block; cursor:pointer;">🇨🇳 中文</h2></summary>
 
 基于 **腾讯云 EdgeOne Pages 国际版（edgeone.ai）** 构建的高性能个人 AI 对话工作站：**现代极简前端 + 客户端全模态解析引擎 + 边缘函数安全反代 + AI 原生实时联网检索 + 纯原生神经语音双向交互**。
 
@@ -137,7 +137,7 @@ sequenceDiagram
 <br>
 
 <details>
-<summary><h2 style="display:inline-block; cursor:pointer;">🇺🇸 English Documentation (Click to expand/collapse)</h2></summary>
+<summary><h2 style="display:inline-block; cursor:pointer;">🇺🇸 English</h2></summary>
 
 A high-performance, serverless personal AI workstation built on **Tencent Cloud EdgeOne Pages (Global Edition - edgeone.ai)**: **Modern Minimalist UI + Client-Side Multimodal Parsing Engine + Secure Edge Function Proxy + AI-Native Real-Time Web Search + Native Neural Voice Integration**.
 
