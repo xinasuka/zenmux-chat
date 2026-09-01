@@ -56,7 +56,11 @@ export async function onRequestPost(context) {
   }
 
   const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 5, 1), 10);
-  const targetUrl = `${NEWSAPI_ENDPOINT}?q=${encodeURIComponent(query)}&pageSize=${limit}&sortBy=publishedAt`;
+  const sortBy = (payload && payload.sortBy && ['relevancy', 'popularity', 'publishedAt'].includes(payload.sortBy)) ? payload.sortBy : 'publishedAt';
+  let targetUrl = `${NEWSAPI_ENDPOINT}?q=${encodeURIComponent(query)}&pageSize=${limit}&sortBy=${sortBy}`;
+  if (payload && payload.language) {
+    targetUrl += `&language=${encodeURIComponent(payload.language)}`;
+  }
 
   let newsRes;
   try {
@@ -64,7 +68,8 @@ export async function onRequestPost(context) {
       method: 'GET',
       headers: {
         'X-Api-Key': apiKey,
-        'User-Agent': 'ZenMux-Chat-NewsPlugin/2.4',
+        'Authorization': `Bearer ${apiKey}`,
+        'User-Agent': 'ZenMux-Chat-NewsPlugin/2.5',
       }
     });
   } catch (e) {

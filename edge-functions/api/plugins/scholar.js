@@ -51,7 +51,7 @@ export async function onRequestPost(context) {
 
   const targetUrl = `${SCHOLAR_ENDPOINT}?query=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}`;
 
-  const headers = { 'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.3' };
+  const headers = { 'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.5' };
   if (env.SEMANTIC_SCHOLAR_KEY) {
     headers['x-api-key'] = env.SEMANTIC_SCHOLAR_KEY;
   }

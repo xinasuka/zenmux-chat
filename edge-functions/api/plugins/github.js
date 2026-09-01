@@ -48,15 +48,31 @@ export async function onRequestPost(context) {
 
   // 清洗 repo 参数（支持输入完整 github url 如 https://github.com/facebook/react）
   const match = rawRepo.match(/(?:github\.com\/)?([^/\s]+\/[^/\s#?]+)/i);
-  const repoPath = match ? match[1] : rawRepo;
+  let repoPath = match ? match[1] : '';
 
   const headers = {
-    'Accept': 'application/vnd.github.v3+json',
-    'User-Agent': 'ZenMux-Chat-GitHub-Plugin/2.3',
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'ZenMux-Chat-GitHub-Plugin/2.5',
   };
   if (env.GITHUB_TOKEN) {
-    headers['Authorization'] = `token ${env.GITHUB_TOKEN}`;
+    headers['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
   }
+
+  // 若用户未提供 owner/repo 格式（如只输入 "react" 或 "zustand"），自动调用 search 接口检索最相关的开源仓库
+  if (!repoPath) {
+    try {
+      const searchRes = await fetch(`${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(rawRepo)}&per_page=1`, { headers });
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData && searchData.items && searchData.items.length > 0) {
+          repoPath = searchData.items[0].full_name;
+        }
+      }
+    } catch (e) { }
+  }
+
+  if (!repoPath) repoPath = rawRepo;
 
   let repoRes;
   try {
@@ -83,7 +99,7 @@ export async function onRequestPost(context) {
     if (relRes.ok) {
       const relData = await relRes.json();
       if (relData && relData.tag_name) {
-        releaseTag = `${relData.tag_name} (${relData.name || ''})`;
+        releaseTag = `${relData.tag_name}${relData.name ? ` (${relData.name})` : ''}`;
       }
     }
   } catch (e) { }

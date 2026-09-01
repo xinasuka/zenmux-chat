@@ -60,13 +60,18 @@ export async function onRequestPost(context) {
   }
 
   const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 5, 1), 10);
-  const selectFields = 'id,doi,title,publication_year,cited_by_count,primary_location,authorships,abstract_inverted_index';
-
   let targetUrl = `${OPENALEX_ENDPOINT}?search=${encodeURIComponent(query)}&per-page=${limit}&select=${selectFields}`;
+  if (env.OPENALEX_API_KEY) {
+    targetUrl += `&api_key=${encodeURIComponent(env.OPENALEX_API_KEY)}`;
+  }
 
-  const headers = { 'User-Agent': 'ZenMux-Chat-OpenAlex-Plugin/2.4 (mailto:user@zenmux.ai)' };
+  const headers = {
+    'User-Agent': 'ZenMux-Chat-OpenAlex-Plugin/2.5 (mailto:contact@zenmux.ai)',
+    'Accept': 'application/json',
+  };
   if (env.OPENALEX_API_KEY) {
     headers['Authorization'] = `Bearer ${env.OPENALEX_API_KEY}`;
+    headers['api-key'] = env.OPENALEX_API_KEY;
   }
 
   let res;
