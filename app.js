@@ -2184,6 +2184,9 @@
     var recognition = null;
     var isRecording = false;
     var baseTextBeforeRecord = '';
+    var isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|edgios|android/i.test(navigator.userAgent);
 
     function forceReset() {
       isRecording = false;
@@ -2196,6 +2199,7 @@
         recognition.onresult = null;
         recognition.onerror = null;
         recognition.onend = null;
+        recognition.onspeechend = null;
         try { recognition.abort(); } catch (e) {}
         recognition = null;
       }
@@ -2210,7 +2214,6 @@
       }
       if (recognition) {
         try {
-          // 关键：仅停止拾音，保留 onresult 监听等待底层返回识别文字
           recognition.stop();
         } catch (e) {
           forceReset();
@@ -2224,7 +2227,11 @@
         return;
       }
 
-      // 若上一轮未彻底释放，强制重置
+      // 若处于 iOS 且为第三方浏览器（如 iOS Chrome/Edge），Apple 沙箱会限制语音听写
+      if (isIOS && !isSafari) {
+        toast('提示：iOS 系统限制第三方浏览器语音听写，建议使用 Safari 体验', 'info');
+      }
+
       forceReset();
 
       baseTextBeforeRecord = el.input.value || '';
@@ -2235,7 +2242,8 @@
       try {
         recognition = new SpeechRecognition();
         recognition.lang = 'zh-CN';
-        recognition.continuous = true;
+        // 移动端需使用单次会话模式（continuous: false）以确保 Android/iOS 正确回传数据流
+        recognition.continuous = !isMobile;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
@@ -2248,15 +2256,25 @@
           toast('正在倾听… 说话即可实时转为文字', 'info');
         };
 
+        recognition.onspeechend = function () {
+          // 用户说话停顿后，自动触发停止以快速返回最终文字
+          if (isMobile && recognition) {
+            try { recognition.stop(); } catch (e) {}
+          }
+        };
+
         recognition.onresult = function (event) {
           var transcript = '';
-          for (var i = 0; i < event.results.length; i++) {
-            if (event.results[i] && event.results[i][0]) {
-              transcript += event.results[i][0].transcript;
+          if (event && event.results) {
+            for (var i = 0; i < event.results.length; i++) {
+              if (event.results[i] && event.results[i][0]) {
+                transcript += event.results[i][0].transcript;
+              }
             }
           }
           if (transcript) {
             el.input.value = baseTextBeforeRecord + transcript;
+            el.input.dispatchEvent(new Event('input', { bubbles: true }));
             autoGrow();
             syncSend();
             el.input.scrollTop = el.input.scrollHeight;
@@ -2266,11 +2284,13 @@
         recognition.onerror = function (event) {
           var err = event && event.error ? event.error : '';
           if (err === 'not-allowed' || err === 'permission-denied') {
-            toast('麦克风权限被拒绝，请在浏览器或系统设置中允许麦克风', 'error');
+            toast('麦克风权限未开启，请在手机浏览器或系统设置中允许使用麦克风', 'error');
           } else if (err === 'network') {
-            toast('语音识别网络连接超时，请检查网络设置', 'error');
+            toast('语音识别网络连接失败（手机 Chrome 需系统支持 Google 语音服务并保持联网）', 'error');
+          } else if (err === 'service-not-allowed') {
+            toast('手机当前环境未启用语音识别服务', 'error');
           } else if (err === 'no-speech') {
-            toast('未检测到声音，已自动结束', 'info');
+            toast('未检测到说话声音，已自动结束', 'info');
           } else if (err && err !== 'aborted') {
             toast('语音识别提示: ' + err, 'info');
           }
