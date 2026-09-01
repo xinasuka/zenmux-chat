@@ -757,8 +757,8 @@
   function renderParts(reasoning, content) {
     var html = '';
     if (reasoning && reasoning.trim()) {
-      html += '<details class="reasoning" open><summary>思考过程</summary>' +
-        renderMd(reasoning) + '</details>';
+      html += '<details class="reasoning" open><summary><span class="reasoning-sparkle">✦</span> <span>思考过程</span></summary><div class="reasoning-body">' +
+        renderMd(reasoning) + '</div></details>';
     }
     html += renderMd(content || '');
     return html;
