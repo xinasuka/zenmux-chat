@@ -332,8 +332,6 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     }
   });
 
-  stopBtn.addEventListener('click', () => stopSpeech());
-
   closeBtn.addEventListener('click', () => {
     stopSpeech();
     if (playerDrawer.parentNode) playerDrawer.parentNode.removeChild(playerDrawer);
