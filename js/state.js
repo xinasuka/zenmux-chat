@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.5.0';
+export const APP_VERSION = '2.5.1';
 
 export const LS = {
   cur: 'zm.current',
@@ -10,7 +10,6 @@ export const LS = {
   gated: 'zm.gated',
   effort: 'zm.effort',
   ctx: 'zm.ctx',
-  webSearch: 'zm.webSearch',
   searchDepth: 'zm.searchDepth',
   activePlugins: 'zm.plugins.active',
   theme: 'zm.theme',
@@ -47,7 +46,6 @@ export const el = {
   stop: $('stop'),
 
   attachBtn: $('attach-btn'),
-  webSearchBtn: $('web-search-btn'),
   pluginsBtn: $('plugins-btn'),
   pluginsBadge: $('plugins-badge'),
   voiceBtn: $('voice-btn'),
@@ -83,7 +81,6 @@ export const state = {
   currentConv: null,
   effort: localStorage.getItem(LS.effort) || '',
   ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
-  webSearch: localStorage.getItem(LS.webSearch) === '1',
   searchDepth: localStorage.getItem(LS.searchDepth) || 'standard',
   modelMeta: {},
   pendingAttachments: [],
