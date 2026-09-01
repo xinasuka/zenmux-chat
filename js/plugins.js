@@ -181,9 +181,9 @@ const ALL_PLUGINS = [
       const papers = (data && data.papers) || [];
       if (!papers.length) return '未检索到相关学术论文。请尝试使用更加通用的英文学术关键词再次检索。';
       const items = papers.map((p, idx) => {
-        return `[${idx + 1}] 《${p.title}》 (${p.year})\n- 作者: ${p.authors}\n- 期刊/会议: ${p.venue || 'N/A'} (引用数: ${p.citationCount})\n- 论文链接/DOI: ${p.url}\n- 摘要: ${p.abstract}`;
+        return `[${idx + 1}] [《${p.title}》](${p.url}) (${p.year})\n- 作者: ${p.authors}\n- 期刊/会议: ${p.venue || 'N/A'} (引用数: ${p.citationCount})\n- 论文链接/DOI: ${p.url}\n- 摘要: ${p.abstract}`;
       }).join('\n\n');
-      return `以下是通过 Semantic Scholar 检索到的学术文献：\n\n${items}\n\n请基于上述论文事实与摘要进行严谨的学术分析，并在引用处标注 [1]、[2] 等序号。`;
+      return `以下是通过 Semantic Scholar 检索到的学术文献：\n\n${items}\n\n请基于上述论文事实与摘要进行严谨的学术分析。在回答中提及论文时，请以 Markdown 链接格式 [《论文标题》](URL) 并标注引用序号 [1]、[2]，以便用户直接点击查阅。`;
     },
     formatCoTMarker(args, data) {
       const query = (data && data.query) || (args && args.query) || '';
@@ -243,9 +243,9 @@ const ALL_PLUGINS = [
       const works = (data && data.works) || [];
       if (!works.length) return '未在 OpenAlex 数据库中检索到匹配的学术文献。';
       const items = works.map((w, idx) => {
-        return `[${idx + 1}] 《${w.title}》 (${w.year})\n- 作者: ${w.authors}\n- 来源/期刊: ${w.venue} (引用数: ${w.citationCount})\n- 论文链接/DOI: ${w.url}\n- 摘要: ${w.abstract}`;
+        return `[${idx + 1}] [《${w.title}》](${w.url}) (${w.year})\n- 作者: ${w.authors}\n- 来源/期刊: ${w.venue} (引用数: ${w.citationCount})\n- 论文链接/DOI: ${w.url}\n- 摘要: ${w.abstract}`;
       }).join('\n\n');
-      return `以下是通过 OpenAlex 检索到的学术文献：\n\n${items}\n\n请结合上述文献内容进行深度学术总结，并在引用处标注 [1]、[2] 等序号。`;
+      return `以下是通过 OpenAlex 检索到的学术文献：\n\n${items}\n\n请结合上述文献内容进行深度学术总结。在回答中提及论文时，请使用 Markdown 链接格式 [《论文标题》](URL) 并标注引用序号 [1]、[2]，方便用户直接点击查阅。`;
     },
     formatCoTMarker(args, data) {
       const query = (data && data.query) || (args && args.query) || '';

@@ -3,7 +3,7 @@
 // OPENALEX_API_KEY 为可选 Secret 环境变量（配置后可获得 100,000 credits/day 高额度与高速通道）。
 
 const OPENALEX_ENDPOINT = 'https://api.openalex.org/works';
-const SELECT_FIELDS = 'id,doi,title,publication_year,cited_by_count,primary_location,authorships,abstract_inverted_index';
+const SELECT_FIELDS = 'id,doi,title,publication_year,cited_by_count,primary_location,open_access,authorships,abstract_inverted_index';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -97,10 +97,10 @@ export async function onRequestPost(context) {
 
   const formatted = works.map((w) => {
     const authors = (w.authorships || []).map((a) => (a.author && a.author.display_name) || '').filter(Boolean).slice(0, 6).join(', ');
-    const venue = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || '';
-    const pdfUrl = (w.primary_location && w.primary_location.pdf_url) || '';
-    const landingUrl = (w.primary_location && w.primary_location.landing_page_url) || '';
     const doi = w.doi || '';
+    const oaUrl = (w.open_access && w.open_access.oa_url) || '';
+    const openAlexUrl = w.id ? (w.id.startsWith('http') ? w.id : `https://openalex.org/${w.id}`) : '';
+    const finalUrl = doi || pdfUrl || oaUrl || landingUrl || openAlexUrl;
     const abstract = reconstructAbstract(w.abstract_inverted_index);
 
     return {
@@ -111,8 +111,8 @@ export async function onRequestPost(context) {
       venue: venue || 'Academic Journal / Conference',
       citationCount: w.cited_by_count || 0,
       abstract: abstract || 'No abstract text available in OpenAlex index.',
-      url: doi || pdfUrl || landingUrl || w.id,
-      pdfUrl: pdfUrl,
+      url: finalUrl,
+      pdfUrl: pdfUrl || oaUrl,
     };
   });
 
