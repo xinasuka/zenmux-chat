@@ -597,9 +597,12 @@
   .source-item:hover{
     background:var(--bg-elev);color:var(--accent);border-color:var(--accent);
   }
+  .source-icon{
+    color:var(--accent);font-size:12px;display:inline-block;margin-right:2px;
+  }
   .source-index{
     flex:0 0 auto;font-size:11px;font-weight:700;color:var(--accent);
-    background:rgba(127,119,221,.15);padding:1px 5px;border-radius:4px;
+    background:var(--accent-glow);padding:1px 5px;border-radius:4px;
   }
   .source-title{
     flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;

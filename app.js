@@ -1552,7 +1552,7 @@
         card.className = 'msg-file-card';
 
         var summary = document.createElement('summary');
-        summary.innerHTML = '📄 <strong>' + esc(f.name) + '</strong> <span style="font-size:11px;color:var(--fg-dim);margin-left:auto">' +
+        summary.innerHTML = '<strong>' + esc(f.name) + '</strong> <span style="font-size:11px;color:var(--fg-dim);margin-left:auto">' +
           formatSize(f.size) + (f.lines ? ' · ' + f.lines + '行' : '') + '</span>';
 
         var pre = document.createElement('pre');
@@ -1567,12 +1567,12 @@
       col.appendChild(fileBox);
     }
 
-    // 3. 若附带联网检索来源，渲染参考来源卡片
-    if (sources && sources.length) {
+    // 3. 若附带联网检索来源，渲染参考来源卡片（仅在 AI Assistant 消息上方展示）
+    if (role === 'assistant' && sources && sources.length) {
       var srcBox = document.createElement('details');
       srcBox.className = 'msg-sources';
       var srcSummary = document.createElement('summary');
-      srcSummary.innerHTML = '🌐 <strong>参考来源</strong> (' + sources.length + ' 个网页)';
+      srcSummary.innerHTML = '<span class="source-icon">✦</span> <strong>参考来源</strong> (' + sources.length + ' 个网页)';
 
       var list = document.createElement('div');
       list.className = 'sources-list';
@@ -1628,8 +1628,8 @@
     return wrap;
   }
 
-  function appendBubble(role) {
-    var wrap = bubble(role, '', null, '', null, '', null, null, null, null);
+  function appendBubble(role, sources) {
+    var wrap = bubble(role, '', null, '', null, '', sources, null, null, null);
     el.threadInner.appendChild(wrap);
     return wrap.querySelector('.msg-text');
   }
@@ -1757,12 +1757,12 @@
     el.send.disabled = state.busy || !hasContent || !state.model;
   }
 
-  function executeAssistantStream(userMsg) {
+  function executeAssistantStream(userMsg, activeSources) {
     var c = state.currentConv;
     if (!c) return;
 
     var meta = state.modelMeta[state.model];
-    var body = appendBubble('assistant');
+    var body = appendBubble('assistant', activeSources);
     toBottom();
 
     state.busy = true;
@@ -1837,6 +1837,7 @@
             role: 'assistant',
             content: acc,
             reasoning: reasonAcc || undefined,
+            sources: activeSources || undefined,
             usage: capturedUsage || undefined,
             model: state.model || undefined,
             createdAt: Date.now()
@@ -1873,6 +1874,7 @@
               role: 'assistant',
               content: acc,
               reasoning: reasonAcc || undefined,
+              sources: activeSources || undefined,
               usage: capturedUsage || undefined,
               model: state.model || undefined,
               createdAt: Date.now()
@@ -1988,7 +1990,6 @@
         displayContent: text,
         images: images.length ? images : undefined,
         files: files.length ? files : undefined,
-        sources: activeSources || undefined,
         createdAt: Date.now()
       };
       c.messages.push(userMsg);
@@ -1998,11 +1999,11 @@
         renderConvList();
       });
 
-      // 挂载用户气泡
-      el.threadInner.appendChild(bubble('user', finalPrompt, images, '', files, text, activeSources, null, null, c.messages.length - 1));
+      // 挂载用户气泡（纯用户输入与附件）
+      el.threadInner.appendChild(bubble('user', finalPrompt, images, '', files, text, null, null, null, c.messages.length - 1));
 
-      // 执行 Assistant 回答流
-      executeAssistantStream(userMsg);
+      // 执行 Assistant 回答流（检索来源挂载在 AI 回复侧）
+      executeAssistantStream(userMsg, activeSources);
     });
   }
 
