@@ -45,11 +45,25 @@ export async function onRequestPost(context) {
       return json({ error: '缺少百科检索 query 参数' }, 400);
     }
 
-    // 2. 语种智能识别与解析
-    let lang = (payload && payload.language && payload.language !== 'auto') ? String(payload.language).toLowerCase() : '';
+    // 2. 语种智能识别与解析 (支持全球 ISO 语言代码与主流文字脚本自动感知)
+    let lang = (payload && payload.language && payload.language !== 'auto') 
+      ? String(payload.language).toLowerCase().replace(/[^a-z-]/g, '').trim() 
+      : '';
+
     if (!lang) {
-      // 包含中文字符默认使用中文维基百科，否则默认英文
-      lang = /[\u4e00-\u9fa5]/.test(query) ? 'zh' : 'en';
+      if (/[\u3040-\u309F\u30A0-\u30FF]/.test(query)) {
+        lang = 'ja'; // 日语 (平假名 / 片假名)
+      } else if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(query)) {
+        lang = 'ko'; // 韩语 (谚文 / 字母)
+      } else if (/[\u0400-\u04FF]/.test(query)) {
+        lang = 'ru'; // 俄语 (西里尔字母)
+      } else if (/[\u0600-\u06FF\u0750-\u077F]/.test(query)) {
+        lang = 'ar'; // 阿拉伯语
+      } else if (/[\u4E00-\u9FFF]/.test(query)) {
+        lang = 'zh'; // 中文 (汉字)
+      } else {
+        lang = 'en'; // 英文及其他拉丁文字默认路由至全球英文主站
+      }
     }
 
     const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 3, 1), 5);
