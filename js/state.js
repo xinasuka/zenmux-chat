@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.8.2';
+export const APP_VERSION = '2.9.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -13,6 +13,9 @@ export const LS = {
   searchDepth: 'zm.searchDepth',
   activePlugins: 'zm.plugins.active',
   theme: 'zm.theme',
+  themeMode: 'zm.theme.mode',
+  instructions: 'zm.instructions',
+  instructionsEnabled: 'zm.instructions.enabled',
   sidebarWidth: 'zm.sidebar.width',
 };
 
@@ -33,6 +36,7 @@ export const el = {
   searchDepth: $('search-depth'),
   ctx: $('ctx'),
 
+  settingsBtn: $('settings-btn'),
   themeToggle: $('theme-toggle'),
   themeIconSun: $('theme-icon-sun'),
   themeIconMoon: $('theme-icon-moon'),
@@ -60,6 +64,18 @@ export const el = {
   pluginsEnableAll: $('plugins-enable-all'),
   pluginsDisableAll: $('plugins-disable-all'),
 
+  settingsModal: $('settings-modal'),
+  settingsModalBackdrop: $('settings-modal-backdrop'),
+  settingsClose: $('settings-close'),
+  settingsInstructions: $('settings-instructions'),
+  settingsInstructionsToggle: $('settings-instructions-toggle'),
+  settingsCharCount: $('settings-char-count'),
+  settingsSaveBtn: $('settings-save-btn'),
+  settingsClearBtn: $('settings-clear-btn'),
+  themePillDark: $('theme-pill-dark'),
+  themePillLight: $('theme-pill-light'),
+  themePillAuto: $('theme-pill-auto'),
+
   lightbox: $('lightbox'),
   lightboxImg: $('lightbox-img'),
   lightboxClose: $('lightbox-close'),
@@ -76,6 +92,9 @@ export const state = {
   token: localStorage.getItem(LS.token) || '',
   model: localStorage.getItem(LS.model) || '',
   theme: localStorage.getItem(LS.theme) || 'dark',
+  themeMode: localStorage.getItem(LS.themeMode) || (localStorage.getItem(LS.theme) ? localStorage.getItem(LS.theme) : 'auto'),
+  instructions: localStorage.getItem(LS.instructions) || '',
+  instructionsEnabled: localStorage.getItem(LS.instructionsEnabled) !== 'false',
   conversations: [],
   currentId: localStorage.getItem(LS.cur) || null,
   currentConv: null,

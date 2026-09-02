@@ -31,6 +31,7 @@
   - **Global Weather** (Open-Meteo real-time conditions and 7-day forecasts)
   - **GitHub Explorer** (Repository metrics, releases, issues, and trending discovery)
   - **Global Financial Market** (CoinGecko crypto, global fiat exchange rates, and US stock quotes)
+* **Persistent Custom Instructions (System Prompt)**: Define global personas, professional backgrounds, and formatting rules that seamlessly steer model responses across all conversations.
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
 * **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
@@ -94,11 +95,12 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
    - **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
    - **全球金融市场** (CoinGecko 加密货币、全球法定汇率换算与美股实时行情)
-3. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
-4. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
-5. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
-6. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
-7. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
+3. **自定义指令与系统提示词**：支持配置全局持久化 System Prompt，设定人设背景、严谨度与代码偏好，并在每轮对话前无缝注入。
+4. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
+5. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
+6. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
+7. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
+8. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
 
 ### 极速部署指南
 

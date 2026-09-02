@@ -3,7 +3,7 @@
 
 import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc } from './state.js';
 import { ZenMuxDB } from './db.js';
-import { initTheme } from './theme.js';
+import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream } from './chat.js';
@@ -283,6 +283,46 @@ export function openPluginsModal() {
 
 export function closePluginsModal() {
   if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.add('hide');
+}
+
+export function updateSettingsCharCount() {
+  if (el.settingsInstructions && el.settingsCharCount) {
+    el.settingsCharCount.textContent = `${el.settingsInstructions.value.length} 字符`;
+  }
+}
+
+export function renderSettingsState() {
+  if (el.settingsInstructions) {
+    el.settingsInstructions.value = state.instructions || '';
+  }
+  if (el.settingsInstructionsToggle) {
+    el.settingsInstructionsToggle.checked = !!state.instructionsEnabled;
+  }
+  updateSettingsCharCount();
+  syncThemePillsUI(state.themeMode);
+}
+
+export function openSettingsModal() {
+  renderSettingsState();
+  if (el.settingsModalBackdrop) el.settingsModalBackdrop.classList.remove('hide');
+}
+
+export function closeSettingsModal() {
+  if (el.settingsModalBackdrop) el.settingsModalBackdrop.classList.add('hide');
+}
+
+export function saveSettings() {
+  const text = (el.settingsInstructions ? el.settingsInstructions.value : '').trim();
+  const enabled = el.settingsInstructionsToggle ? el.settingsInstructionsToggle.checked : true;
+
+  state.instructions = text;
+  state.instructionsEnabled = enabled;
+
+  localStorage.setItem(LS.instructions, text);
+  localStorage.setItem(LS.instructionsEnabled, String(enabled));
+
+  closeSettingsModal();
+  toast('偏好与自定义指令已保存并应用', 'info');
 }
 
 export function renderAttachments() {
@@ -832,6 +872,46 @@ function initEventListeners() {
     });
   }
 
+  // Settings Modal triggers & actions
+  if (el.settingsBtn) el.settingsBtn.addEventListener('click', openSettingsModal);
+  if (el.settingsClose) el.settingsClose.addEventListener('click', closeSettingsModal);
+  if (el.settingsModalBackdrop) {
+    el.settingsModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === el.settingsModalBackdrop) closeSettingsModal();
+    });
+  }
+  if (el.settingsSaveBtn) el.settingsSaveBtn.addEventListener('click', saveSettings);
+  if (el.settingsClearBtn) {
+    el.settingsClearBtn.addEventListener('click', () => {
+      if (el.settingsInstructions) {
+        el.settingsInstructions.value = '';
+        updateSettingsCharCount();
+        el.settingsInstructions.focus();
+      }
+    });
+  }
+  if (el.settingsInstructions) {
+    el.settingsInstructions.addEventListener('input', updateSettingsCharCount);
+  }
+
+  // Theme Pills in Settings Modal
+  if (el.themePillDark) el.themePillDark.addEventListener('click', () => applyTheme('dark'));
+  if (el.themePillLight) el.themePillLight.addEventListener('click', () => applyTheme('light'));
+  if (el.themePillAuto) el.themePillAuto.addEventListener('click', () => applyTheme('auto'));
+
+  // Prompt Preset Chips in Settings Modal
+  document.querySelectorAll('.prompt-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const promptText = chip.getAttribute('data-prompt') || '';
+      if (el.settingsInstructions) {
+        el.settingsInstructions.value = promptText;
+        updateSettingsCharCount();
+        if (el.settingsInstructionsToggle) el.settingsInstructionsToggle.checked = true;
+        el.settingsInstructions.focus();
+      }
+    });
+  });
+
   // Lightbox close listeners
   if (el.lightboxClose) el.lightboxClose.addEventListener('click', closeLightbox);
   if (el.lightbox) {
@@ -843,6 +923,7 @@ function initEventListeners() {
     if (e.key === 'Escape') {
       if (el.lightbox && !el.lightbox.classList.contains('hide')) closeLightbox();
       if (el.pluginsModalBackdrop && !el.pluginsModalBackdrop.classList.contains('hide')) closePluginsModal();
+      if (el.settingsModalBackdrop && !el.settingsModalBackdrop.classList.contains('hide')) closeSettingsModal();
     }
   });
 

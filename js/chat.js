@@ -139,7 +139,17 @@ export async function executeAssistantStream(userMsg, options = {}) {
   const canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
 
   function buildPayload(msgs, allowTools) {
-    const p = { model: state.model, messages: msgs };
+    let finalMsgs = msgs;
+    if (state.instructions && state.instructions.trim() && state.instructionsEnabled) {
+      const systemInstruction = {
+        role: 'system',
+        content: state.instructions.trim()
+      };
+      if (!finalMsgs.length || finalMsgs[0].role !== 'system') {
+        finalMsgs = [systemInstruction, ...finalMsgs];
+      }
+    }
+    const p = { model: state.model, messages: finalMsgs };
     if (canReason && state.effort) {
       if (state.effort === 'off') p.reasoning = { enabled: false };
       else p.reasoning_effort = state.effort;
