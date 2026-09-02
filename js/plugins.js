@@ -261,6 +261,72 @@ const ALL_PLUGINS = [
     }
   },
   {
+    id: 'wiki',
+    name: '维基百科知识库',
+    provider: 'Wikimedia Foundation',
+    category: 'research',
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><line x1="9" y1="7" x2="15" y2="7"></line><line x1="9" y1="11" x2="15" y2="11"></line></svg>`,
+    description: '检索维基百科 6,000 万+ 权威中英文百科词条、科学概念定义、历史事件与事实溯源',
+    defaultEnabled: false,
+    toolSchema: {
+      type: 'function',
+      function: {
+        name: 'wiki_search',
+        description: 'Search Wikipedia for authoritative encyclopedia articles, concept definitions, scientific principles, historical events, notable people, and peer-reviewed facts. Best for objective knowledge, entity overviews, and structured background information.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The encyclopedia topic, concept, historical event, or entity keyword to look up (e.g. "Quantum Computing", "General Relativity", "Turing Award", "文艺复兴").'
+            },
+            language: {
+              type: 'string',
+              enum: ['zh', 'en', 'auto'],
+              description: 'Optional language code (defaults to auto-detecting Chinese "zh" or English "en").'
+            }
+          },
+          required: ['query']
+        }
+      }
+    },
+    async execute(args, token) {
+      const query = (args && args.query) ? String(args.query).trim() : '';
+      const language = (args && args.language) ? String(args.language).trim() : 'auto';
+      const res = await fetch('/api/plugins/wiki', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
+        body: JSON.stringify({ query, language, limit: 3 })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || (j && j.error)) {
+        throw new Error((j && j.error) || ('HTTP ' + res.status));
+      }
+      return j;
+    },
+    formatToolResult(data) {
+      const entries = (data && data.entries) || [];
+      if (!entries.length) return `未在维基百科 (${data.language || 'zh'}) 中检索到与【${data.query}】匹配的百科词条。`;
+      const items = entries.map((e, idx) => {
+        return `[${idx + 1}] [《${e.title}》](${e.url})\n- 词条定义/简介: ${e.description}\n- 权威概述: ${e.extract}`;
+      }).join('\n\n');
+      return `以下是通过维基百科 (${data.language || 'zh'}) 检索到的权威百科词条：\n\n${items}\n\n请结合上述百科事实进行严谨客观的总结与概念阐述。在回答中提及词条时，请使用 Markdown 链接格式 [《词条名称》](URL) 并标注引用序号 [1]、[2]，以便用户点击查阅完整维基页面。`;
+    },
+    formatCoTMarker(args, data) {
+      const query = (data && data.query) || (args && args.query) || '';
+      const count = (data && data.entries) ? data.entries.length : 0;
+      const lang = (data && data.language === 'en') ? '英文' : '中文';
+      return `\n\n> ✦ **已查阅维基百科** (${lang})：\`${query}\` (获取到 ${count} 个权威词条概述)\n\n`;
+    },
+    getSources(data) {
+      return ((data && data.entries) || []).map((e) => ({
+        title: `维基百科: ${e.title}`,
+        url: e.url,
+        snippet: `${e.description} · ${e.extract.slice(0, 150)}`
+      }));
+    }
+  },
+  {
     id: 'news',
     name: '全球时事新闻',
     provider: 'NewsAPI.org',

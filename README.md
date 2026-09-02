@@ -26,9 +26,10 @@
   - 📄 **Deep Web Extraction** (Firecrawl v2 for dynamic React/SPA sites)
   - 🎓 **Semantic Scholar** (200M+ academic papers & citation graph)
   - 📚 **OpenAlex Knowledge Base** (250M+ global scientific works, DOI & open-access PDFs)
+  - 📖 **Wikipedia Knowledge Base** (60M+ encyclopedia articles, concept definitions & facts)
   - 📰 **Global News** (NewsAPI for 80,000+ international news outlets)
   - 🌤️ **Global Weather** (Open-Meteo real-time & 7-day forecasts)
-  - 💻 **GitHub Explorer** (Repository metrics, releases & README inspection)
+  - 💻 **GitHub Explorer** (Repository metrics, releases & trending discovery)
 * 🧠 **Unified Thinking Process**: Beautiful collapsible thinking timeline for reasoning models, showing thoughts, search, and page extraction steps together.
 * 🎙️ **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices (with speed controls) or speak your prompt directly.
 * 📎 **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
@@ -86,9 +87,10 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - 📄 **深度网页抓取** (Firecrawl v2 解析 React/SPA 动态站点)
    - 🎓 **Semantic Scholar 文献检索** (检索 2 亿+ 论文与引用)
    - 📚 **OpenAlex 学术智库** (检索 2.5 亿+ 全球开放科研作品与 DOI)
+   - 📖 **维基百科权威知识库** (Wikimedia 免 Key 检索 6,000 万+ 百科词条与概念定义)
    - 📰 **全球时事新闻** (NewsAPI 检索 80,000+ 国际权威媒体时事快讯)
    - 🌤️ **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
-   - 💻 **GitHub 开源探索** (GitHub REST API 探索 Star、Release 与技术栈)
+   - 💻 **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
 3. 🧠 **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
 4. 🎙️ **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 5. 📎 **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
