@@ -34,7 +34,7 @@ const ALL_PLUGINS = [
     async execute(args, token) {
       const query = (args && args.query) ? String(args.query).trim() : '';
       const count = getSearchCountByDepth(state.searchDepth);
-      const res = await fetch('/api/search', {
+      const res = await fetch('/api/plugins/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
         body: JSON.stringify({ query, max_results: count })
@@ -98,7 +98,7 @@ const ALL_PLUGINS = [
     },
     async execute(args, token) {
       const targetUrl = (args && args.url) ? String(args.url).trim() : '';
-      const res = await fetch('/api/extract', {
+      const res = await fetch('/api/plugins/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
         body: JSON.stringify({ url: targetUrl })
