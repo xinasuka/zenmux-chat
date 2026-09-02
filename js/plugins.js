@@ -174,7 +174,10 @@ const ALL_PLUGINS = [
       }
       return {
         query,
-        papers: j.papers || []
+        papers: j.papers || [],
+        fallback: !!j.fallback,
+        fallbackReason: j.fallbackReason || '',
+        source: j.source || 'Semantic Scholar'
       };
     },
     formatToolResult(data) {
@@ -183,16 +186,22 @@ const ALL_PLUGINS = [
       const items = papers.map((p, idx) => {
         return `[${idx + 1}] [《${p.title}》](${p.url}) (${p.year})\n- 作者: ${p.authors}\n- 期刊/会议: ${p.venue || 'N/A'} (引用数: ${p.citationCount})\n- 论文链接/DOI: ${p.url}\n- 摘要: ${p.abstract}`;
       }).join('\n\n');
-      return `以下是通过 Semantic Scholar 检索到的学术文献：\n\n${items}\n\n请基于上述论文事实与摘要进行严谨的学术分析。在回答中提及论文时，请以 Markdown 链接格式 [《论文标题》](URL) 并标注引用序号 [1]、[2]，以便用户直接点击查阅。`;
+      const fallbackNote = (data && data.fallback && data.fallbackReason)
+        ? `> 💡 **数据源提示**：${data.fallbackReason}\n\n`
+        : '';
+      return `${fallbackNote}以下是通过【${data.source || 'Semantic Scholar'}】检索到的学术文献：\n\n${items}\n\n请基于上述论文事实与摘要进行严谨的学术分析。在回答中提及论文时，请以 Markdown 链接格式 [《论文标题》](URL) 并标注引用序号 [1]、[2]，以便用户直接点击查阅。`;
     },
     formatCoTMarker(args, data) {
       const query = (data && data.query) || (args && args.query) || '';
       const count = (data && data.papers) ? data.papers.length : 0;
-      return `\n\n> ✦ **已检索学术文献**：\`${query}\` (获取到 ${count} 篇学术论文与引用)\n\n`;
+      const isFallback = data && data.fallback;
+      const label = isFallback ? `Semantic Scholar 频控，已自动切换 OpenAlex 容灾检索到 ${count} 篇论文` : `获取到 ${count} 篇学术论文与引用`;
+      return `\n\n> ✦ **已检索学术文献**：\`${query}\` (${label})\n\n`;
     },
     getSources(data) {
+      const isFallback = data && data.fallback;
       return ((data && data.papers) || []).map((p) => ({
-        title: `《${p.title}》 (${p.year})`,
+        title: `《${p.title}》 (${p.year})${isFallback ? ' [OpenAlex 容灾源]' : ''}`,
         url: p.url,
         snippet: `作者: ${p.authors} · 引用: ${p.citationCount} · ${p.abstract.slice(0, 150)}`
       }));

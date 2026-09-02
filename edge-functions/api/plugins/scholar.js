@@ -66,6 +66,16 @@ export async function onRequestPost(context) {
     res = null;
   }
 
+  // 若遇到 429 频控，退避 1.1s 后自动重试一次 Semantic Scholar
+  if (res && res.status === 429) {
+    await new Promise((r) => setTimeout(r, 1100));
+    try {
+      res = await fetch(targetUrl, { method: 'GET', headers });
+    } catch (e) {
+      res = null;
+    }
+  }
+
   // 1. 若 Semantic Scholar 成功响应且返回数据
   if (res && res.ok) {
     const result = await res.json().catch(() => null);
@@ -87,11 +97,18 @@ export async function onRequestPost(context) {
         };
       });
 
-      return json({ success: true, query, total: result.total || formatted.length, papers: formatted }, 200);
+      return json({
+        success: true,
+        query,
+        source: 'Semantic Scholar',
+        fallback: false,
+        total: result.total || formatted.length,
+        papers: formatted
+      }, 200);
     }
   }
 
-  // 2. 若 Semantic Scholar 遭遇 429 限流、5xx 繁忙或网络波动，无缝触发 OpenAlex 容灾学术备用引擎
+  // 2. 若 Semantic Scholar 依然 429 限流或 5xx 繁忙，透明触发 OpenAlex 容灾学术备用引擎并附带提示
   try {
     const openAlexUrl = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&mailto=contact@zenmux.ai`;
     const oaRes = await fetch(openAlexUrl, {
@@ -129,9 +146,11 @@ export async function onRequestPost(context) {
         return json({
           success: true,
           query,
+          source: 'OpenAlex 学术智库 (容灾备用)',
+          fallback: true,
+          fallbackReason: 'Semantic Scholar 官方接口触发频率限制 (1 QPS)，已自动为您切换为 OpenAlex 学术智库检索文献。',
           total: oaData.meta?.count || formatted.length,
-          papers: formatted,
-          fallback: true
+          papers: formatted
         }, 200);
       }
     }
