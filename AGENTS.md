@@ -38,6 +38,10 @@ Every commit message must follow Conventional Commits and explicitly contain the
 - `chore(vX.Y.Z): <maintenance scope>`
 - `docs(vX.Y.Z): <documentation update>`
 
+### 2.4 Atomic Commit & Remote Push Protocol
+- **Lockstep Execution**: Commit and push operations must ALWAYS be executed together as a single atomic workflow.
+- **Immediate Remote Synchronization**: Whenever changes are staged and committed, the agent must immediately execute `git push` to publish the revision to `origin/main` without waiting for separate user instructions.
+
 ---
 
 ## 3. Test-Driven Development (TDD) & Pre-Commit Verification
