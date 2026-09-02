@@ -1,6 +1,7 @@
 import { el, state, uid, esc } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { PluginRegistry } from './plugins.js';
+import { MemoryStore } from './memory.js';
 import { renderMd, renderParts } from './markdown.js';
 import { appendBubble, createSourcesElement, createActionsToolbar, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
 
@@ -139,16 +140,28 @@ export async function executeAssistantStream(userMsg, options = {}) {
   const canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
 
   function buildPayload(msgs, allowTools) {
-    let finalMsgs = msgs;
+    const systemParts = [];
     if (state.instructions && state.instructions.trim() && state.instructionsEnabled) {
+      systemParts.push(state.instructions.trim());
+    }
+    if (state.memoryEnabled && state.instructionsEnabled !== false) {
+      const memoryBlock = MemoryStore.compileSystemPrompt();
+      if (memoryBlock) {
+        systemParts.push(memoryBlock);
+      }
+    }
+
+    let finalMsgs = msgs;
+    if (systemParts.length > 0) {
       const systemInstruction = {
         role: 'system',
-        content: state.instructions.trim()
+        content: systemParts.join('\n\n')
       };
       if (!finalMsgs.length || finalMsgs[0].role !== 'system') {
         finalMsgs = [systemInstruction, ...finalMsgs];
       }
     }
+
     const p = { model: state.model, messages: finalMsgs };
     if (canReason && state.effort) {
       if (state.effort === 'off') p.reasoning = { enabled: false };
@@ -156,8 +169,12 @@ export async function executeAssistantStream(userMsg, options = {}) {
     }
     if (allowTools) {
       const activePlugins = PluginRegistry.getActivePlugins();
-      if (activePlugins.length) {
-        p.tools = activePlugins.map((pl) => pl.toolSchema);
+      const tools = activePlugins.map((pl) => pl.toolSchema);
+      if (state.memoryEnabled) {
+        tools.push(MemoryStore.getToolSchema());
+      }
+      if (tools.length) {
+        p.tools = tools;
       }
     }
     return p;

@@ -2,6 +2,7 @@
 // Centralized Plugin Registry, Tool Calling Schema Management, and Multiplexed Tool Execution.
 
 import { getHostname, getSearchCountByDepth, state } from './state.js';
+import { MemoryStore } from './memory.js';
 
 export const LS_ACTIVE_PLUGINS = 'zm.plugins.active';
 
@@ -680,6 +681,28 @@ export class PluginRegistry {
   }
 
   static getByToolName(toolName) {
+    if (toolName === 'manage_memory') {
+      return {
+        id: 'manage_memory',
+        name: '长期记忆管理',
+        provider: 'Local-First Memory',
+        category: 'system',
+        toolSchema: MemoryStore.getToolSchema(),
+        async execute(args) {
+          return MemoryStore.executeTool(args);
+        },
+        formatToolResult(data) {
+          return (data && data.message) || '已执行记忆管理操作。';
+        },
+        formatCoTMarker(args, data) {
+          const msg = (data && data.message) || (data && data.item && data.item.content) || (args && args.content) || '';
+          return `\n\n> ✦ **已更新长期记忆**：${msg}\n\n`;
+        },
+        getSources() {
+          return [];
+        }
+      };
+    }
     return ALL_PLUGINS.find((p) => p.toolSchema && p.toolSchema.function && p.toolSchema.function.name === toolName);
   }
 

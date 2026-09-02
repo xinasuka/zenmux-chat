@@ -4,6 +4,7 @@
 import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
+import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
 import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream } from './chat.js';
@@ -291,6 +292,44 @@ export function updateSettingsCharCount() {
   }
 }
 
+export function renderMemoryManagerUI() {
+  if (!el.settingsMemoryList) return;
+  if (el.settingsMemoryToggle) {
+    el.settingsMemoryToggle.checked = state.memoryEnabled !== false;
+  }
+
+  const list = MemoryStore.getAll();
+  state.memories = list;
+
+  if (el.settingsMemoryCount) {
+    el.settingsMemoryCount.textContent = `已存储 ${list.length} 条记忆 (上限 ${MAX_MEMORY_ITEMS} 条)`;
+  }
+
+  el.settingsMemoryList.innerHTML = '';
+  if (list.length === 0) {
+    el.settingsMemoryList.innerHTML = '<div class="memory-empty-state">暂无存储的长期记忆。可在对话中告诉模型“记住...”或在上方手动添加。</div>';
+    return;
+  }
+
+  list.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'memory-item';
+    row.innerHTML = `
+      <span class="memory-item-content">${esc(item.content)}</span>
+      <button type="button" class="memory-del-btn" title="删除该条记忆">×</button>
+    `;
+    const delBtn = row.querySelector('.memory-del-btn');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        MemoryStore.delete(item.id);
+        renderMemoryManagerUI();
+        toast('已删除该条记忆', 'info');
+      });
+    }
+    el.settingsMemoryList.appendChild(row);
+  });
+}
+
 export function renderSettingsState() {
   if (el.settingsInstructions) {
     el.settingsInstructions.value = state.instructions || '';
@@ -300,6 +339,7 @@ export function renderSettingsState() {
   }
   updateSettingsCharCount();
   syncThemePillsUI(state.themeMode);
+  renderMemoryManagerUI();
 }
 
 export function openSettingsModal() {
@@ -892,6 +932,49 @@ function initEventListeners() {
   }
   if (el.settingsInstructions) {
     el.settingsInstructions.addEventListener('input', updateSettingsCharCount);
+  }
+
+  // Memory Manager triggers & actions
+  if (el.settingsMemoryToggle) {
+    el.settingsMemoryToggle.addEventListener('change', (e) => {
+      state.memoryEnabled = e.target.checked;
+      localStorage.setItem(LS.memoryEnabled, String(e.target.checked));
+      toast(e.target.checked ? '已开启长程记忆功能' : '已关闭长程记忆功能', 'info');
+    });
+  }
+
+  function handleManualAddMemory() {
+    if (!el.settingsMemoryInput) return;
+    const text = el.settingsMemoryInput.value.trim();
+    if (!text) return;
+    MemoryStore.add(text);
+    el.settingsMemoryInput.value = '';
+    renderMemoryManagerUI();
+    toast('已添加新记忆', 'info');
+  }
+
+  if (el.settingsMemoryAddBtn) {
+    el.settingsMemoryAddBtn.addEventListener('click', handleManualAddMemory);
+  }
+  if (el.settingsMemoryInput) {
+    el.settingsMemoryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleManualAddMemory();
+      }
+    });
+  }
+
+  if (el.settingsMemoryClearBtn) {
+    el.settingsMemoryClearBtn.addEventListener('click', () => {
+      const count = MemoryStore.getAll().length;
+      if (count === 0) return;
+      if (confirm(`确定要清空全部 ${count} 条长期记忆吗？此操作不可恢复。`)) {
+        MemoryStore.clear();
+        renderMemoryManagerUI();
+        toast('已清空所有长期记忆', 'info');
+      }
+    });
   }
 
   // Theme Pills in Settings Modal

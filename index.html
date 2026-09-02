@@ -15,7 +15,7 @@
   <div id="sidebar-topbar" class="sidebar-topbar">
     <div class="sidebar-brand-group">
       <span class="sidebar-brand-title">ZenChat</span>
-      <span class="app-version-badge">v2.9.0</span>
+      <span class="app-version-badge">v2.10.0</span>
     </div>
     <button id="sidebar-toggle" class="sidebar-icon-btn" title="收起侧边栏">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -213,10 +213,40 @@
           <button type="button" class="prompt-chip" data-prompt="你是一位精通中英双语的专业同声传译与本地化翻译专家。请准确、地道、优雅地翻译内容，并附带关键术语对照。">专业翻译</button>
         </div>
 
-        <textarea id="settings-instructions" class="settings-textarea" rows="5" placeholder="例如：你是一位拥有 15 年经验的资深架构师。回答时请直接给出符合生产级标准的精炼代码，并指出关键边界与性能要点..."></textarea>
+        <textarea id="settings-instructions" class="settings-textarea" rows="4" placeholder="例如：你是一位拥有 15 年经验的资深架构师。回答时请直接给出符合生产级标准的精炼代码，并指出关键边界与性能要点..."></textarea>
         
         <div class="settings-textarea-footer">
           <span id="settings-char-count" class="char-count">0 字符</span>
+        </div>
+      </div>
+
+      <!-- Section 3: Long-Term Memory -->
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <div class="settings-title-row">
+            <label for="settings-memory-toggle" class="settings-section-title">长程持久化记忆 (Long-Term Memory)</label>
+            <div class="settings-toggle-wrap">
+              <input type="checkbox" id="settings-memory-toggle" class="custom-toggle-input">
+              <label for="settings-memory-toggle" class="custom-toggle-label" title="开启或关闭模型长程记忆与自主记忆管理"></label>
+            </div>
+          </div>
+          <span class="settings-section-hint">开启后模型可自主沉淀你的技术栈、业务背景与工作偏好并在跨会话中持续生效。数据 100% 存放于本地浏览器。</span>
+        </div>
+
+        <div class="memory-manager-box">
+          <div class="memory-add-row">
+            <input type="text" id="settings-memory-input" class="memory-input" placeholder="手动添加一条记忆事实（例如：偏好使用 Go 与 TypeScript 开发微服务）">
+            <button type="button" id="settings-memory-add-btn" class="memory-add-btn">＋ 添加</button>
+          </div>
+
+          <div id="settings-memory-list" class="memory-list">
+            <!-- Dynamically populated memory cards -->
+          </div>
+
+          <div class="memory-footer-bar">
+            <span id="settings-memory-count" class="memory-count-text">已存储 0 条记忆</span>
+            <button type="button" id="settings-memory-clear-btn" class="memory-clear-btn">清空记忆库</button>
+          </div>
         </div>
       </div>
     </div>

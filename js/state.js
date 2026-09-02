@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.9.0';
+export const APP_VERSION = '2.10.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -16,10 +16,13 @@ export const LS = {
   themeMode: 'zm.theme.mode',
   instructions: 'zm.instructions',
   instructionsEnabled: 'zm.instructions.enabled',
+  memoryList: 'zm.memory.list',
+  memoryEnabled: 'zm.memory.enabled',
   sidebarWidth: 'zm.sidebar.width',
 };
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
+const getStorageItem = (key) => (typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null);
 
 export const el = {
   sidebar: $('sidebar'),
@@ -72,6 +75,12 @@ export const el = {
   settingsCharCount: $('settings-char-count'),
   settingsSaveBtn: $('settings-save-btn'),
   settingsClearBtn: $('settings-clear-btn'),
+  settingsMemoryToggle: $('settings-memory-toggle'),
+  settingsMemoryList: $('settings-memory-list'),
+  settingsMemoryInput: $('settings-memory-input'),
+  settingsMemoryAddBtn: $('settings-memory-add-btn'),
+  settingsMemoryClearBtn: $('settings-memory-clear-btn'),
+  settingsMemoryCount: $('settings-memory-count'),
   themePillDark: $('theme-pill-dark'),
   themePillLight: $('theme-pill-light'),
   themePillAuto: $('theme-pill-auto'),
@@ -89,18 +98,20 @@ export const el = {
 };
 
 export const state = {
-  token: localStorage.getItem(LS.token) || '',
-  model: localStorage.getItem(LS.model) || '',
-  theme: localStorage.getItem(LS.theme) || 'dark',
-  themeMode: localStorage.getItem(LS.themeMode) || (localStorage.getItem(LS.theme) ? localStorage.getItem(LS.theme) : 'auto'),
-  instructions: localStorage.getItem(LS.instructions) || '',
-  instructionsEnabled: localStorage.getItem(LS.instructionsEnabled) !== 'false',
+  token: getStorageItem(LS.token) || '',
+  model: getStorageItem(LS.model) || '',
+  theme: getStorageItem(LS.theme) || 'dark',
+  themeMode: getStorageItem(LS.themeMode) || (getStorageItem(LS.theme) ? getStorageItem(LS.theme) : 'auto'),
+  instructions: getStorageItem(LS.instructions) || '',
+  instructionsEnabled: getStorageItem(LS.instructionsEnabled) !== 'false',
+  memoryEnabled: getStorageItem(LS.memoryEnabled) !== 'false',
+  memories: [],
   conversations: [],
-  currentId: localStorage.getItem(LS.cur) || null,
+  currentId: getStorageItem(LS.cur) || null,
   currentConv: null,
-  effort: localStorage.getItem(LS.effort) || '',
-  ctxN: parseInt(localStorage.getItem(LS.ctx), 10),
-  searchDepth: localStorage.getItem(LS.searchDepth) || 'standard',
+  effort: getStorageItem(LS.effort) || '',
+  ctxN: parseInt(getStorageItem(LS.ctx), 10),
+  searchDepth: getStorageItem(LS.searchDepth) || 'standard',
   modelMeta: {},
   pendingAttachments: [],
   busy: false,
