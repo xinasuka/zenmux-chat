@@ -31,8 +31,8 @@
   - **Global Weather** (Open-Meteo real-time conditions and 7-day forecasts)
   - **GitHub Explorer** (Repository metrics, releases, issues, and trending discovery)
   - **Global Financial Market** (CoinGecko crypto, global fiat exchange rates, and US stock quotes)
-* **Persistent Custom Instructions (System Prompt)**: Define global personas, professional backgrounds, and formatting rules that seamlessly steer model responses across all conversations.
-* **Autonomous Long-Term Memory**: Autonomous cross-session memory management powered by OpenAI function calling, allowing the model to remember, update, and recall your tech stacks, preferences, and project background locally.
+* **Personalized Custom Instructions**: Tell the AI your background, favorite writing style, or preferred format so it automatically follows your preferences in every conversation.
+* **Smart Long-Term Memory**: The AI remembers your enduring habits, ongoing projects, and background across conversations. You can easily review, click to modify, or clear your memories at any time in Settings.
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
 * **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
@@ -96,8 +96,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
    - **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
    - **全球金融市场** (CoinGecko 加密货币、全球法定汇率换算与美股实时行情)
-3. **自定义指令与系统提示词**：支持配置全局持久化 System Prompt，设定人设背景、严谨度与代码偏好，并在每轮对话前无缝注入。
-4. **长程持久化记忆 (Long-Term Memory)**：具备跨会话自主记忆沉淀能力，模型可通过 Function Calling 自主记录、更新或遗忘用户的技术栈、偏好与项目背景，数据 100% 本地存储且支持手动管理。
+3. **个性化设定 (Custom Instructions)**：告诉 AI 你的身份背景、常用偏好或期望的回答风格，AI 在每次对话中都会自动遵循。
+4. **智能长期记忆 (Long-Term Memory)**：AI 会在聊天中自动记住关于你的重要习惯和背景，跨会话持续生效。你可以在设置中随时查看、点击直接修改或清空所有记忆。
 5. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
 6. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 7. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
