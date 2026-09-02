@@ -524,6 +524,101 @@ const ALL_PLUGINS = [
         snippet: `${r.language} · ${r.description}`
       }));
     }
+  },
+  {
+    id: 'finance',
+    name: '全球金融市场',
+    provider: 'CoinGecko & Finnhub & Forex',
+    category: 'utility',
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`,
+    description: '免 Key 实时查询加密货币（BTC/ETH/SOL）、全球法定汇率换算及美股股票实时行情',
+    defaultEnabled: false,
+    toolSchema: {
+      type: 'function',
+      function: {
+        name: 'finance_market',
+        description: 'Get real-time financial market data, including cryptocurrency prices and 24h changes (Bitcoin, Ethereum, Solana, Altcoins), global fiat exchange rates and currency conversion (USD/CNY, EUR, JPY, GBP), and US/global stock quotes (NVDA, AAPL, TSLA, SPY).',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Target asset ticker, company name, cryptocurrency, or currency pair (e.g. "BTC", "Solana", "USD/CNY", "NVDA", "英伟达股价", "以太坊行情").'
+            }
+          },
+          required: ['query']
+        }
+      }
+    },
+    async execute(args, token) {
+      const query = (args && args.query) ? String(args.query).trim() : '';
+      const res = await fetch('/api/plugins/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
+        body: JSON.stringify({ query })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || (j && j.error)) {
+        throw new Error((j && j.error) || ('HTTP ' + res.status));
+      }
+      return j;
+    },
+    formatToolResult(data) {
+      if (!data) return '未能获取到金融市场行情。';
+      if (data.assetType === 'crypto') {
+        const changeStr = data.change24hUsd !== undefined ? `${data.change24hUsd >= 0 ? '+' : ''}${data.change24hUsd.toFixed(2)}%` : 'N/A';
+        const volStr = data.volume24hUsd ? `$${(data.volume24hUsd / 1e8).toFixed(2)} 亿` : 'N/A';
+        const capStr = data.marketCapUsd ? `$${(data.marketCapUsd / 1e8).toFixed(2)} 亿` : 'N/A';
+        return `以下是加密货币【${data.coinId.toUpperCase()}】的实时市场行情：\n\n- 美元现价: $${Number(data.priceUsd).toLocaleString()}\n- 人民币现价: ¥${Number(data.priceCny).toLocaleString()}\n- 24h 涨跌幅: ${changeStr}\n- 24h 成交量: ${volStr}\n- 总市值: ${capStr}\n- 数据来源: [CoinGecko](${data.url})\n\n请向用户专业客观地总结该资产的当前价格、24小时波动与市场表现。`;
+      }
+      if (data.assetType === 'forex') {
+        const rateLines = Object.entries(data.rates || {}).map(([c, r]) => `- 1 ${data.baseCurrency} = ${r} ${c}`).join('\n');
+        return `以下是基于【${data.baseCurrency}】的全球法定外汇实时参考汇率（更新时间: ${data.lastUpdated}）：\n\n${rateLines}\n\n请基于上述外汇数据为用户提供精确的汇率参考与金额换算。`;
+      }
+      if (data.assetType === 'stock') {
+        const changeStr = data.percentChange !== undefined ? `${data.percentChange >= 0 ? '+' : ''}${Number(data.percentChange).toFixed(2)}% ($${data.change >= 0 ? '+' : ''}${Number(data.change).toFixed(2)})` : 'N/A';
+        return `以下是股票【${data.symbol}】(${data.companyName}) 的实时行情报价：\n\n- 最新股价: $${Number(data.currentPrice).toFixed(2)}\n- 今日涨跌: ${changeStr}\n- 今日最高 / 最低: $${Number(data.highPrice).toFixed(2)} / $${Number(data.lowPrice).toFixed(2)}\n- 今日开盘 / 昨收: $${Number(data.openPrice).toFixed(2)} / $${Number(data.prevClose).toFixed(2)}\n- 行情链接: [Yahoo Finance](${data.url})\n\n请向用户清晰解读该股票的今日价格走势。`;
+      }
+      if (data.assetType === 'overview') {
+        const btc = data.crypto && data.crypto.bitcoin ? `$${Number(data.crypto.bitcoin.usd).toLocaleString()} (${data.crypto.bitcoin.usd_24h_change >= 0 ? '+' : ''}${data.crypto.bitcoin.usd_24h_change?.toFixed(2)}%)` : 'N/A';
+        const eth = data.crypto && data.crypto.ethereum ? `$${Number(data.crypto.ethereum.usd).toLocaleString()} (${data.crypto.ethereum.usd_24h_change >= 0 ? '+' : ''}${data.crypto.ethereum.usd_24h_change?.toFixed(2)}%)` : 'N/A';
+        const fxCny = data.forex && data.forex.CNY ? `1 USD = ${data.forex.CNY} CNY` : 'N/A';
+        const fxEur = data.forex && data.forex.EUR ? `1 USD = ${data.forex.EUR} EUR` : 'N/A';
+        return `以下是核心金融大盘资产参考行情：\n\n- 比特币 (BTC): ${btc}\n- 以太坊 (ETH): ${eth}\n- 美元兑人民币: ${fxCny}\n- 美元兑欧元: ${fxEur}\n${data.note ? `\n> 提示: ${data.note}` : ''}`;
+      }
+      return '未能匹配到有效的资产行情。';
+    },
+    formatCoTMarker(args, data) {
+      const query = (data && data.query) || (args && args.query) || '';
+      const typeMap = { crypto: '加密货币', forex: '外汇汇率', stock: '股票行情', overview: '大盘概览' };
+      const typeLabel = (data && typeMap[data.assetType]) || '金融市场';
+      return `\n\n> ✦ **已获取金融行情** (${typeLabel})：\`${query}\`\n\n`;
+    },
+    getSources(data) {
+      if (!data) return [];
+      if (data.assetType === 'crypto') {
+        return [{
+          title: `CoinGecko: ${data.coinId.toUpperCase()}`,
+          url: data.url || `https://www.coingecko.com/en/coins/${data.coinId}`,
+          snippet: `现价: $${data.priceUsd} (¥${data.priceCny}) · 24h 涨跌: ${data.change24hUsd?.toFixed(2)}%`
+        }];
+      }
+      if (data.assetType === 'stock') {
+        return [{
+          title: `Stock Quote: ${data.symbol}`,
+          url: data.url,
+          snippet: `${data.companyName} · 现价: $${data.currentPrice} · 涨跌: ${data.percentChange?.toFixed(2)}%`
+        }];
+      }
+      if (data.assetType === 'forex') {
+        return [{
+          title: `ExchangeRate-API (${data.baseCurrency})`,
+          url: 'https://www.exchangerate-api.com',
+          snippet: `基准货币: ${data.baseCurrency} · 更新时间: ${data.lastUpdated}`
+        }];
+      }
+      return [];
+    }
   }
 ];
 

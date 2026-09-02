@@ -30,6 +30,7 @@
   - **Global News** (NewsAPI for 80,000+ international news outlets)
   - **Global Weather** (Open-Meteo real-time conditions and 7-day forecasts)
   - **GitHub Explorer** (Repository metrics, releases, issues, and trending discovery)
+  - **Global Financial Market** (CoinGecko crypto, global fiat exchange rates, and US stock quotes)
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
 * **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
@@ -53,6 +54,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `ZENMUX_API_KEY`: Your API Key from [ZenMux](https://zenmux.ai).
    - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch for real-time web search.
    - `FIRECRAWL_API_KEY` *(Optional)*: Your API Key from [Firecrawl](https://firecrawl.dev) for deep React/SPA webpage extraction.
+   - `FINNHUB_API_KEY` *(Optional)*: Your API Key from [Finnhub.io](https://finnhub.io) for US/global stock quotes.
    - `OPENALEX_API_KEY` *(Optional)*: For enhanced OpenAlex academic search rate limits.
    - `NEWSAPI_KEY` *(Optional)*: Your API Key from [NewsAPI.org](https://newsapi.org) for international breaking news.
    - `SEMANTIC_SCHOLAR_KEY` *(Optional)*: For enhanced Semantic Scholar search rate limits.
@@ -91,6 +93,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - **全球时事新闻** (NewsAPI 检索 80,000+ 国际权威媒体时事快讯)
    - **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
    - **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
+   - **全球金融市场** (CoinGecko 加密货币、全球法定汇率换算与美股实时行情)
 3. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
 4. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 5. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
@@ -106,6 +109,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `ZENMUX_API_KEY`：[ZenMux.ai](https://zenmux.ai) 平台的 API Key。
    - `ANYSEARCH_API_KEY`（可选）：联网检索服务的 API Key。
    - `FIRECRAWL_API_KEY`（可选）：[Firecrawl](https://firecrawl.dev) 深度网页抓取服务的 API Key。
+   - `FINNHUB_API_KEY`（可选）：[Finnhub.io](https://finnhub.io) 美股与股票行情 API Key。
    - `OPENALEX_API_KEY`（可选）：OpenAlex 学术检索 API Key。
    - `NEWSAPI_KEY`（可选）：[NewsAPI.org](https://newsapi.org) 新闻检索 API Key。
    - `SEMANTIC_SCHOLAR_KEY`（可选）：学术检索 API Key。
