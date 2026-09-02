@@ -577,7 +577,12 @@ const ALL_PLUGINS = [
       }
       if (data.assetType === 'stock') {
         const changeStr = data.percentChange !== undefined ? `${data.percentChange >= 0 ? '+' : ''}${Number(data.percentChange).toFixed(2)}% ($${data.change >= 0 ? '+' : ''}${Number(data.change).toFixed(2)})` : 'N/A';
-        return `以下是股票【${data.symbol}】(${data.companyName}) 的实时行情报价：\n\n- 最新股价: $${Number(data.currentPrice).toFixed(2)}\n- 今日涨跌: ${changeStr}\n- 今日最高 / 最低: $${Number(data.highPrice).toFixed(2)} / $${Number(data.lowPrice).toFixed(2)}\n- 今日开盘 / 昨收: $${Number(data.openPrice).toFixed(2)} / $${Number(data.prevClose).toFixed(2)}\n- 行情链接: [Yahoo Finance](${data.url})\n\n请向用户清晰解读该股票的今日价格走势。`;
+        const metaInfo = [
+          data.industry && data.industry !== 'N/A' ? `所属行业: ${data.industry}` : '',
+          data.marketCap && data.marketCap !== 'N/A' ? `总市值: ${data.marketCap}` : '',
+          data.exchange ? `交易所: ${data.exchange}` : ''
+        ].filter(Boolean).join(' | ');
+        return `以下是股票【${data.symbol}】(${data.companyName}) 的实时行情报价：\n\n- 最新股价: $${Number(data.currentPrice).toFixed(2)}\n- 今日涨跌: ${changeStr}\n- 今日最高 / 最低: $${Number(data.highPrice).toFixed(2)} / $${Number(data.lowPrice).toFixed(2)}\n- 今日开盘 / 昨收: $${Number(data.openPrice).toFixed(2)} / $${Number(data.prevClose).toFixed(2)}\n${metaInfo ? `- 基本概况: ${metaInfo}\n` : ''}- 行情链接: [Yahoo Finance](${data.url})\n\n请向用户清晰解读该股票的今日价格走势与基本概况。`;
       }
       if (data.assetType === 'overview') {
         const btc = data.crypto && data.crypto.bitcoin ? `$${Number(data.crypto.bitcoin.usd).toLocaleString()} (${data.crypto.bitcoin.usd_24h_change >= 0 ? '+' : ''}${data.crypto.bitcoin.usd_24h_change?.toFixed(2)}%)` : 'N/A';

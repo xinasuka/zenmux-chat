@@ -55,6 +55,29 @@ const FIAT_CODES = new Set([
   'KRW', 'NZD', 'INR', 'BRL', 'RUB', 'THB', 'TWD', 'MYR', 'VND', 'MXN'
 ]);
 
+// 热门中英文股票/指数别名快速映射
+const STOCK_CN_ALIASES = {
+  '英伟达': 'NVDA', 'nvda': 'NVDA',
+  '苹果': 'AAPL', 'aapl': 'AAPL',
+  '特斯拉': 'TSLA', 'tsla': 'TSLA',
+  '微软': 'MSFT', 'msft': 'MSFT',
+  '谷歌': 'GOOGL', 'googl': 'GOOGL', 'google': 'GOOGL', 'alphabet': 'GOOGL',
+  '亚马逊': 'AMZN', 'amzn': 'AMZN', 'amazon': 'AMZN',
+  '脸书': 'META', 'meta': 'META', 'facebook': 'META',
+  '台积电': 'TSM', 'tsm': 'TSM', 'tsmc': 'TSM',
+  '阿里巴巴': 'BABA', '阿里': 'BABA', 'baba': 'BABA',
+  '拼多多': 'PDD', 'pdd': 'PDD',
+  '百度': 'BIDU', 'bidu': 'BIDU',
+  '京东': 'JD', 'jd': 'JD',
+  '网易': 'NTES', 'ntes': 'NTES',
+  '蔚来': 'NIO', 'nio': 'NIO',
+  '小鹏': 'XPEV', 'xpev': 'XPEV',
+  '理想汽车': 'LI', '理想': 'LI', 'li': 'LI',
+  '标普500': 'SPY', '标普': 'SPY', 'spy': 'SPY',
+  '纳指': 'QQQ', '纳斯达克': 'QQQ', 'qqq': 'QQQ',
+  '道指': 'DIA', '道琼斯': 'DIA', 'dia': 'DIA'
+};
+
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
@@ -178,18 +201,32 @@ export async function onRequestPost(context) {
 
     // 4. 股票/美股查询 (Finnhub API)
     if (finnhubKey) {
-      // 先尝试直接作为股票代码查询 Quote (如 NVDA, AAPL, TSLA)
-      let symbol = cleanQUpper.replace(/[^A-Z.]/g, '');
-      let quoteData = null;
+      let targetSymbol = cleanQUpper.replace(/[^A-Z.]/g, '');
+      for (const [cn, sym] of Object.entries(STOCK_CN_ALIASES)) {
+        if (query.toLowerCase().includes(cn.toLowerCase())) {
+          targetSymbol = sym;
+          break;
+        }
+      }
 
-      if (symbol.length >= 1 && symbol.length <= 6) {
+      let quoteData = null;
+      let profileData = null;
+
+      if (targetSymbol.length >= 1 && targetSymbol.length <= 6) {
         try {
-          const qRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubKey}`);
+          const [qRes, pRes] = await Promise.all([
+            fetch(`https://finnhub.io/api/v1/quote?symbol=${targetSymbol}&token=${finnhubKey}`),
+            fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${targetSymbol}&token=${finnhubKey}`)
+          ]);
+
           if (qRes.ok) {
             const q = await qRes.json();
             if (q && q.c > 0) {
-              quoteData = { symbol, ...q };
+              quoteData = { symbol: targetSymbol, ...q };
             }
+          }
+          if (pRes.ok) {
+            profileData = await pRes.json();
           }
         } catch (e) { }
       }
@@ -202,13 +239,19 @@ export async function onRequestPost(context) {
             const s = await sRes.json();
             const top = (s.result || []).find((item) => item.type === 'Common Stock' || !item.symbol.includes('.'));
             if (top && top.symbol) {
-              symbol = top.symbol;
-              const qRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubKey}`);
+              targetSymbol = top.symbol;
+              const [qRes, pRes] = await Promise.all([
+                fetch(`https://finnhub.io/api/v1/quote?symbol=${targetSymbol}&token=${finnhubKey}`),
+                fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${targetSymbol}&token=${finnhubKey}`)
+              ]);
               if (qRes.ok) {
                 const q = await qRes.json();
                 if (q && q.c > 0) {
-                  quoteData = { symbol, name: top.description, ...q };
+                  quoteData = { symbol: targetSymbol, name: top.description, ...q };
                 }
+              }
+              if (pRes.ok) {
+                profileData = await pRes.json();
               }
             }
           }
@@ -221,7 +264,10 @@ export async function onRequestPost(context) {
           assetType: 'stock',
           query,
           symbol: quoteData.symbol,
-          companyName: quoteData.name || quoteData.symbol,
+          companyName: profileData?.name || quoteData.name || quoteData.symbol,
+          industry: profileData?.finnhubIndustry || 'N/A',
+          exchange: profileData?.exchange || 'US',
+          marketCap: profileData?.marketCapitalization ? `$${(profileData.marketCapitalization / 1000).toFixed(2)}B` : 'N/A',
           currentPrice: quoteData.c,
           change: quoteData.d,
           percentChange: quoteData.dp,
