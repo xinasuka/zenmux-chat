@@ -103,12 +103,12 @@ export const MemoryStore = {
 以下是跨会话沉淀的关于用户的持久个人事实、工作技术栈背景与偏好约定：
 ${itemsMarkdown}
 
-### 记忆自主管理规范 (Autonomous Memory Directives):
-你拥有跨会话持久化记忆能力。在对话过程中，请根据以下准则自主或按需调用 \`manage_memory\` 工具维护记忆库：
-1. **显式指令触发 (Explicit Commands)**：当用户明确要求“记住...”、“记录我的偏好...”时，执行 \`action: "add"\`；当要求修改或纠正已有记忆时执行 \`action: "update"\`；当要求“忘记...”时执行 \`action: "delete"\`。
-2. **自主隐式沉淀 (Autonomous Implicit Learning)**：当用户在日常对话中自然透露了**持久性、非一次性的个人事实、技术栈背景、项目架构、工作习惯或表达偏好**时（例如提到“我的项目是用 Go 开发的分布式系统”、“我习惯用 pnpm”、“回答请默认用中文”），请主动调用 \`manage_memory\` 进行沉淀，无需等待用户显式命令。
-3. **事实合并与更新 (Merge & Update)**：当新的事实与已有记忆相关或发生变更时，优先调用 \`action: "update"\` 覆盖或合并已有条目（指定 \`memory_id\`），避免产生相互矛盾或重复的碎片记忆。
-4. **克制与甄别原则 (Discretion & Quality)**：严禁记录临时闲聊、短期状态（如“今天天气真好”、“我正在吃午饭”）、临时性报错排查片段或敏感机密（如密码、Token）。每条记录必须是独立、客观、精炼的陈述句。`;
+### 核心记忆规范 (Core Memory Principles & Directives):
+1. **直接查阅原则 (Direct Reference)**：上方列表已包含当前所有已记录的记忆事实。当用户询问“你了解我什么”、“我有什么偏好”、“你还记得我吗”时，**请直接根据上方列表内容回答，严禁调用 manage_memory 工具**（本工具仅用于写入/修改，无读取功能）。
+2. **自主隐式沉淀 (Autonomous Implicit Learning)**：当用户在日常对话中自然透露了**持久性、非一次性的个人事实、技术栈背景、项目架构、工作习惯或偏好**时，主动调用 \`manage_memory\` (\`action: "add"\`) 进行沉淀。
+3. **显式指令触发 (Explicit Commands)**：当用户明确说“记住...”、“记录我的偏好...”时执行 \`action: "add"\`；当要求修改或纠正已有记忆时执行 \`action: "update"\`（指定 \`memory_id\`）；当明确要求“忘记某事”时执行 \`action: "delete"\`（指定 \`memory_id\`）。
+4. **事实合并与更新 (Merge & Update)**：新事实与已有记忆相关或发生变更时，优先调用 \`action: "update"\` 合并或覆盖已有条目，严禁制造重复矛盾记录。
+5. **克制与安全原则 (Discretion & Safety)**：严禁记录临时闲聊（如“今天天气好”、“我正在吃饭”）、报错日志或敏感 Token/密码。严禁随意删除或重置记忆库。`;
   },
 
   getToolSchema() {
@@ -116,14 +116,14 @@ ${itemsMarkdown}
       type: 'function',
       function: {
         name: 'manage_memory',
-        description: 'Manage persistent long-term memory about the user across conversations. Call this tool autonomously whenever you learn enduring personal facts, technical stacks, project context, workflows, or stylistic preferences from the dialogue, or when the user explicitly instructs you to remember, update, forget, or clear memory items.',
+        description: 'Record new facts or update/delete existing remembered facts about the user. DO NOT call this tool to read or query memories (all memories are already provided directly in your system prompt above). Use ONLY when: 1. Adding a newly learned persistent fact (action: "add"); 2. Modifying an existing fact (action: "update", requires memory_id); 3. Deleting a specific fact explicitly requested by the user (action: "delete", requires memory_id).',
         parameters: {
           type: 'object',
           properties: {
             action: {
               type: 'string',
-              enum: ['add', 'update', 'delete', 'clear'],
-              description: 'The memory operation: "add" to store a newly discovered or instructed fact, "update" to modify or merge an existing fact, "delete" to remove a fact, "clear" to wipe all memories.'
+              enum: ['add', 'update', 'delete'],
+              description: 'The memory modification operation: "add" to store a newly learned fact, "update" to modify/merge an existing fact, "delete" to remove a specific fact explicitly requested by the user.'
             },
             content: {
               type: 'string',
@@ -131,7 +131,7 @@ ${itemsMarkdown}
             },
             memory_id: {
               type: 'string',
-              description: 'The unique ID of the existing memory item to modify or delete (required for "update" and "delete").'
+              description: 'The unique ID of the specific existing memory item to modify or delete (required for "update" and "delete").'
             }
           },
           required: ['action']
@@ -182,12 +182,7 @@ ${itemsMarkdown}
     }
 
     if (action === 'clear') {
-      this.clear();
-      return {
-        success: true,
-        action: 'clear',
-        message: '已清空用户所有记忆。'
-      };
+      throw new Error('模型无权执行清空所有记忆操作，全量清空必须由用户在设置中手动确认。');
     }
 
     throw new Error(`不支持的记忆操作类型: ${action}`);
