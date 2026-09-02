@@ -543,7 +543,12 @@ const ALL_PLUGINS = [
           properties: {
             query: {
               type: 'string',
-              description: 'Target asset ticker, company name, cryptocurrency, or currency pair (e.g. "BTC", "Solana", "USD/CNY", "NVDA", "英伟达股价", "以太坊行情").'
+              description: 'Target asset ticker, company name, cryptocurrency, or currency pair (e.g. "NVDA", "AAPL", "TSLA", "BTC", "Solana", "USD/CNY", "英伟达", "比特币").'
+            },
+            asset_type: {
+              type: 'string',
+              enum: ['stock', 'crypto', 'forex', 'auto'],
+              description: 'Optional asset category. Explicitly set to "stock" for companies and equities (e.g. NVDA, AAPL, TSLA), "crypto" for cryptocurrencies (BTC, ETH, SOL), "forex" for currency exchange rates (USD/CNY), or "auto".'
             }
           },
           required: ['query']
@@ -552,10 +557,11 @@ const ALL_PLUGINS = [
     },
     async execute(args, token) {
       const query = (args && args.query) ? String(args.query).trim() : '';
+      const asset_type = (args && args.asset_type) ? String(args.asset_type).trim() : 'auto';
       const res = await fetch('/api/plugins/finance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Access-Token': token },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, asset_type })
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || (j && j.error)) {

@@ -104,11 +104,13 @@ export async function onRequestPost(context) {
     }
 
     const finnhubKey = env.FINNHUB_API_KEY ? String(env.FINNHUB_API_KEY).trim() : '';
+    const requestedType = (payload && payload.asset_type) ? String(payload.asset_type).toLowerCase() : 'auto';
     const cleanQ = query.toLowerCase().replace(/[\s\-_/]+/g, '');
     const cleanQUpper = query.toUpperCase().trim();
 
     // 2. 判定是否为外汇汇率请求 (例如 USD/CNY, EUR/USD, 汇率, forex)
-    const isForexPair = (function() {
+    const isForexPair = requestedType === 'forex' || (function() {
+      if (requestedType === 'stock' || requestedType === 'crypto') return false;
       if (/汇率|兑换|外汇|forex|exchangerate/i.test(query)) return true;
       const match = query.toUpperCase().match(/^([A-Z]{3})[\s/_]?([A-Z]{3})$/);
       if (match && FIAT_CODES.has(match[1]) && FIAT_CODES.has(match[2])) {
@@ -117,8 +119,7 @@ export async function onRequestPost(context) {
       return false;
     })();
 
-    if (isForexPair) {
-      // 提取基础货币代码 (默认为 USD 或检测出的首个代码)
+    if (isForexPair && requestedType !== 'stock' && requestedType !== 'crypto') {
       let base = 'USD';
       const codes = query.toUpperCase().match(/[A-Z]{3}/g) || [];
       if (codes.length > 0 && FIAT_CODES.has(codes[0])) {
@@ -132,7 +133,6 @@ export async function onRequestPost(context) {
         if (erRes.ok) {
           const erData = await erRes.json();
           const rates = erData.rates || {};
-          // 挑选核心主流货币
           const targetCurrencies = ['USD', 'CNY', 'EUR', 'JPY', 'GBP', 'HKD', 'SGD', 'CAD', 'AUD', 'KRW'];
           const filteredRates = {};
           for (const c of targetCurrencies) {
@@ -154,24 +154,12 @@ export async function onRequestPost(context) {
       } catch (e) { }
     }
 
-    // 3. 判定是否为加密货币 (例如 BTC, ETH, Solana, Bitcoin, 狗狗币)
-    let cryptoCoinId = TOP_CRYPTO_MAP[cleanQ] || null;
-    if (!cryptoCoinId) {
-      // 尝试通过 CoinGecko 搜索匹配
-      try {
-        const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`, {
-          headers: { 'User-Agent': 'ZenMux-Chat-FinancePlugin/2.7', 'Accept': 'application/json' }
-        });
-        if (searchRes.ok) {
-          const sData = await searchRes.json();
-          if (sData.coins && sData.coins.length > 0) {
-            cryptoCoinId = sData.coins[0].id;
-          }
-        }
-      } catch (e) { }
-    }
+    // 3. 明确为加密货币或高置信度主流加密代币 (BTC, ETH, SOL, 或带有 "币/crypto" 关键词)
+    const isExplicitCrypto = requestedType === 'crypto' || /币|coin|crypto|token|区块链|以太坊|比特币|狗狗币/i.test(query);
+    const topCryptoId = TOP_CRYPTO_MAP[cleanQ];
 
-    if (cryptoCoinId) {
+    if ((isExplicitCrypto || topCryptoId) && requestedType !== 'stock') {
+      const cryptoCoinId = topCryptoId || TOP_CRYPTO_MAP[cleanQ] || 'bitcoin';
       try {
         const priceUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoCoinId}&vs_currencies=usd,cny&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`;
         const pRes = await fetch(priceUrl, {
@@ -199,8 +187,8 @@ export async function onRequestPost(context) {
       } catch (e) { }
     }
 
-    // 4. 股票/美股查询 (Finnhub API)
-    if (finnhubKey) {
+    // 4. 股票/美股查询 (Finnhub API 优先解析股票代码与公司名称)
+    if (finnhubKey && requestedType !== 'crypto' && requestedType !== 'forex') {
       let targetSymbol = cleanQUpper.replace(/[^A-Z.]/g, '');
       for (const [cn, sym] of Object.entries(STOCK_CN_ALIASES)) {
         if (query.toLowerCase().includes(cn.toLowerCase())) {
@@ -278,6 +266,45 @@ export async function onRequestPost(context) {
           url: `https://finance.yahoo.com/quote/${quoteData.symbol}`
         }, 200);
       }
+    }
+
+    // 5. 非股票匹配时的严格加密货币搜索（精确符号匹配，排除 nvidia-xstock 等包装代币假阳性）
+    if (requestedType !== 'stock') {
+      try {
+        const sRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`, {
+          headers: { 'User-Agent': 'ZenMux-Chat-FinancePlugin/2.7', 'Accept': 'application/json' }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          // 仅允许符号完全匹配或 ID 完全匹配，严禁子串模糊匹配股票名
+          const match = (sData.coins || []).find((c) => c.symbol.toLowerCase() === cleanQ || c.id.toLowerCase() === cleanQ);
+          if (match) {
+            const pUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${match.id}&vs_currencies=usd,cny&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`;
+            const pRes = await fetch(pUrl, {
+              headers: { 'User-Agent': 'ZenMux-Chat-FinancePlugin/2.7', 'Accept': 'application/json' }
+            });
+            if (pRes.ok) {
+              const pData = await pRes.json();
+              const info = pData[match.id];
+              if (info) {
+                return json({
+                  success: true,
+                  assetType: 'crypto',
+                  query,
+                  coinId: match.id,
+                  priceUsd: info.usd,
+                  priceCny: info.cny,
+                  change24hUsd: info.usd_24h_change,
+                  change24hCny: info.cny_24h_change,
+                  marketCapUsd: info.usd_market_cap,
+                  volume24hUsd: info.usd_24h_vol,
+                  url: `https://www.coingecko.com/en/coins/${match.id}`
+                }, 200);
+              }
+            }
+          }
+        }
+      } catch (e) { }
     }
 
     // 5. 兜底查询：若未匹配特定资产，返回全球核心大盘资产速览 (BTC, ETH, 美元兑人民币)
