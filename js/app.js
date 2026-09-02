@@ -302,30 +302,94 @@ export function renderMemoryManagerUI() {
   state.memories = list;
 
   if (el.settingsMemoryCount) {
-    el.settingsMemoryCount.textContent = `已存储 ${list.length} 条记忆 (上限 ${MAX_MEMORY_ITEMS} 条)`;
+    el.settingsMemoryCount.textContent = `已记住 ${list.length} 条内容 (上限 ${MAX_MEMORY_ITEMS} 条)`;
   }
 
   el.settingsMemoryList.innerHTML = '';
   if (list.length === 0) {
-    el.settingsMemoryList.innerHTML = '<div class="memory-empty-state">暂无存储的长期记忆。可在对话中告诉模型“记住...”或在上方手动添加。</div>';
+    el.settingsMemoryList.innerHTML = '<div class="memory-empty-state">暂无存储的长期记忆。可在对话中告诉 AI“记住...”或在上方手动添加。</div>';
     return;
   }
 
   list.forEach((item) => {
     const row = document.createElement('div');
     row.className = 'memory-item';
-    row.innerHTML = `
-      <span class="memory-item-content">${esc(item.content)}</span>
-      <button type="button" class="memory-del-btn" title="删除该条记忆">×</button>
-    `;
-    const delBtn = row.querySelector('.memory-del-btn');
-    if (delBtn) {
-      delBtn.addEventListener('click', () => {
-        MemoryStore.delete(item.id);
-        renderMemoryManagerUI();
-        toast('已删除该条记忆', 'info');
-      });
+
+    function renderViewMode() {
+      row.innerHTML = `
+        <span class="memory-item-content" title="点击直接修改">${esc(item.content)}</span>
+        <div class="memory-actions">
+          <button type="button" class="memory-edit-btn" title="修改该条记忆">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button type="button" class="memory-del-btn" title="删除该条记忆">×</button>
+        </div>
+      `;
+
+      const contentSpan = row.querySelector('.memory-item-content');
+      const editBtn = row.querySelector('.memory-edit-btn');
+      const delBtn = row.querySelector('.memory-del-btn');
+
+      if (contentSpan) contentSpan.addEventListener('click', renderEditMode);
+      if (editBtn) editBtn.addEventListener('click', renderEditMode);
+      if (delBtn) {
+        delBtn.addEventListener('click', () => {
+          MemoryStore.delete(item.id);
+          renderMemoryManagerUI();
+          toast('已删除该条记忆', 'info');
+        });
+      }
     }
+
+    function renderEditMode() {
+      row.innerHTML = `
+        <form class="memory-edit-form">
+          <input type="text" class="memory-edit-input" value="${esc(item.content)}" />
+          <button type="submit" class="memory-edit-save-btn">保存</button>
+          <button type="button" class="memory-edit-cancel-btn">取消</button>
+        </form>
+      `;
+
+      const form = row.querySelector('.memory-edit-form');
+      const input = row.querySelector('.memory-edit-input');
+      const cancelBtn = row.querySelector('.memory-edit-cancel-btn');
+
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const newVal = input ? input.value.trim() : '';
+          if (newVal && newVal !== item.content) {
+            MemoryStore.update(item.id, newVal);
+            toast('已更新记忆内容', 'info');
+            renderMemoryManagerUI();
+          } else {
+            renderViewMode();
+          }
+        });
+      }
+
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', renderViewMode);
+      }
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            renderViewMode();
+          }
+        });
+      }
+    }
+
+    renderViewMode();
     el.settingsMemoryList.appendChild(row);
   });
 }
