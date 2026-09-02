@@ -92,23 +92,24 @@ export const MemoryStore = {
     if (!this.isEnabled()) return '';
     const list = this.getAll();
 
-    let itemsMarkdown = '';
-    if (list.length > 0) {
-      itemsMarkdown = list.map((m) => `- [ID: ${m.id}] ${m.content}`).join('\n');
-    } else {
-      itemsMarkdown = '- (暂无记录的长期记忆)';
+    if (list.length === 0) {
+      return `## 用户长期记忆库 (User Persistent Long-Term Memory)
+当前记忆库中暂无已记录的事实。
+- 当用户在日常对话中自然透露了持久性个人偏好、技术栈背景、项目架构或明确要求“记住...”时，请主动调用 \`manage_memory\` (\`action: "add"\`) 进行沉淀。`;
     }
 
+    const itemsMarkdown = list.map((m) => `- [ID: ${m.id}] ${m.content}`).join('\n');
+
     return `## 用户长期记忆库 (User Persistent Long-Term Memory)
-以下是跨会话沉淀的关于用户的持久个人事实、工作技术栈背景与偏好约定：
+【最高优先级事实】：以下是系统中真实记录的关于当前用户的长期记忆（无论对话历史如何，必须以此记忆列表为真实基准）：
 ${itemsMarkdown}
 
 ### 核心记忆规范 (Core Memory Principles & Directives):
-1. **直接查阅原则 (Direct Reference)**：上方列表已包含当前所有已记录的记忆事实。当用户询问“你了解我什么”、“我有什么偏好”、“你还记得我吗”时，**请直接根据上方列表内容回答，严禁调用 manage_memory 工具**（本工具仅用于写入/修改，无读取功能）。
+1. **直接确认与引用 (Direct Reference)**：上方列表已包含当前所有已记录的记忆事实。当用户询问“你了解我什么”、“我有什么偏好”、“你还记得我吗”时，**请直接根据上方列表内容如实回答，绝对不要否认上方已有记忆，严禁调用 manage_memory 工具去查询记忆**！
 2. **自主隐式沉淀 (Autonomous Implicit Learning)**：当用户在日常对话中自然透露了**持久性、非一次性的个人事实、技术栈背景、项目架构、工作习惯或偏好**时，主动调用 \`manage_memory\` (\`action: "add"\`) 进行沉淀。
 3. **显式指令触发 (Explicit Commands)**：当用户明确说“记住...”、“记录我的偏好...”时执行 \`action: "add"\`；当要求修改或纠正已有记忆时执行 \`action: "update"\`（指定 \`memory_id\`）；当明确要求“忘记某事”时执行 \`action: "delete"\`（指定 \`memory_id\`）。
 4. **事实合并与更新 (Merge & Update)**：新事实与已有记忆相关或发生变更时，优先调用 \`action: "update"\` 合并或覆盖已有条目，严禁制造重复矛盾记录。
-5. **克制与安全原则 (Discretion & Safety)**：严禁记录临时闲聊（如“今天天气好”、“我正在吃饭”）、报错日志或敏感 Token/密码。严禁随意删除或重置记忆库。`;
+5. **克制与安全原则 (Discretion & Safety)**：严禁记录临时闲聊（如“今天天气好”、“我正在吃饭”）、报错日志或敏感 Token/密码。严禁随意删除记忆库。`;
   },
 
   getToolSchema() {

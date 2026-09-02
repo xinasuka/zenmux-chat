@@ -144,7 +144,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
     if (state.instructions && state.instructions.trim() && state.instructionsEnabled) {
       systemParts.push(state.instructions.trim());
     }
-    if (state.memoryEnabled && state.instructionsEnabled !== false) {
+    if (state.memoryEnabled !== false) {
       const memoryBlock = MemoryStore.compileSystemPrompt();
       if (memoryBlock) {
         systemParts.push(memoryBlock);
