@@ -692,11 +692,10 @@ export class PluginRegistry {
           return MemoryStore.executeTool(args);
         },
         formatToolResult(data) {
-          return (data && data.message) || '已执行记忆管理操作。';
+          return (data && data.message) || '已成功更新记忆。';
         },
         formatCoTMarker(args, data) {
-          const msg = (data && data.message) || (data && data.item && data.item.content) || (args && args.content) || '';
-          return `\n\n> ✦ **已更新长期记忆**：${msg}\n\n`;
+          return '\n\n> ✦ **已更新记忆**\n\n';
         },
         getSources() {
           return [];

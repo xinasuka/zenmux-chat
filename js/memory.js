@@ -151,7 +151,7 @@ ${itemsMarkdown}
         success: true,
         action: 'add',
         item,
-        message: `已成功将该事实存入用户长期记忆库: [${item.id}] ${item.content}`
+        message: '已成功存入用户记忆库。'
       };
     }
 
@@ -164,7 +164,7 @@ ${itemsMarkdown}
         success: true,
         action: 'update',
         item,
-        message: `已成功更新长期记忆 [${item.id}] 为: ${item.content}`
+        message: '已成功更新用户记忆。'
       };
     }
 
@@ -176,7 +176,7 @@ ${itemsMarkdown}
         success: true,
         action: 'delete',
         memoryId,
-        message: `已成功从长期记忆库中删除该项: ${memoryId}`
+        message: '已成功删除该条记忆。'
       };
     }
 
@@ -185,7 +185,7 @@ ${itemsMarkdown}
       return {
         success: true,
         action: 'clear',
-        message: '已清空用户所有长期记忆。'
+        message: '已清空用户所有记忆。'
       };
     }
 
