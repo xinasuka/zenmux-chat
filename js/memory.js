@@ -103,11 +103,12 @@ export const MemoryStore = {
 以下是跨会话沉淀的关于用户的持久个人事实、工作技术栈背景与偏好约定：
 ${itemsMarkdown}
 
-### 记忆管理规范 (Memory Directives):
-1. 当用户在对话中明确表述了新的个人偏好、业务场景、技术栈约定或明确说“记住...”时，请自主调用 \`manage_memory\` 工具 (\`action: "add"\`) 进行持久化记录。
-2. 当用户纠正或更新之前的某项记忆时，请调用 \`manage_memory\` (\`action: "update"\`) 并指定对应 \`memory_id\`。
-3. 当用户明确要求“忘记...”或删除某项偏好时，请调用 \`manage_memory\` (\`action: "delete"\`)。
-4. 严禁记录临时的对话闲聊或与用户个人偏好无关的一次性事实。记录的记忆语句必须简洁、客观、自成一体。`;
+### 记忆自主管理规范 (Autonomous Memory Directives):
+你拥有跨会话持久化记忆能力。在对话过程中，请根据以下准则自主或按需调用 \`manage_memory\` 工具维护记忆库：
+1. **显式指令触发 (Explicit Commands)**：当用户明确要求“记住...”、“记录我的偏好...”时，执行 \`action: "add"\`；当要求修改或纠正已有记忆时执行 \`action: "update"\`；当要求“忘记...”时执行 \`action: "delete"\`。
+2. **自主隐式沉淀 (Autonomous Implicit Learning)**：当用户在日常对话中自然透露了**持久性、非一次性的个人事实、技术栈背景、项目架构、工作习惯或表达偏好**时（例如提到“我的项目是用 Go 开发的分布式系统”、“我习惯用 pnpm”、“回答请默认用中文”），请主动调用 \`manage_memory\` 进行沉淀，无需等待用户显式命令。
+3. **事实合并与更新 (Merge & Update)**：当新的事实与已有记忆相关或发生变更时，优先调用 \`action: "update"\` 覆盖或合并已有条目（指定 \`memory_id\`），避免产生相互矛盾或重复的碎片记忆。
+4. **克制与甄别原则 (Discretion & Quality)**：严禁记录临时闲聊、短期状态（如“今天天气真好”、“我正在吃午饭”）、临时性报错排查片段或敏感机密（如密码、Token）。每条记录必须是独立、客观、精炼的陈述句。`;
   },
 
   getToolSchema() {
@@ -115,22 +116,22 @@ ${itemsMarkdown}
       type: 'function',
       function: {
         name: 'manage_memory',
-        description: 'Manage the user\'s persistent long-term memory across chat sessions. Use this tool whenever the user asks to remember, update, forget, or clear personal facts, tech stack preferences, professional background, or coding style guidelines.',
+        description: 'Manage persistent long-term memory about the user across conversations. Call this tool autonomously whenever you learn enduring personal facts, technical stacks, project context, workflows, or stylistic preferences from the dialogue, or when the user explicitly instructs you to remember, update, forget, or clear memory items.',
         parameters: {
           type: 'object',
           properties: {
             action: {
               type: 'string',
               enum: ['add', 'update', 'delete', 'clear'],
-              description: 'The memory operation: "add" to store a new fact, "update" to modify an existing fact, "delete" to remove a specific fact, "clear" to wipe all memories.'
+              description: 'The memory operation: "add" to store a newly discovered or instructed fact, "update" to modify or merge an existing fact, "delete" to remove a fact, "clear" to wipe all memories.'
             },
             content: {
               type: 'string',
-              description: 'The concise, objective, self-contained fact statement to remember or update (required for "add" and "update").'
+              description: 'The concise, self-contained, objective fact statement to store or update (required for "add" and "update"). Should describe user profile, habits, tech stack, or preferences.'
             },
             memory_id: {
               type: 'string',
-              description: 'The specific memory ID to modify or delete (required for "update" and "delete").'
+              description: 'The unique ID of the existing memory item to modify or delete (required for "update" and "delete").'
             }
           },
           required: ['action']
