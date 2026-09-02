@@ -51,7 +51,7 @@ export async function onRequestPost(context) {
   const targetUrl = `${SCHOLAR_ENDPOINT}?query=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}`;
 
   const headers = {
-    'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.7 (contact@zenmux.ai)',
+    'User-Agent': 'ZenMux-Chat-Scholar-Plugin/2.8 (contact@zenmux.ai)',
     'Accept': 'application/json',
   };
   const scholarKey = env.SEMANTIC_SCHOLAR_KEY ? String(env.SEMANTIC_SCHOLAR_KEY).trim() : '';
@@ -59,28 +59,23 @@ export async function onRequestPost(context) {
     headers['x-api-key'] = scholarKey;
   }
 
-  let res;
-  try {
-    res = await fetch(targetUrl, { method: 'GET', headers });
-  } catch (e) {
-    res = null;
-  }
+  const maxRetries = 5;
+  let attempts = 0;
+  let lastRes = null;
+  let lastErr = null;
 
-  // 若遇到 429 频控，退避 1.1s 后自动重试一次 Semantic Scholar
-  if (res && res.status === 429) {
-    await new Promise((r) => setTimeout(r, 1100));
+  while (attempts <= maxRetries) {
+    attempts++;
     try {
-      res = await fetch(targetUrl, { method: 'GET', headers });
+      lastRes = await fetch(targetUrl, { method: 'GET', headers });
     } catch (e) {
-      res = null;
+      lastErr = e;
+      lastRes = null;
     }
-  }
 
-  // 1. 若 Semantic Scholar 成功响应且返回数据
-  if (res && res.ok) {
-    const result = await res.json().catch(() => null);
-    const papers = (result && result.data) || [];
-    if (papers.length > 0) {
+    if (lastRes && lastRes.ok) {
+      const result = await lastRes.json().catch(() => null);
+      const papers = (result && result.data) || [];
       const formatted = papers.map((p) => {
         const authors = (p.authors || []).map((a) => a.name).slice(0, 5).join(', ');
         const pdfUrl = p.openAccessPdf ? p.openAccessPdf.url : '';
@@ -101,66 +96,45 @@ export async function onRequestPost(context) {
         success: true,
         query,
         source: 'Semantic Scholar',
-        fallback: false,
-        total: result.total || formatted.length,
-        papers: formatted
+        total: result?.total || formatted.length,
+        papers: formatted,
+        attempts
       }, 200);
     }
+
+    // 若触发 429 频控，等待 1.2 秒后自动重试
+    if (lastRes && lastRes.status === 429 && attempts <= maxRetries) {
+      await new Promise((r) => setTimeout(r, 1200));
+      continue;
+    }
+
+    // 若遇 5xx 服务繁忙，等待 1.5 秒后自动重试
+    if (lastRes && lastRes.status >= 500 && attempts <= maxRetries) {
+      await new Promise((r) => setTimeout(r, 1500));
+      continue;
+    }
+
+    // 其他不可重试错误，退出循环
+    break;
   }
 
-  // 2. 若 Semantic Scholar 依然 429 限流或 5xx 繁忙，透明触发 OpenAlex 容灾学术备用引擎并附带提示
-  try {
-    const openAlexUrl = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&mailto=contact@zenmux.ai`;
-    const oaRes = await fetch(openAlexUrl, {
-      headers: {
-        'User-Agent': 'ZenMux-Chat-Scholar-Fallback/2.7 (contact@zenmux.ai)',
-        'Accept': 'application/json'
-      }
-    });
+  // 超过最大重试次数或返回明确错误
+  if (lastRes && lastRes.status === 429) {
+    return json({
+      error: 'Semantic Scholar 官方接口访问频率触发限流 (HTTP 429)，已自动重试 5 次仍受限。建议稍后重试。'
+    }, 429);
+  }
 
-    if (oaRes.ok) {
-      const oaData = await oaRes.json();
-      const results = oaData.results || [];
-      if (results.length > 0) {
-        const formatted = results.map((w) => {
-          const authors = (w.authorships || [])
-            .map((a) => a.author?.display_name)
-            .filter(Boolean)
-            .slice(0, 5)
-            .join(', ');
-          const doi = w.doi ? (w.doi.startsWith('http') ? w.doi : `https://doi.org/${w.doi}`) : '';
-          const pdfUrl = w.open_access?.oa_url || (w.primary_location && w.primary_location.pdf_url) || '';
-          const venue = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || '';
-          return {
-            title: w.display_name || w.title || 'Untitled Paper',
-            authors: authors || 'Unknown Authors',
-            year: w.publication_year || 'N/A',
-            venue: venue,
-            citationCount: w.cited_by_count || 0,
-            abstract: w.abstract || 'No abstract provided.',
-            url: doi || pdfUrl || w.id,
-            pdfUrl: pdfUrl,
-          };
-        });
+  if (lastRes && !lastRes.ok) {
+    const detail = await lastRes.text().catch(() => '');
+    return json({
+      error: `Semantic Scholar 接口返回 HTTP ${lastRes.status}`,
+      detail: detail.slice(0, 300)
+    }, lastRes.status || 502);
+  }
 
-        return json({
-          success: true,
-          query,
-          source: 'OpenAlex 学术智库 (容灾备用)',
-          fallback: true,
-          fallbackReason: 'Semantic Scholar 官方接口触发频率限制 (1 QPS)，已自动为您切换为 OpenAlex 学术智库检索文献。',
-          total: oaData.meta?.count || formatted.length,
-          papers: formatted
-        }, 200);
-      }
-    }
-  } catch (oaErr) { }
-
-  // 3. 若双引擎均未返回数据
   return json({
-    success: true,
-    query,
-    total: 0,
-    papers: []
-  }, 200);
+    error: '连接 Semantic Scholar 服务失败',
+    detail: String(lastErr && lastErr.message)
+  }, 502);
 }
