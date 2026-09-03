@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.12.0';
+export const APP_VERSION = '2.12.1';
 
 export const LS = {
   cur: 'zm.current',
@@ -45,7 +45,8 @@ export const el = {
   toolTurns: $('tool-turns'),
   ctx: $('ctx'),
 
-  imageBar: $('composer-image-bar'),
+  imageParamsGroup: $('image-params-group'),
+  imageBar: $('image-params-group'),
   imageSize: $('image-size'),
   imageQuality: $('image-quality'),
   imageBackground: $('image-bg'),

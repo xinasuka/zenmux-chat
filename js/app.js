@@ -208,13 +208,17 @@ export function syncWorkstationMode(isImgGen, meta) {
     else el.chatParamsGroup.classList.remove('hide');
   }
 
+  if (el.imageParamsGroup) {
+    if (isImgGen) el.imageParamsGroup.classList.remove('hide');
+    else el.imageParamsGroup.classList.add('hide');
+  }
+
   if (el.pluginsBtn) {
     el.pluginsBtn.style.display = isImgGen ? 'none' : '';
   }
 
-  if (el.imageBar) {
-    if (isImgGen) el.imageBar.classList.remove('hide');
-    else el.imageBar.classList.add('hide');
+  if (el.attachBtn) {
+    el.attachBtn.style.display = isImgGen ? 'none' : '';
   }
 
   if (el.input) {
