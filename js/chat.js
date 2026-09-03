@@ -255,10 +255,15 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
   try {
     let toolTurns = 0;
-    const MAX_TOOL_TURNS = 8;
+    const maxTurns = (typeof state.toolMaxTurns === 'number') ? state.toolMaxTurns : 20;
+    let lastCallSignature = '';
+    let duplicateCallCount = 0;
+    let isTerminatedEarly = false;
+
     while (true) {
-      if (++toolTurns > MAX_TOOL_TURNS) {
-        toast('插件调用次数已达到安全上限 (8 次)，已自动终止工具循环', 'info');
+      if (maxTurns > 0 && toolTurns >= maxTurns) {
+        toast(`单轮工具调用已达上限 (${maxTurns} 次)，已自动停止调度并综合生成回答`, 'info');
+        isTerminatedEarly = true;
         break;
       }
       // 在所有连续轮次中始终保留当前激活插件的 tools 定义
@@ -280,6 +285,22 @@ export async function executeAssistantStream(userMsg, options = {}) {
       } catch (e) {
         fnArgs = {};
       }
+
+      // 循环死锁检测 (Loop Detection / Repetitive Thrashing Guard)
+      const currentSignature = fnName + '::' + JSON.stringify(fnArgs);
+      if (currentSignature === lastCallSignature) {
+        duplicateCallCount++;
+        if (duplicateCallCount >= 2) {
+          toast(`检测到工具【${fnName}】陷入参数重复循环，已自动终止并综合生成回答`, 'info');
+          isTerminatedEarly = true;
+          break;
+        }
+      } else {
+        duplicateCallCount = 0;
+        lastCallSignature = currentSignature;
+      }
+
+      toolTurns++;
 
       // 若模型在触发工具调用前输出了前置思考/正文，无损并入思考过程流
       if (acc && acc.trim()) {
@@ -350,7 +371,20 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
       currentHistory = currentHistory.concat([asstToolMsg, toolResultMsg]);
       acc = '';
+    }
+
+    // 强制收尾综合调用 (Forced Final Synthesis Pass):
+    // 若工具调用被上限截断或死循环熔断，且模型尚未给出最终回答，
+    // 立即剥离所有 tools 定义重新发起收尾请求，迫使模型基于已收集的多轮工具观察输出综合结论。
+    if (!acc && isTerminatedEarly) {
+      searchStatusText = '正在根据收集到的全部信息撰写最终回答…';
+      isSearching = true;
       renderLiveUI(false);
+      toBottom();
+
+      const finalPayload = buildPayload(currentHistory, false);
+      isSearching = false;
+      await runStream(finalPayload);
     }
 
     renderLiveUI(true);

@@ -15,7 +15,7 @@
   <div id="sidebar-topbar" class="sidebar-topbar">
     <div class="sidebar-brand-group">
       <span class="sidebar-brand-title">ZenChat</span>
-      <span class="app-version-badge">v2.10.6</span>
+      <span class="app-version-badge">v2.10.7</span>
     </div>
     <button id="sidebar-toggle" class="sidebar-icon-btn" title="收起侧边栏">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -54,6 +54,12 @@
         <option value="quick">搜索 精炼</option>
         <option value="deep">搜索 深度</option>
         <option value="pro">搜索 全面</option>
+      </select>
+      <select id="tool-turns" class="mini-sel" title="单轮工具最大调用次数：默认20次、深度50次、全面100次或无限制">
+        <option value="20">工具 20次</option>
+        <option value="50">工具 50次</option>
+        <option value="100">工具 100次</option>
+        <option value="0">工具 不限</option>
       </select>
       <select id="ctx" class="mini-sel" title="对话历史记忆长度：简洁、标准、较长或完整" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
         <option value="10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">上下文 简洁</option>

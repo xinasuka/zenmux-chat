@@ -948,6 +948,14 @@ function initEventListeners() {
     });
   }
 
+  if (el.toolTurns) {
+    el.toolTurns.addEventListener('change', () => {
+      state.toolMaxTurns = parseInt(el.toolTurns.value, 10);
+      if (isNaN(state.toolMaxTurns)) state.toolMaxTurns = 20;
+      localStorage.setItem(LS.toolTurns, String(state.toolMaxTurns));
+    });
+  }
+
   if (el.ctx) {
     el.ctx.addEventListener('change', () => {
       state.ctxN = parseInt(el.ctx.value, 10) || 0;
@@ -1154,6 +1162,7 @@ export function initApp() {
   if (el.model) el.model.value = state.model;
   if (el.effort) el.effort.value = state.effort;
   if (el.searchDepth) el.searchDepth.value = state.searchDepth;
+  if (el.toolTurns) el.toolTurns.value = String(state.toolMaxTurns);
   if (el.ctx) el.ctx.value = String(state.ctxN);
 
   syncModelCapabilities();

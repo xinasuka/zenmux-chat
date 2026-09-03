@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.10.6';
+export const APP_VERSION = '2.10.7';
 
 export const LS = {
   cur: 'zm.current',
@@ -11,6 +11,7 @@ export const LS = {
   effort: 'zm.effort',
   ctx: 'zm.ctx',
   searchDepth: 'zm.searchDepth',
+  toolTurns: 'zm.toolTurns',
   activePlugins: 'zm.plugins.active',
   theme: 'zm.theme',
   themeMode: 'zm.theme.mode',
@@ -37,6 +38,7 @@ export const el = {
   model: $('model'),
   effort: $('effort'),
   searchDepth: $('search-depth'),
+  toolTurns: $('tool-turns'),
   ctx: $('ctx'),
 
   settingsBtn: $('settings-btn'),
@@ -111,6 +113,7 @@ export const state = {
   currentConv: null,
   effort: getStorageItem(LS.effort) || '',
   ctxN: parseInt(getStorageItem(LS.ctx), 10),
+  toolMaxTurns: parseInt(getStorageItem(LS.toolTurns), 10),
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
   modelMeta: {},
   pendingAttachments: [],
@@ -119,6 +122,7 @@ export const state = {
 };
 
 if (isNaN(state.ctxN)) state.ctxN = 20;
+if (isNaN(state.toolMaxTurns)) state.toolMaxTurns = 20;
 
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
