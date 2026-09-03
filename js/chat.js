@@ -20,9 +20,15 @@ export function explainError(raw, status) {
   }
   if (status === 401) return '访问口令不正确，请点右上角退出后重新输入。';
   if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数格式不被该模型支持');
+  if (status === 504 || (typeof raw === 'string' && (raw.includes('CLOUD_FUNCTION_INVOCATION_TIMEOUT') || raw.includes('504')))) {
+    return '生图超时 (HTTP 504)：上游模型渲染耗时过长，超出了边缘函数执行时限。建议稍后重试或尝试切换其他生图模型。';
+  }
   if (status === 502) return '边缘节点连接 ZenMux 失败，稍后重试。';
   if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
     return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
+  }
+  if (typeof raw === 'string' && (raw.includes('<html') || raw.includes('<!doctype html'))) {
+    return `边缘网关返回异常状态 (HTTP ${status || 500})，服务暂时不可用，请稍后重试。`;
   }
 }
 
@@ -115,7 +121,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
   const meta = state.modelMeta[state.model];
   const col = appendBubble('assistant', null); // Returns .body container element
-  
+
   const toBottom = () => { if (el.thread) el.thread.scrollTop = el.thread.scrollHeight; };
   const nearBottom = () => el.thread ? (el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 120) : true;
   toBottom();
@@ -537,7 +543,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
             const elapsed = Math.max(1, Math.round((Date.now() - startTime) / 1000));
             const tipEl = skeletonCard.querySelector('.image-card-tip');
             if (tipEl) {
-              tipEl.textContent = `🎨 正在调度生图引擎渲染画面 (${elapsed}s)...`;
+              tipEl.textContent = `正在调度生图引擎渲染画面 (${elapsed}s)...`;
             }
             continue;
           }

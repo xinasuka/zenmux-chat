@@ -1,5 +1,11 @@
 {
   "buildCommand": "",
   "outputDirectory": ".",
-  "nodeVersion": "22.11.0"
+  "nodeVersion": "22.11.0",
+  "cloudFunctions": {
+    "maxDuration": 120,
+    "nodejs": {
+      "maxDuration": 120
+    }
+  }
 }
