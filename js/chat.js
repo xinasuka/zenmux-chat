@@ -489,7 +489,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
   const payload = {
     model: state.model,
     prompt: prompt,
-    size: state.imageSize || '1024x1024',
+    size: state.imageSize || 'auto',
     quality: state.imageQuality || 'auto',
     background: state.imageBackground || 'auto',
     output_format: 'png',

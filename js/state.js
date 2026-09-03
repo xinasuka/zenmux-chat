@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.12.1';
+export const APP_VERSION = '2.12.2';
 
 export const LS = {
   cur: 'zm.current',
@@ -125,7 +125,7 @@ export const state = {
   ctxN: parseInt(getStorageItem(LS.ctx), 10),
   toolMaxTurns: parseInt(getStorageItem(LS.toolTurns), 10),
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
-  imageSize: getStorageItem(LS.imageSize) || '1024x1024',
+  imageSize: getStorageItem(LS.imageSize) || 'auto',
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',
   isImageMode: false,

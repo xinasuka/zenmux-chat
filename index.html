@@ -15,7 +15,7 @@
   <div id="sidebar-topbar" class="sidebar-topbar">
     <div class="sidebar-brand-group">
       <span class="sidebar-brand-title">ZenChat</span>
-      <span class="app-version-badge">v2.12.1</span>
+      <span class="app-version-badge">v2.12.2</span>
     </div>
     <button id="sidebar-toggle" class="sidebar-icon-btn" title="收起侧边栏">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -71,10 +71,11 @@
       </div>
       <div id="image-params-group" class="image-params-group hide">
         <select id="image-size" class="mini-sel" title="图像生成尺寸与纵横比">
-          <option value="1024x1024">尺寸 1:1 正方</option>
+          <option value="auto">尺寸 自适应</option>
+          <option value="1024x1024">尺寸 1:1 正方 (1K)</option>
           <option value="1536x1024">尺寸 3:2 横屏</option>
           <option value="1024x1536">尺寸 2:3 竖屏</option>
-          <option value="auto">尺寸 自适应</option>
+          <option value="2k">尺寸 2K 超清</option>
         </select>
         <select id="image-quality" class="mini-sel" title="图像精度与画质">
           <option value="auto">画质 自动</option>

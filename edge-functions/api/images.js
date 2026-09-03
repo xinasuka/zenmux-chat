@@ -50,25 +50,43 @@ export async function onRequestPost(context) {
       return json({ error: '缺少必需的 prompt 参数' }, 400);
     }
 
+    const model = payload.model || 'openai/gpt-image-2';
+    const isGptModel = /^(openai\/|gpt-|dall-e)/i.test(model);
+
     const forwardBody = {
-      model: payload.model || 'openai/gpt-image-2',
+      model,
       prompt: String(payload.prompt).trim(),
     };
 
-    if (payload.size && payload.size !== 'auto') {
-      forwardBody.size = payload.size;
-    }
-    if (payload.quality && payload.quality !== 'auto') {
-      forwardBody.quality = payload.quality;
-    }
-    if (payload.background && payload.background !== 'auto') {
-      forwardBody.background = payload.background;
-    }
-    if (payload.output_format) {
-      forwardBody.output_format = payload.output_format;
-    }
     if (payload.n) {
       forwardBody.n = Math.max(1, Math.min(Number(payload.n) || 1, 4));
+    }
+
+    if (isGptModel) {
+      // OpenAI GPT Image models support pixel sizes, quality, background, output_format
+      if (payload.size && payload.size !== 'auto') {
+        forwardBody.size = payload.size;
+      }
+      if (payload.quality && payload.quality !== 'auto') {
+        forwardBody.quality = payload.quality;
+      }
+      if (payload.background && payload.background !== 'auto') {
+        forwardBody.background = payload.background;
+      }
+      if (payload.output_format && payload.output_format !== 'auto') {
+        forwardBody.output_format = payload.output_format;
+      }
+    } else {
+      // Non-GPT models (e.g. Google Imagen, Recraft, Flux) expect 1k/2k resolutions and standard formats
+      if (payload.size && payload.size !== 'auto') {
+        if (payload.size === '1024x1024' || payload.size === '1k') {
+          forwardBody.size = '1k';
+        } else if (payload.size.includes('2048') || payload.size === '2k') {
+          forwardBody.size = '2k';
+        } else {
+          forwardBody.size = payload.size;
+        }
+      }
     }
 
     let upstream;
@@ -89,8 +107,45 @@ export async function onRequestPost(context) {
       }, 502);
     }
 
-    const status = upstream.status;
-    const text = await upstream.text();
+    let status = upstream.status;
+    let text = await upstream.text();
+
+    // Autonomous Upstream 422 Resolution/Parameter Recovery
+    if (status === 422) {
+      let shouldRetry = false;
+      const retryBody = { ...forwardBody };
+
+      if (text.includes('expected `1k` or `2k`')) {
+        retryBody.size = (retryBody.size === '2k' || (retryBody.size && retryBody.size.includes('2048'))) ? '2k' : '1k';
+        delete retryBody.background;
+        delete retryBody.output_format;
+        delete retryBody.quality;
+        shouldRetry = true;
+      } else if (text.includes('background') || text.includes('output_format') || text.includes('quality')) {
+        delete retryBody.background;
+        delete retryBody.output_format;
+        delete retryBody.quality;
+        shouldRetry = true;
+      }
+
+      if (shouldRetry) {
+        try {
+          const retryRes = await fetch(UPSTREAM, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'User-Agent': 'ZenMux-Chat/2.12 (contact@zenmux.ai)',
+            },
+            body: JSON.stringify(retryBody),
+          });
+          status = retryRes.status;
+          text = await retryRes.text();
+        } catch (_) {
+          // Keep original response if retry network fails
+        }
+      }
+    }
 
     return new Response(text, {
       status,
