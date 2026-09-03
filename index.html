@@ -15,7 +15,7 @@
   <div id="sidebar-topbar" class="sidebar-topbar">
     <div class="sidebar-brand-group">
       <span class="sidebar-brand-title">ZenChat</span>
-      <span class="app-version-badge">v2.11.2</span>
+      <span class="app-version-badge">v2.12.0</span>
     </div>
     <button id="sidebar-toggle" class="sidebar-icon-btn" title="收起侧边栏">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -41,32 +41,34 @@
     </button>
     <select id="model" title="选择模型" data-page-node-id="oPqyzivdChjN6iLYo3d9aC"><option value="" data-page-node-id="w6hpDhMfkA5qwoyW2te1Sc">载入模型中…</option></select>
     <div id="topbar-params">
-      <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效" data-page-node-id="Keko3APNkL6UvQYoOD6iGH">
-        <option value="" data-page-node-id="qF9tqF0DJTIS6GdDDYouwN">推理 默认</option>
-        <option value="minimal" data-page-node-id="Ljwk1WxkRVNeWwKlK83Sn9">推理 最低</option>
-        <option value="low" data-page-node-id="ctmvOc5ls1MSYrDkD4Deor">推理 低</option>
-        <option value="medium" data-page-node-id="qOwJelW5GOKsGMSGUBUW6G">推理 中</option>
-        <option value="high" data-page-node-id="Z908yTzxkFHEHwByZulPkF">推理 高</option>
-        <option value="off" data-page-node-id="cllAylE3b7XDBoJmiifFdJ">推理 关闭</option>
-      </select>
-      <select id="search-depth" class="mini-sel" title="联网搜索检索深度：精炼、标准、深度或全面">
-        <option value="standard">搜索 标准</option>
-        <option value="quick">搜索 精炼</option>
-        <option value="deep">搜索 深度</option>
-        <option value="pro">搜索 全面</option>
-      </select>
-      <select id="tool-turns" class="mini-sel" title="单轮工具最大调用次数：默认20次、深度50次、全面100次或无限制">
-        <option value="20">工具 20次</option>
-        <option value="50">工具 50次</option>
-        <option value="100">工具 100次</option>
-        <option value="0">工具 不限</option>
-      </select>
-      <select id="ctx" class="mini-sel" title="对话历史记忆长度：简洁、标准、较长或完整" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
-        <option value="10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">上下文 简洁</option>
-        <option value="20" data-page-node-id="keiOmwFkrVWiWZtbR4w7bn">上下文 标准</option>
-        <option value="40" data-page-node-id="PNHjQJubaEeJyznuZM5GEl">上下文 较长</option>
-        <option value="0" data-page-node-id="CRurP9qDThQztl86X1tU4t">上下文 完整</option>
-      </select>
+      <div id="chat-params-group" class="chat-params-group">
+        <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效" data-page-node-id="Keko3APNkL6UvQYoOD6iGH">
+          <option value="" data-page-node-id="qF9tqF0DJTIS6GdDDYouwN">推理 默认</option>
+          <option value="minimal" data-page-node-id="Ljwk1WxkRVNeWwKlK83Sn9">推理 最低</option>
+          <option value="low" data-page-node-id="ctmvOc5ls1MSYrDkD4Deor">推理 低</option>
+          <option value="medium" data-page-node-id="qOwJelW5GOKsGMSGUBUW6G">推理 中</option>
+          <option value="high" data-page-node-id="Z908yTzxkFHEHwByZulPkF">推理 高</option>
+          <option value="off" data-page-node-id="cllAylE3b7XDBoJmiifFdJ">推理 关闭</option>
+        </select>
+        <select id="search-depth" class="mini-sel" title="联网搜索检索深度：精炼、标准、深度或全面">
+          <option value="standard">搜索 标准</option>
+          <option value="quick">搜索 精炼</option>
+          <option value="deep">搜索 深度</option>
+          <option value="pro">搜索 全面</option>
+        </select>
+        <select id="tool-turns" class="mini-sel" title="单轮工具最大调用次数：默认20次、深度50次、全面100次或无限制">
+          <option value="20">工具 20次</option>
+          <option value="50">工具 50次</option>
+          <option value="100">工具 100次</option>
+          <option value="0">工具 不限</option>
+        </select>
+        <select id="ctx" class="mini-sel" title="对话历史记忆长度：简洁、标准、较长或完整" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
+          <option value="10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">上下文 简洁</option>
+          <option value="20" data-page-node-id="keiOmwFkrVWiWZtbR4w7bn">上下文 标准</option>
+          <option value="40" data-page-node-id="PNHjQJubaEeJyznuZM5GEl">上下文 较长</option>
+          <option value="0" data-page-node-id="CRurP9qDThQztl86X1tU4t">上下文 完整</option>
+        </select>
+      </div>
     </div>
     <div class="spacer" data-page-node-id="188psDF9zupSFc3dpDJDTJ"></div>
     <button class="icon-btn" id="settings-btn" title="偏好与系统指令设置">
@@ -95,6 +97,34 @@
           <span class="btn-text">插件</span>
           <span id="plugins-badge" class="plugin-count-badge">2</span>
         </button>
+        <div id="composer-image-bar" class="composer-image-bar hide">
+          <div class="image-param-pill">
+            <span class="image-param-label">尺寸</span>
+            <select id="image-size" class="image-param-sel" title="图像生成尺寸与纵横比">
+              <option value="1024x1024">1:1 正方 (1024×1024)</option>
+              <option value="1536x1024">3:2 横屏 (1536×1024)</option>
+              <option value="1024x1536">2:3 竖屏 (1024×1536)</option>
+              <option value="auto">自适应 (auto)</option>
+            </select>
+          </div>
+          <div class="image-param-pill">
+            <span class="image-param-label">画质</span>
+            <select id="image-quality" class="image-param-sel" title="图像精度与画质">
+              <option value="auto">画质 自动</option>
+              <option value="high">画质 高清</option>
+              <option value="medium">画质 标准</option>
+              <option value="low">画质 极速</option>
+            </select>
+          </div>
+          <div class="image-param-pill">
+            <span class="image-param-label">背景</span>
+            <select id="image-bg" class="image-param-sel" title="背景透明度设置">
+              <option value="auto">背景 默认</option>
+              <option value="transparent">透明背景 (PNG)</option>
+              <option value="opaque">实心背景</option>
+            </select>
+          </div>
+        </div>
         <button id="voice-btn" class="composer-icon-btn" title="语音输入（点击说话，实时转为文字）">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>

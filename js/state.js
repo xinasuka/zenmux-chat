@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.11.2';
+export const APP_VERSION = '2.12.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -20,6 +20,9 @@ export const LS = {
   memoryList: 'zm.memory.list',
   memoryEnabled: 'zm.memory.enabled',
   sidebarWidth: 'zm.sidebar.width',
+  imageSize: 'zm.image.size',
+  imageQuality: 'zm.image.quality',
+  imageBackground: 'zm.image.background',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -36,10 +39,16 @@ export const el = {
   sidebarFooterText: $('sidebar-footer-text'),
 
   model: $('model'),
+  chatParamsGroup: $('chat-params-group'),
   effort: $('effort'),
   searchDepth: $('search-depth'),
   toolTurns: $('tool-turns'),
   ctx: $('ctx'),
+
+  imageBar: $('composer-image-bar'),
+  imageSize: $('image-size'),
+  imageQuality: $('image-quality'),
+  imageBackground: $('image-bg'),
 
   settingsBtn: $('settings-btn'),
   themeToggle: $('theme-toggle'),
@@ -115,6 +124,10 @@ export const state = {
   ctxN: parseInt(getStorageItem(LS.ctx), 10),
   toolMaxTurns: parseInt(getStorageItem(LS.toolTurns), 10),
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
+  imageSize: getStorageItem(LS.imageSize) || '1024x1024',
+  imageQuality: getStorageItem(LS.imageQuality) || 'auto',
+  imageBackground: getStorageItem(LS.imageBackground) || 'auto',
+  isImageMode: false,
   modelMeta: {},
   pendingAttachments: [],
   busy: false,

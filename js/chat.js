@@ -3,7 +3,7 @@ import { ZenMuxDB } from './db.js';
 import { PluginRegistry } from './plugins.js';
 import { MemoryStore } from './memory.js';
 import { renderMd, renderParts } from './markdown.js';
-import { appendBubble, createSourcesElement, createActionsToolbar, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
+import { appendBubble, createSourcesElement, createActionsToolbar, createImageCard, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
 
 export function explainError(raw, status) {
   let outer = {}, inner = {};
@@ -466,3 +466,132 @@ export async function executeAssistantStream(userMsg, options = {}) {
     toBottom();
   }
 }
+
+export async function executeImageGeneration(userMsg, options = {}) {
+  const c = state.currentConv;
+  if (!c) return;
+
+  state.busy = true;
+  if (el.send) el.send.disabled = true;
+  if (el.stop) el.stop.style.display = 'none';
+
+  const col = appendBubble('assistant', null);
+  const skeletonCard = createImageCard({ loading: true });
+  col.appendChild(skeletonCard);
+
+  const toBottom = () => { if (el.thread) el.thread.scrollTop = el.thread.scrollHeight; };
+  toBottom();
+
+  const controller = new AbortController();
+  state.controller = controller;
+
+  const prompt = userMsg.content;
+  const payload = {
+    model: state.model,
+    prompt: prompt,
+    size: state.imageSize || '1024x1024',
+    quality: state.imageQuality || 'auto',
+    background: state.imageBackground || 'auto',
+    output_format: 'png',
+    n: 1
+  };
+
+  try {
+    const res = await fetch('/api/images', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Token': state.token || ''
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = explainError(errText, res.status) || `生图失败 (HTTP ${res.status}): ${errText}`;
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    const item = data && data.data && data.data[0];
+    if (!item || (!item.b64_json && !item.url)) {
+      throw new Error((data && data.error) || '上游未返回有效的图像数据');
+    }
+
+    let blob = null;
+    let src = '';
+    if (item.b64_json) {
+      const binaryString = atob(item.b64_json);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      blob = new Blob([bytes], { type: 'image/png' });
+      src = URL.createObjectURL(blob);
+    } else {
+      src = item.url;
+    }
+
+    const imageId = 'img_' + uid();
+    const revisedPrompt = item.revised_prompt || '';
+
+    // Save image binary to IndexedDB (zero remote server footprint)
+    if (blob) {
+      await ZenMuxDB.putImage(imageId, blob, {
+        prompt,
+        revisedPrompt,
+        model: state.model,
+        size: state.imageSize,
+        quality: state.imageQuality,
+        createdAt: Date.now()
+      });
+    }
+
+    // Replace skeleton with real image card
+    const card = createImageCard({
+      src,
+      blob,
+      prompt,
+      revisedPrompt,
+      model: state.model,
+      size: state.imageSize,
+      quality: state.imageQuality
+    }, options.onRegenerate);
+    skeletonCard.replaceWith(card);
+
+    // Save message to conversation
+    const assistantMsg = {
+      id: uid(),
+      role: 'assistant',
+      type: 'image',
+      imageId,
+      content: prompt,
+      revisedPrompt,
+      model: state.model,
+      size: state.imageSize,
+      quality: state.imageQuality,
+      createdAt: Date.now()
+    };
+    c.messages.push(assistantMsg);
+    c.updatedAt = Date.now();
+
+    await ZenMuxDB.putConversation(c);
+    if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      skeletonCard.innerHTML = '<div class="msg-text" style="color:var(--fg-dim);padding:8px">已取消图像生成。</div>';
+    } else {
+      toast(err.message || String(err), 'error');
+      skeletonCard.innerHTML = `<div class="msg-text" style="color:var(--danger);padding:8px">图像生成失败：${esc(err.message)}</div>`;
+    }
+  } finally {
+    state.busy = false;
+    state.controller = null;
+    if (typeof options.onSyncSend === 'function') options.onSyncSend();
+    toBottom();
+  }
+}
+

@@ -7,7 +7,7 @@ import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
 import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
-import { executeAssistantStream } from './chat.js';
+import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
@@ -200,8 +200,39 @@ export function syncEffort() {
     : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
 }
 
+export function syncWorkstationMode(isImgGen, meta) {
+  state.isImageMode = !!isImgGen;
+
+  if (el.chatParamsGroup) {
+    if (isImgGen) el.chatParamsGroup.classList.add('hide');
+    else el.chatParamsGroup.classList.remove('hide');
+  }
+
+  if (el.pluginsBtn) {
+    el.pluginsBtn.style.display = isImgGen ? 'none' : '';
+  }
+
+  if (el.imageBar) {
+    if (isImgGen) el.imageBar.classList.remove('hide');
+    else el.imageBar.classList.add('hide');
+  }
+
+  if (el.input) {
+    el.input.placeholder = isImgGen
+      ? '描述你想生成的画面 (Prompt)，Enter 开始绘制…'
+      : '发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行';
+  }
+
+  if (el.send) {
+    el.send.title = isImgGen ? '开始生图 (Enter)' : '发送';
+  }
+}
+
 export function syncModelCapabilities() {
+  const meta = state.modelMeta[state.model];
+  const isImgGen = hasImageGen(meta);
   syncEffort();
+  syncWorkstationMode(isImgGen, meta);
 }
 
 export function loadModels() {
@@ -673,8 +704,15 @@ export function renderThread() {
   }
 
   c.messages.forEach((m, idx) => {
+    const imgMeta = m.type === 'image' ? {
+      imageId: m.imageId,
+      revisedPrompt: m.revisedPrompt,
+      size: m.size,
+      quality: m.quality,
+    } : null;
+
     el.threadInner.appendChild(
-      bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources, m.usage, m.model, idx, regenerateFrom)
+      bubble(m.role, m.content, m.images, m.reasoning, m.files, m.displayContent, m.sources, m.usage, m.model, idx, regenerateFrom, imgMeta)
     );
   });
   updateSidebarFooter();
@@ -751,11 +789,19 @@ export function send() {
     el.threadInner.appendChild(bubble('user', fullPrompt, images, '', files, text, null, null, null, c.messages.length - 1, regenerateFrom));
   }
 
-  executeAssistantStream(userMsg, {
-    onUpdateConvList: renderConvList,
-    onRegenerate: regenerateFrom,
-    onSyncSend: syncSend,
-  });
+  if (hasImageGen(meta)) {
+    executeImageGeneration(userMsg, {
+      onUpdateConvList: renderConvList,
+      onRegenerate: regenerateFrom,
+      onSyncSend: syncSend,
+    });
+  } else {
+    executeAssistantStream(userMsg, {
+      onUpdateConvList: renderConvList,
+      onRegenerate: regenerateFrom,
+      onSyncSend: syncSend,
+    });
+  }
 }
 
 export function showGate(err) {
@@ -978,8 +1024,33 @@ function initEventListeners() {
 
   if (el.ctx) {
     el.ctx.addEventListener('change', () => {
-      state.ctxN = parseInt(el.ctx.value, 10) || 0;
+      state.ctxN = parseInt(el.ctx.value, 10);
+      if (isNaN(state.ctxN)) state.ctxN = 20;
       localStorage.setItem(LS.ctx, String(state.ctxN));
+    });
+  }
+
+  if (el.imageSize) {
+    el.imageSize.value = state.imageSize;
+    el.imageSize.addEventListener('change', () => {
+      state.imageSize = el.imageSize.value;
+      localStorage.setItem(LS.imageSize, state.imageSize);
+    });
+  }
+
+  if (el.imageQuality) {
+    el.imageQuality.value = state.imageQuality;
+    el.imageQuality.addEventListener('change', () => {
+      state.imageQuality = el.imageQuality.value;
+      localStorage.setItem(LS.imageQuality, state.imageQuality);
+    });
+  }
+
+  if (el.imageBackground) {
+    el.imageBackground.value = state.imageBackground;
+    el.imageBackground.addEventListener('change', () => {
+      state.imageBackground = el.imageBackground.value;
+      localStorage.setItem(LS.imageBackground, state.imageBackground);
     });
   }
 

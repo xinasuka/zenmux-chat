@@ -254,7 +254,90 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   return container;
 }
 
-export function bubble(role, content, images, reasoning, files, displayContent, sources, usage, model, msgIndex, onRegenerate) {
+export function createImageCard(item, onRegenerate) {
+  const card = document.createElement('div');
+  card.className = 'img-card-wrap';
+
+  const preview = document.createElement('div');
+  preview.className = 'img-card-preview';
+
+  if (item.loading) {
+    preview.innerHTML = `
+      <div class="img-card-skeleton">
+        <div class="img-card-skeleton-spinner"></div>
+        <div class="img-card-skeleton-text">🎨 正在调度生图引擎渲染画面…</div>
+      </div>
+    `;
+  } else if (item.src) {
+    const img = document.createElement('img');
+    img.src = item.src;
+    img.alt = item.prompt || 'AI 生成图片';
+    img.loading = 'lazy';
+    img.addEventListener('click', () => openLightbox(item.src));
+    preview.appendChild(img);
+  }
+
+  card.appendChild(preview);
+
+  if (item.revisedPrompt && item.revisedPrompt !== item.prompt) {
+    const rev = document.createElement('div');
+    rev.className = 'img-card-revised';
+    rev.innerHTML = `<strong>精修提示词:</strong> ${esc(item.revisedPrompt)}`;
+    card.appendChild(rev);
+  }
+
+  if (!item.loading && item.src) {
+    const footer = document.createElement('div');
+    footer.className = 'img-card-footer';
+
+    const meta = document.createElement('div');
+    meta.className = 'img-card-meta';
+    meta.textContent = `${item.size || '1024x1024'} · ${item.model ? item.model.split('/').pop() : '生图'}`;
+    footer.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'img-card-actions';
+
+    // 1. 下载按钮
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'img-card-btn';
+    dlBtn.title = '下载高清图片 (PNG)';
+    dlBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> 下载';
+    dlBtn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = item.src;
+      a.download = `zenmux-${Date.now()}.png`;
+      a.click();
+    });
+    actions.appendChild(dlBtn);
+
+    // 2. 复制图片到剪贴板
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof window !== 'undefined' && window.ClipboardItem && item.blob) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'img-card-btn';
+      copyBtn.title = '复制图片到剪贴板';
+      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 复制';
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ [item.blob.type || 'image/png']: item.blob })
+          ]);
+          toast('图片已复制到剪贴板', 'info');
+        } catch (e) {
+          toast('复制失败，可直接点击下载', 'error');
+        }
+      });
+      actions.appendChild(copyBtn);
+    }
+
+    footer.appendChild(actions);
+    card.appendChild(footer);
+  }
+
+  return card;
+}
+
+export function bubble(role, content, images, reasoning, files, displayContent, sources, usage, model, msgIndex, onRegenerate, imageMeta) {
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + role;
 
@@ -265,7 +348,52 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
   const col = document.createElement('div');
   col.className = 'body';
 
-  // 1. 若附带图片，渲染图片网格
+  // 1. 若为图像生成消息 (imageMeta 存在)
+  if (role === 'assistant' && imageMeta) {
+    const cardWrap = document.createElement('div');
+    cardWrap.className = 'img-card-container';
+    cardWrap.innerHTML = `
+      <div class="img-card-wrap">
+        <div class="img-card-preview">
+          <div class="img-card-skeleton">
+            <div class="img-card-skeleton-spinner"></div>
+            <div class="img-card-skeleton-text">正在读取本地图像…</div>
+          </div>
+        </div>
+      </div>
+    `;
+    col.appendChild(cardWrap);
+
+    if (imageMeta.imageId) {
+      import('./db.js').then(({ ZenMuxDB }) => {
+        ZenMuxDB.getImage(imageMeta.imageId).then((rec) => {
+          if (rec && rec.blob) {
+            const src = URL.createObjectURL(rec.blob);
+            const card = createImageCard({
+              src,
+              blob: rec.blob,
+              prompt: rec.prompt || content,
+              revisedPrompt: rec.revisedPrompt || imageMeta.revisedPrompt,
+              model: rec.model || model,
+              size: rec.size || imageMeta.size,
+              quality: rec.quality || imageMeta.quality
+            }, onRegenerate);
+            cardWrap.replaceWith(card);
+          } else {
+            cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">本地图片已清理或不存在</div>';
+          }
+        }).catch(() => {
+          cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">读取本地图片异常</div>';
+        });
+      });
+    }
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(col);
+    return wrap;
+  }
+
+  // 2. 若附带图片，渲染图片网格
   if (images && images.length) {
     const grid = document.createElement('div');
     grid.className = 'msg-images';
@@ -283,7 +411,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
     col.appendChild(grid);
   }
 
-  // 2. 若附带源码/文档附件，渲染可折叠卡片
+  // 3. 若附带源码/文档附件，渲染可折叠卡片
   if (files && files.length) {
     const fileBox = document.createElement('div');
     fileBox.className = 'msg-files';
@@ -303,7 +431,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
     col.appendChild(fileBox);
   }
 
-  // 3. AI Assistant 结构: 思考过程 (Reasoning) -> 参考来源 (Sources) -> 正文 (Text) -> 工具栏 (Toolbar)
+  // 4. AI Assistant 结构: 思考过程 (Reasoning) -> 参考来源 (Sources) -> 正文 (Text) -> 工具栏 (Toolbar)
   if (role === 'assistant') {
     // (a) 思考过程 (Thinking Process)
     if (reasoning && reasoning.trim()) {
@@ -334,7 +462,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
       col.appendChild(actionsBar);
     }
   } else {
-    // 4. 用户消息正文
+    // 5. 用户消息正文
     const textNode = document.createElement('div');
     textNode.className = 'msg-text';
     textNode.textContent = displayContent || content || '';

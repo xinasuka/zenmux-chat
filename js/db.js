@@ -1,9 +1,10 @@
 // js/db.js
-// High-performance asynchronous IndexedDB persistence layer for conversations.
+// High-performance asynchronous IndexedDB persistence layer for conversations and generated image assets.
 
 const DB_NAME = 'ZenMuxChatDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_CONV = 'conversations';
+const STORE_IMAGES = 'images';
 
 export const ZenMuxDB = {
   _db: null,
@@ -21,6 +22,10 @@ export const ZenMuxDB = {
           const store = db.createObjectStore(STORE_CONV, { keyPath: 'id' });
           store.createIndex('updatedAt', 'updatedAt', { unique: false });
           store.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+        if (!db.objectStoreNames.contains(STORE_IMAGES)) {
+          const imgStore = db.createObjectStore(STORE_IMAGES, { keyPath: 'id' });
+          imgStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
       };
       req.onsuccess = (e) => {
@@ -84,4 +89,52 @@ export const ZenMuxDB = {
       });
     });
   },
+
+  // Binary Image asset storage in IndexedDB (zero remote server footprint)
+  putImage(id, blob, meta = {}) {
+    return this.init().then((db) => {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_IMAGES], 'readwrite');
+        const store = tx.objectStore(STORE_IMAGES);
+        const record = {
+          id,
+          blob,
+          prompt: meta.prompt || '',
+          revisedPrompt: meta.revisedPrompt || '',
+          model: meta.model || '',
+          size: meta.size || '',
+          quality: meta.quality || '',
+          createdAt: meta.createdAt || Date.now()
+        };
+        const req = store.put(record);
+        req.onsuccess = () => resolve(record);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    });
+  },
+
+  getImage(id) {
+    return this.init().then((db) => {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_IMAGES], 'readonly');
+        const store = tx.objectStore(STORE_IMAGES);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    });
+  },
+
+  deleteImage(id) {
+    return this.init().then((db) => {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_IMAGES], 'readwrite');
+        const store = tx.objectStore(STORE_IMAGES);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e.target.error);
+      });
+    });
+  }
 };
+

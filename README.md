@@ -32,6 +32,7 @@
   - **GitHub Explorer** (Repository metrics, releases, issues, and trending discovery)
   - **Global Financial Market** (CoinGecko crypto, global fiat exchange rates, and US stock quotes)
   - **Code & Math Sandbox** (In-browser isolated sandbox for exact arithmetic, compound calculations, and algorithmic verification)
+* **Native Image Generation Studio**: Choose image-capable models (e.g. gpt-image-2, FLUX) to morph the interface into an image creation studio with custom aspect ratios (1:1, 3:2, 2:3), rendering quality, transparent PNG backgrounds, and zero-cloud-trace IndexedDB local persistence.
 * **Personalized Custom Instructions**: Tell the AI your background, favorite writing style, or preferred format so it automatically follows your preferences in every conversation.
 * **Smart Long-Term Memory**: The AI remembers your enduring habits, ongoing projects, and background across conversations. You can easily review, click to modify, or clear your memories at any time in Settings.
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
@@ -98,13 +99,14 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
    - **全球金融市场** (CoinGecko 加密货币、全球法定汇率换算与美股实时行情)
    - **代码与数学沙盒** (浏览器隔离沙盒免 Key 零延迟运行 JavaScript，验证高精度算术与算法推导)
-3. **个性化设定 (Custom Instructions)**：告诉 AI 你的身份背景、常用偏好或期望的回答风格，AI 在每次对话中都会自动遵循。
-4. **智能长期记忆 (Long-Term Memory)**：AI 会在聊天中自动记住关于你的重要习惯和背景，跨会话持续生效。你可以在设置中随时查看、点击直接修改或清空所有记忆。
-5. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
-6. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
-7. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
-8. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
-9. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
+3. **原生生图创作工作台**：切换至具有生图能力的大模型（如 gpt-image-2、FLUX）时，输入控制台自适应展开比例尺寸（1:1、3:2、2:3）、精度画质与透明背景设置；图片以二进制 Blob 原生持久化在浏览器 IndexedDB 中，秒开加载且完全不留云端存储痕迹。
+4. **个性化设定 (Custom Instructions)**：告诉 AI 你的身份背景、常用偏好或期望的回答风格，AI 在每次对话中都会自动遵循。
+5. **智能长期记忆 (Long-Term Memory)**：AI 会在聊天中自动记住关于你的重要习惯和背景，跨会话持续生效。你可以在设置中随时查看、点击直接修改或清空所有记忆。
+6. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
+7. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
+8. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
+9. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
+10. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
 
 ### 极速部署指南
 
