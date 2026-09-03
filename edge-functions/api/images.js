@@ -89,9 +89,10 @@ export async function onRequestPost(context) {
       }
     }
 
-    let upstream;
-    try {
-      upstream = await fetch(UPSTREAM, {
+    const acceptsSse = Boolean(request.headers.get('Accept') && request.headers.get('Accept').includes('text/event-stream'));
+
+    const doFetchUpstream = async () => {
+      let upstream = await fetch(UPSTREAM, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,6 +101,98 @@ export async function onRequestPost(context) {
         },
         body: JSON.stringify(forwardBody),
       });
+
+      let status = upstream.status;
+      let text = await upstream.text();
+
+      // Autonomous Upstream 422 Resolution/Parameter Recovery
+      if (status === 422) {
+        let shouldRetry = false;
+        const retryBody = { ...forwardBody };
+
+        if (text.includes('expected `1k` or `2k`')) {
+          retryBody.size = (retryBody.size === '2k' || (retryBody.size && retryBody.size.includes('2048'))) ? '2k' : '1k';
+          delete retryBody.background;
+          delete retryBody.output_format;
+          delete retryBody.quality;
+          shouldRetry = true;
+        } else if (text.includes('background') || text.includes('output_format') || text.includes('quality')) {
+          delete retryBody.background;
+          delete retryBody.output_format;
+          delete retryBody.quality;
+          shouldRetry = true;
+        }
+
+        if (shouldRetry) {
+          try {
+            const retryRes = await fetch(UPSTREAM, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+                'User-Agent': 'ZenMux-Chat/2.12 (contact@zenmux.ai)',
+              },
+              body: JSON.stringify(retryBody),
+            });
+            status = retryRes.status;
+            text = await retryRes.text();
+          } catch (_) {
+            // Keep original response if retry network fails
+          }
+        }
+      }
+
+      return { status, text };
+    };
+
+    if (acceptsSse) {
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+
+      (async () => {
+        // Immediate ping to flush headers & establish streaming connection on EdgeOne
+        await writer.write(encoder.encode(': ping\n\n'));
+
+        // Keep-alive timer sends comment every 2.5s to prevent EdgeOne 20s TTFB gateway timeout
+        const timer = setInterval(async () => {
+          try {
+            await writer.write(encoder.encode(': keep-alive\n\n'));
+          } catch (_) {}
+        }, 2500);
+
+        try {
+          const { status, text } = await doFetchUpstream();
+          clearInterval(timer);
+
+          if (status >= 200 && status < 300) {
+            await writer.write(encoder.encode(`event: result\ndata: ${text}\n\n`));
+          } else {
+            await writer.write(encoder.encode(`event: error\ndata: ${JSON.stringify({ status, error: text })}\n\n`));
+          }
+        } catch (fetchErr) {
+          clearInterval(timer);
+          await writer.write(encoder.encode(`event: error\ndata: ${JSON.stringify({ status: 502, error: '无法连接上游 ZenMux 图像生成服务: ' + (fetchErr && fetchErr.message) })}\n\n`));
+        } finally {
+          await writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        status: 200,
+        headers: {
+          ...CORS,
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
+    // Synchronous fallback for non-SSE clients
+    let result;
+    try {
+      result = await doFetchUpstream();
     } catch (fetchErr) {
       return json({
         error: '无法连接上游 ZenMux 图像生成服务',
@@ -107,48 +200,8 @@ export async function onRequestPost(context) {
       }, 502);
     }
 
-    let status = upstream.status;
-    let text = await upstream.text();
-
-    // Autonomous Upstream 422 Resolution/Parameter Recovery
-    if (status === 422) {
-      let shouldRetry = false;
-      const retryBody = { ...forwardBody };
-
-      if (text.includes('expected `1k` or `2k`')) {
-        retryBody.size = (retryBody.size === '2k' || (retryBody.size && retryBody.size.includes('2048'))) ? '2k' : '1k';
-        delete retryBody.background;
-        delete retryBody.output_format;
-        delete retryBody.quality;
-        shouldRetry = true;
-      } else if (text.includes('background') || text.includes('output_format') || text.includes('quality')) {
-        delete retryBody.background;
-        delete retryBody.output_format;
-        delete retryBody.quality;
-        shouldRetry = true;
-      }
-
-      if (shouldRetry) {
-        try {
-          const retryRes = await fetch(UPSTREAM, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey}`,
-              'User-Agent': 'ZenMux-Chat/2.12 (contact@zenmux.ai)',
-            },
-            body: JSON.stringify(retryBody),
-          });
-          status = retryRes.status;
-          text = await retryRes.text();
-        } catch (_) {
-          // Keep original response if retry network fails
-        }
-      }
-    }
-
-    return new Response(text, {
-      status,
+    return new Response(result.text, {
+      status: result.status,
       headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
     });
   } catch (fatalErr) {

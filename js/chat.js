@@ -501,6 +501,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'text/event-stream, application/json',
         'X-Access-Token': state.token || ''
       },
       body: JSON.stringify(payload),
@@ -513,7 +514,63 @@ export async function executeImageGeneration(userMsg, options = {}) {
       throw new Error(msg);
     }
 
-    const data = await res.json();
+    let data = null;
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/event-stream') && res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const startTime = Date.now();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
+
+        for (const block of blocks) {
+          if (!block.trim()) continue;
+          if (block.startsWith(':')) {
+            // Heartbeat comment from edge gateway keep-alive
+            const elapsed = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+            const tipEl = skeletonCard.querySelector('.image-card-tip');
+            if (tipEl) {
+              tipEl.textContent = `🎨 正在调度生图引擎渲染画面 (${elapsed}s)...`;
+            }
+            continue;
+          }
+
+          const eventMatch = block.match(/event:\s*([^\n]+)/);
+          const dataMatch = block.match(/data:\s*([\s\S]+)/);
+          const eventType = eventMatch ? eventMatch[1].trim() : 'message';
+          const rawData = dataMatch ? dataMatch[1].trim() : '';
+
+          if (eventType === 'result') {
+            try {
+              data = JSON.parse(rawData);
+            } catch (_) {
+              data = rawData;
+            }
+          } else if (eventType === 'error') {
+            let parsedErr;
+            try {
+              parsedErr = JSON.parse(rawData);
+            } catch (_) {
+              parsedErr = { error: rawData };
+            }
+            const errDetail = parsedErr.error || parsedErr.message || '图像生成服务异常';
+            const status = parsedErr.status || 500;
+            const explained = explainError(errDetail, status) || `生图失败 (HTTP ${status}): ${errDetail}`;
+            throw new Error(explained);
+          }
+        }
+      }
+    } else {
+      data = await res.json();
+    }
+
     const item = data && data.data && data.data[0];
     if (!item || (!item.b64_json && !item.url)) {
       throw new Error((data && data.error) || '上游未返回有效的图像数据');
