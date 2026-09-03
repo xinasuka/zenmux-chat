@@ -673,14 +673,19 @@ const ALL_PLUGINS = [
       if (!data.success) {
         let errOut = `代码执行失败（错误）: ${data.error || '未知运行时错误'}`;
         if (data.logs && data.logs.length) {
-          errOut += `\n控制台日志:\n${data.logs.join('\n')}`;
+          errOut += `\n控制台输出 (console.log):\n${data.logs.join('\n')}`;
         }
         return errOut;
       }
-      let resStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
-      let out = `代码执行成功 (耗时: ${data.executionTimeMs || 0}ms)\n返回值: ${resStr}`;
+      let out = `代码执行成功 (耗时: ${data.executionTimeMs || 0}ms)`;
       if (data.logs && data.logs.length) {
         out += `\n控制台输出 (console.log):\n${data.logs.join('\n')}`;
+      }
+      let resStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
+      if (data.result !== undefined && resStr !== (data.logs && data.logs.join('\n'))) {
+        out += `\n返回值: ${resStr}`;
+      } else if (!data.logs || !data.logs.length) {
+        out += `\n返回值: ${resStr}`;
       }
       return out;
     },
@@ -705,11 +710,12 @@ export function runSandboxedCode(code, timeoutMs = 2500) {
             warn: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); },
             error: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); }
           };
+          self.console = customConsole;
           try {
             var fn = new Function('console', 'Math', 'Date', 'JSON', 'Array', 'Object', 'Number', 'String', 'RegExp',
               '"use strict";\\n' +
               'var fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, importScripts = undefined, indexedDB = undefined;\\n' +
-              'return (0, eval)(' + JSON.stringify(e.data.code) + ');'
+              'return eval(' + JSON.stringify(e.data.code) + ');'
             );
             var res = fn(customConsole, Math, Date, JSON, Array, Object, Number, String, RegExp);
             self.postMessage({
@@ -800,7 +806,7 @@ function runInlineSandboxedCode(codeToRun, timeoutMs = 2500) {
         'console', 'Math', 'Date', 'JSON', 'Array', 'Object', 'Number', 'String', 'RegExp',
         `"use strict";
         var window = undefined, document = undefined, localStorage = undefined, sessionStorage = undefined, fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, process = undefined, require = undefined;
-        return (0, eval)(${JSON.stringify(codeToRun)});`
+        return eval(${JSON.stringify(codeToRun)});`
       );
       const res = fn(customConsole, Math, Date, JSON, Array, Object, Number, String, RegExp);
       resolve({
