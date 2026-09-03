@@ -632,8 +632,193 @@ const ALL_PLUGINS = [
       }
       return [];
     }
+  },
+  {
+    id: 'code_eval',
+    name: '代码与数学沙盒',
+    provider: 'In-Browser JS/Wasm',
+    category: 'compute',
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`,
+    description: '在隔离沙盒中安全执行 JavaScript 代码与高精度数学公式，验证算法、统计与多步推导',
+    defaultEnabled: true,
+    toolSchema: {
+      type: 'function',
+      function: {
+        name: 'code_eval',
+        description: 'Execute JavaScript code safely in a client-side isolated sandbox for precise mathematical calculations, financial formulas (compound interest, loan amortization), statistical analysis, date offsets, array transformations, and algorithmic verification. Both the completion value and console.log outputs are returned.',
+        parameters: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              description: 'The JavaScript code to execute. Can define variables, multi-line logic, loops, Math functions, and return or evaluate expressions.'
+            }
+          },
+          required: ['code']
+        }
+      }
+    },
+    async execute(args) {
+      const code = (args && args.code) ? String(args.code) : '';
+      return await runSandboxedCode(code, 2500);
+    },
+    formatCoTMarker(args, data) {
+      const code = (args && args.code) ? String(args.code).trim() : '';
+      const preview = code.replace(/\s+/g, ' ').slice(0, 45) + (code.length > 45 ? '...' : '');
+      const timeStr = data && data.executionTimeMs !== undefined ? ` (${data.executionTimeMs}ms)` : '';
+      return `\n\n> ✦ **已安全执行代码与数学运算**：\`${preview}\`${timeStr}\n\n`;
+    },
+    formatToolResult(data) {
+      if (!data) return '执行结束，无任何返回。';
+      if (!data.success) {
+        let errOut = `代码执行失败（错误）: ${data.error || '未知运行时错误'}`;
+        if (data.logs && data.logs.length) {
+          errOut += `\n控制台日志:\n${data.logs.join('\n')}`;
+        }
+        return errOut;
+      }
+      let resStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
+      let out = `代码执行成功 (耗时: ${data.executionTimeMs || 0}ms)\n返回值: ${resStr}`;
+      if (data.logs && data.logs.length) {
+        out += `\n控制台输出 (console.log):\n${data.logs.join('\n')}`;
+      }
+      return out;
+    },
+    getSources() {
+      return [];
+    }
   }
 ];
+
+export function runSandboxedCode(code, timeoutMs = 2500) {
+  const startTime = Date.now();
+  const codeToRun = String(code || '').trim();
+
+  if (typeof window !== 'undefined' && typeof Worker !== 'undefined' && typeof Blob !== 'undefined') {
+    return new Promise((resolve) => {
+      const workerScript = `
+        self.onmessage = function(e) {
+          var logs = [];
+          var customConsole = {
+            log: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); },
+            info: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); },
+            warn: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); },
+            error: function() { logs.push(Array.prototype.slice.call(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ')); }
+          };
+          try {
+            var fn = new Function('console', 'Math', 'Date', 'JSON', 'Array', 'Object', 'Number', 'String', 'RegExp',
+              '"use strict";\\n' +
+              'var fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, importScripts = undefined, indexedDB = undefined;\\n' +
+              'return (0, eval)(' + JSON.stringify(e.data.code) + ');'
+            );
+            var res = fn(customConsole, Math, Date, JSON, Array, Object, Number, String, RegExp);
+            self.postMessage({
+              success: true,
+              result: res !== undefined ? res : (logs.length ? logs.join('\\n') : '执行成功（无返回值）'),
+              logs: logs
+            });
+          } catch (err) {
+            self.postMessage({
+              success: false,
+              error: err.message || String(err),
+              logs: logs
+            });
+          }
+        };
+      `;
+
+      let blobUrl = '';
+      let worker = null;
+      try {
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        blobUrl = URL.createObjectURL(blob);
+        worker = new Worker(blobUrl);
+      } catch (err) {
+        return resolve(runInlineSandboxedCode(codeToRun, timeoutMs));
+      }
+
+      let isDone = false;
+      const timer = setTimeout(() => {
+        if (!isDone) {
+          isDone = true;
+          worker.terminate();
+          try { URL.revokeObjectURL(blobUrl); } catch (e) { }
+          resolve({
+            success: false,
+            error: '代码执行超时（超过 ' + timeoutMs + 'ms，可能存在死循环）',
+            executionTimeMs: timeoutMs
+          });
+        }
+      }, timeoutMs);
+
+      worker.onmessage = (evt) => {
+        if (!isDone) {
+          isDone = true;
+          clearTimeout(timer);
+          worker.terminate();
+          try { URL.revokeObjectURL(blobUrl); } catch (e) { }
+          const data = evt.data || {};
+          data.executionTimeMs = Date.now() - startTime;
+          resolve(data);
+        }
+      };
+
+      worker.onerror = (err) => {
+        if (!isDone) {
+          isDone = true;
+          clearTimeout(timer);
+          worker.terminate();
+          try { URL.revokeObjectURL(blobUrl); } catch (e) { }
+          resolve({
+            success: false,
+            error: err.message || 'Worker 运行时错误',
+            executionTimeMs: Date.now() - startTime
+          });
+        }
+      };
+
+      worker.postMessage({ code: codeToRun });
+    });
+  }
+
+  return runInlineSandboxedCode(codeToRun, timeoutMs);
+}
+
+function runInlineSandboxedCode(codeToRun, timeoutMs = 2500) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const logs = [];
+    const customConsole = {
+      log: (...args) => logs.push(args.map((a) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
+      info: (...args) => logs.push(args.map((a) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
+      warn: (...args) => logs.push(args.map((a) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
+      error: (...args) => logs.push(args.map((a) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '))
+    };
+
+    try {
+      const fn = new Function(
+        'console', 'Math', 'Date', 'JSON', 'Array', 'Object', 'Number', 'String', 'RegExp',
+        `"use strict";
+        var window = undefined, document = undefined, localStorage = undefined, sessionStorage = undefined, fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, process = undefined, require = undefined;
+        return (0, eval)(${JSON.stringify(codeToRun)});`
+      );
+      const res = fn(customConsole, Math, Date, JSON, Array, Object, Number, String, RegExp);
+      resolve({
+        success: true,
+        result: res !== undefined ? res : (logs.length ? logs.join('\n') : '执行成功（无返回值）'),
+        logs,
+        executionTimeMs: Date.now() - startTime
+      });
+    } catch (err) {
+      resolve({
+        success: false,
+        error: err.message || String(err),
+        logs,
+        executionTimeMs: Date.now() - startTime
+      });
+    }
+  });
+}
 
 export class PluginRegistry {
   static getActiveSet() {
@@ -645,7 +830,7 @@ export class PluginRegistry {
       }
     } catch (e) { }
 
-    // 默认启用 web_search 和 web_extract
+    // 默认启用 web_search, web_extract 和 code_eval
     return new Set(ALL_PLUGINS.filter((p) => p.defaultEnabled).map((p) => p.id));
   }
 

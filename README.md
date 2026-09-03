@@ -31,6 +31,7 @@
   - **Global Weather** (Open-Meteo real-time conditions and 7-day forecasts)
   - **GitHub Explorer** (Repository metrics, releases, issues, and trending discovery)
   - **Global Financial Market** (CoinGecko crypto, global fiat exchange rates, and US stock quotes)
+  - **Code & Math Sandbox** (In-browser isolated sandbox for exact arithmetic, compound calculations, and algorithmic verification)
 * **Personalized Custom Instructions**: Tell the AI your background, favorite writing style, or preferred format so it automatically follows your preferences in every conversation.
 * **Smart Long-Term Memory**: The AI remembers your enduring habits, ongoing projects, and background across conversations. You can easily review, click to modify, or clear your memories at any time in Settings.
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
@@ -96,6 +97,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - **全球精准气象** (Open-Meteo 免 Key 实时天气与 7 日预报)
    - **GitHub 开源探索** (GitHub REST API 探索热门榜单、Star、Release 与技术栈)
    - **全球金融市场** (CoinGecko 加密货币、全球法定汇率换算与美股实时行情)
+   - **代码与数学沙盒** (浏览器隔离沙盒免 Key 零延迟运行 JavaScript，验证高精度算术与算法推导)
 3. **个性化设定 (Custom Instructions)**：告诉 AI 你的身份背景、常用偏好或期望的回答风格，AI 在每次对话中都会自动遵循。
 4. **智能长期记忆 (Long-Term Memory)**：AI 会在聊天中自动记住关于你的重要习惯和背景，跨会话持续生效。你可以在设置中随时查看、点击直接修改或清空所有记忆。
 5. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
