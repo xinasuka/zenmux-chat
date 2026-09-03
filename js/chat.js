@@ -24,7 +24,17 @@ export function explainError(raw, status) {
   if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
     return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
   }
-  return upMsg || outer.error || raw.slice(0, 300) || ('HTTP ' + status);
+}
+
+export function getToolCallFingerprint(name, args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return name + '::' + JSON.stringify(args || '');
+  }
+  const sorted = Object.keys(args).sort().reduce((acc, k) => {
+    acc[k] = args[k];
+    return acc;
+  }, {});
+  return name + '::' + JSON.stringify(sorted);
 }
 
 export function pump(res, onChunk) {
@@ -286,12 +296,13 @@ export async function executeAssistantStream(userMsg, options = {}) {
         fnArgs = {};
       }
 
-      // 循环死锁检测 (Loop Detection / Repetitive Thrashing Guard)
-      const currentSignature = fnName + '::' + JSON.stringify(fnArgs);
+      // 循环死锁检测 (Canonical Loop Detection / Repetitive Thrashing Guard)
+      const currentSignature = getToolCallFingerprint(fnName, fnArgs);
       if (currentSignature === lastCallSignature) {
         duplicateCallCount++;
-        if (duplicateCallCount >= 2) {
-          toast(`检测到工具【${fnName}】陷入参数重复循环，已自动终止并综合生成回答`, 'info');
+        // 允许最多 2 次合理重试（应对瞬态网络超时或接口限流），连续第 4 次调用同一工具且参数一致时判定为死循环
+        if (duplicateCallCount >= 3) {
+          toast(`检测到工具【${fnName}】连续重复尝试超过上限，已自动终止并综合生成回答`, 'info');
           isTerminatedEarly = true;
           break;
         }
