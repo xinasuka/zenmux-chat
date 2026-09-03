@@ -290,6 +290,20 @@
     color:var(--fg-dim);
   }
   .body a{color:var(--accent);text-decoration:none}
+  .body img, .chat-md-img{
+    max-width:100%;
+    max-height:480px;
+    height:auto;
+    border-radius:8px;
+    border:1px solid var(--line);
+    margin:8px 0;
+    display:block;
+    cursor:zoom-in;
+    transition:transform 0.15s ease,box-shadow 0.15s ease;
+  }
+  .body img:hover, .chat-md-img:hover{
+    box-shadow:0 4px 16px rgba(0,0,0,0.12);
+  }
   .body table{border-collapse:collapse;margin:0 0 12px;font-size:14px}
   .body th,.body td{border:1px solid var(--line);padding:6px 10px}
 

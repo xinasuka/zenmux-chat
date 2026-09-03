@@ -135,6 +135,16 @@ export function hasVision(m) {
   return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
 }
 
+export function hasImageGen(m) {
+  if (!m) return false;
+  if (Array.isArray(m.output_modalities)) {
+    return m.output_modalities.indexOf('image') !== -1;
+  }
+  if (m.capabilities && (m.capabilities.image_generation || m.capabilities.image_output)) return true;
+  const id = (m.id || '').toLowerCase();
+  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft/i.test(id);
+}
+
 function isFree(m) {
   const p = m.pricings || {};
   function zero(arr) {
@@ -169,6 +179,7 @@ export function fillModels(list) {
       o.value = m.id;
       let label = m.display_name || m.id;
       if (hasVision(m)) label += ' ·视觉';
+      if (hasImageGen(m)) label += ' ·生图';
       if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
       if (isFree(m)) label += ' ·免费';
       o.textContent = label;
@@ -902,6 +913,15 @@ function initEventListeners() {
   if (el.stop) el.stop.addEventListener('click', () => {
     if (state.controller) state.controller.abort();
   });
+
+  if (el.thread) {
+    el.thread.addEventListener('click', (e) => {
+      const img = e.target.closest('.chat-md-img, .body img');
+      if (img && img.src) {
+        openLightbox(img.src);
+      }
+    });
+  }
 
   if (el.burger) el.burger.addEventListener('click', openSidebar);
   if (el.sidebarToggle) {
