@@ -366,7 +366,12 @@ export function renderMemoryManagerUI() {
         form.addEventListener('submit', (e) => {
           e.preventDefault();
           const newVal = input ? input.value.trim() : '';
-          if (newVal && newVal !== item.content) {
+          if (!newVal) {
+            toast('记忆内容不能为空，若需删除请点击右侧删除按钮', 'info');
+            renderViewMode();
+            return;
+          }
+          if (newVal !== item.content) {
             MemoryStore.update(item.id, newVal);
             toast('已更新记忆内容', 'info');
             renderMemoryManagerUI();
@@ -418,12 +423,15 @@ export function closeSettingsModal() {
 export function saveSettings() {
   const text = (el.settingsInstructions ? el.settingsInstructions.value : '').trim();
   const enabled = el.settingsInstructionsToggle ? el.settingsInstructionsToggle.checked : true;
+  const memoryEnabled = el.settingsMemoryToggle ? el.settingsMemoryToggle.checked : true;
 
   state.instructions = text;
   state.instructionsEnabled = enabled;
+  state.memoryEnabled = memoryEnabled;
 
   localStorage.setItem(LS.instructions, text);
   localStorage.setItem(LS.instructionsEnabled, String(enabled));
+  localStorage.setItem(LS.memoryEnabled, String(memoryEnabled));
 
   closeSettingsModal();
   toast('偏好与自定义指令已保存并应用', 'info');
@@ -1040,6 +1048,11 @@ function initEventListeners() {
       }
     });
   }
+
+  // Cross-component live memory event listener
+  window.addEventListener('zm:memory-updated', () => {
+    renderMemoryManagerUI();
+  });
 
   // Theme Pills in Settings Modal
   if (el.themePillDark) el.themePillDark.addEventListener('click', () => applyTheme('dark'));

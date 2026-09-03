@@ -254,7 +254,13 @@ export async function executeAssistantStream(userMsg, options = {}) {
   let currentHistory = history;
 
   try {
+    let toolTurns = 0;
+    const MAX_TOOL_TURNS = 8;
     while (true) {
+      if (++toolTurns > MAX_TOOL_TURNS) {
+        toast('插件调用次数已达到安全上限 (8 次)，已自动终止工具循环', 'info');
+        break;
+      }
       // 在所有连续轮次中始终保留当前激活插件的 tools 定义
       const payload = buildPayload(currentHistory, true);
       const streamResult = await runStream(payload);
@@ -402,8 +408,9 @@ export async function executeAssistantStream(userMsg, options = {}) {
       return;
     }
     toast(e.message || String(e), 'error');
-    if (!acc && !reasonAcc && col && col.parentNode) {
-      col.parentNode.removeChild(col);
+    const wrap = col && col.closest ? col.closest('.msg') : (col && col.parentNode);
+    if (!acc && !reasonAcc && wrap && wrap.parentNode) {
+      wrap.parentNode.removeChild(wrap);
     }
   } finally {
     state.busy = false;

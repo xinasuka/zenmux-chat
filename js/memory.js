@@ -21,6 +21,9 @@ export const MemoryStore = {
     try {
       localStorage.setItem(LS.memoryList, JSON.stringify(list));
       state.memories = list;
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('zm:memory-updated', { detail: list }));
+      }
     } catch (e) { }
   },
 

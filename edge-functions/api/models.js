@@ -21,26 +21,35 @@ export function onRequestOptions() {
 }
 
 export async function onRequestGet(context) {
-  const { request, env } = context;
+  try {
+    const { request, env } = context;
 
-  if (!env.ZENMUX_API_KEY) {
-    return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
-  }
-
-  if (env.ACCESS_TOKEN) {
-    const auth = request.headers.get('X-Access-Token') || '';
-    if (auth !== env.ACCESS_TOKEN) {
-      return json({ error: 'unauthorized' }, 401);
+    const apiKey = env.ZENMUX_API_KEY ? String(env.ZENMUX_API_KEY).trim() : '';
+    if (!apiKey) {
+      return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
     }
+
+    const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
+    if (accessToken) {
+      const auth = request.headers.get('X-Access-Token') || '';
+      if (auth !== accessToken) {
+        return json({ error: 'unauthorized' }, 401);
+      }
+    }
+
+    const r = await fetch(UPSTREAM, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const text = await r.text();
+
+    return new Response(text, {
+      status: r.status,
+      headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  } catch (fatalErr) {
+    return json({
+      error: '获取模型列表异常',
+      detail: String(fatalErr && fatalErr.message)
+    }, 500);
   }
-
-  const r = await fetch(UPSTREAM, {
-    headers: { Authorization: `Bearer ${env.ZENMUX_API_KEY}` },
-  });
-  const text = await r.text();
-
-  return new Response(text, {
-    status: r.status,
-    headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
-  });
 }

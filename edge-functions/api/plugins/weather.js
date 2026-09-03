@@ -50,16 +50,17 @@ export function onRequestOptions() {
 }
 
 export async function onRequestPost(context) {
-  const { request, env } = context;
+  try {
+    const { request, env } = context;
 
-  // 1. 门禁鉴权
-  const accessToken = env.ACCESS_TOKEN;
-  if (accessToken) {
-    const auth = request.headers.get('X-Access-Token') || '';
-    if (auth !== accessToken) {
-      return json({ error: 'unauthorized' }, 401);
+    // 1. 门禁鉴权
+    const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
+    if (accessToken) {
+      const auth = request.headers.get('X-Access-Token') || '';
+      if (auth !== accessToken) {
+        return json({ error: 'unauthorized' }, 401);
+      }
     }
-  }
 
   let payload;
   try {
@@ -133,4 +134,10 @@ export async function onRequestPost(context) {
     },
     forecast: dailyForecast
   }, 200);
+} catch (fatalErr) {
+  return json({
+    error: '气象网关内部异常',
+    detail: String(fatalErr && fatalErr.message)
+  }, 500);
+}
 }

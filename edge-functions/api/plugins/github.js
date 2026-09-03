@@ -23,7 +23,8 @@ export function onRequestOptions() {
 }
 
 export async function onRequestPost(context) {
-  const { request, env } = context;
+  try {
+    const { request, env } = context;
 
   // 1. 门禁鉴权
   const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
@@ -144,6 +145,12 @@ export async function onRequestPost(context) {
       repos
     }, 200);
   } catch (err) {
-    return json({ error: '调用 GitHub 搜索服务失败', detail: String(err && err.message) }, 502);
+    return json({ error: '调用 GitHub 服务失败', detail: String(err && err.message) }, 502);
   }
+} catch (fatalErr) {
+  return json({
+    error: 'GitHub 网关内部异常',
+    detail: String(fatalErr && fatalErr.message)
+  }, 500);
+}
 }
