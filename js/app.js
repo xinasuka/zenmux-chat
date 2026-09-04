@@ -218,6 +218,246 @@ export function fillModels(list) {
     });
     el.model.appendChild(og);
   });
+
+  // 3. 构建高可读性、全定制的 ModelPicker 自定义弹出面板
+  renderCustomModelPicker(imageModels, textGroups);
+}
+
+function createModelPickerItem(m, isImage = false) {
+  const item = document.createElement('div');
+  item.className = 'model-picker-item';
+  item.setAttribute('role', 'option');
+  item.setAttribute('data-id', m.id);
+  item.setAttribute('tabindex', '0');
+
+  const left = document.createElement('div');
+  left.className = 'model-item-left';
+
+  const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  checkSvg.setAttribute('class', 'model-item-check');
+  checkSvg.setAttribute('viewBox', '0 0 24 24');
+  checkSvg.setAttribute('fill', 'none');
+  checkSvg.setAttribute('stroke', 'currentColor');
+  checkSvg.setAttribute('stroke-width', '2.5');
+  checkSvg.setAttribute('stroke-linecap', 'round');
+  checkSvg.setAttribute('stroke-linejoin', 'round');
+  const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  polyline.setAttribute('points', '20 6 9 17 4 12');
+  checkSvg.appendChild(polyline);
+
+  const name = document.createElement('span');
+  name.className = 'model-item-name';
+  name.textContent = m.display_name || m.id;
+  name.title = m.id;
+
+  left.appendChild(checkSvg);
+  left.appendChild(name);
+
+  const badges = document.createElement('div');
+  badges.className = 'model-item-badges';
+
+  if (isImage || hasImageGen(m)) {
+    const pill = document.createElement('span');
+    pill.className = 'model-pill model-pill-image';
+    pill.textContent = '生图';
+    badges.appendChild(pill);
+  } else {
+    if (hasVision(m)) {
+      const pill = document.createElement('span');
+      pill.className = 'model-pill model-pill-vision';
+      pill.textContent = '视觉';
+      badges.appendChild(pill);
+    }
+    if (m.capabilities && m.capabilities.reasoning) {
+      const pill = document.createElement('span');
+      pill.className = 'model-pill model-pill-reasoning';
+      pill.textContent = '推理';
+      badges.appendChild(pill);
+    }
+  }
+
+  if (isFree(m)) {
+    const pill = document.createElement('span');
+    pill.className = 'model-pill model-pill-free';
+    pill.textContent = '免费';
+    badges.appendChild(pill);
+  }
+
+  item.appendChild(left);
+  item.appendChild(badges);
+
+  item.addEventListener('click', () => {
+    selectModel(m.id);
+  });
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectModel(m.id);
+    }
+  });
+
+  return item;
+}
+
+function createModelGroupSection(title, models, isImage = false) {
+  const section = document.createElement('div');
+  section.className = 'model-group-section';
+  section.setAttribute('data-group', title.toLowerCase());
+
+  const header = document.createElement('div');
+  header.className = 'model-group-header';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'model-group-title';
+  titleSpan.textContent = title;
+
+  const countSpan = document.createElement('span');
+  countSpan.className = 'model-group-count';
+  countSpan.textContent = String(models.length);
+
+  header.appendChild(titleSpan);
+  header.appendChild(countSpan);
+  section.appendChild(header);
+
+  const optionsContainer = document.createElement('div');
+  optionsContainer.className = 'model-group-options';
+
+  models.forEach((m) => {
+    optionsContainer.appendChild(createModelPickerItem(m, isImage));
+  });
+
+  section.appendChild(optionsContainer);
+  return section;
+}
+
+export function renderCustomModelPicker(imageModels, textGroups) {
+  if (!el.modelPickerList) return;
+  el.modelPickerList.innerHTML = '';
+
+  if (imageModels.length > 0) {
+    const sec = createModelGroupSection('图像生成 (Image Generation)', imageModels, true);
+    el.modelPickerList.appendChild(sec);
+  }
+
+  Object.keys(textGroups).sort().forEach((g) => {
+    const groupModels = textGroups[g];
+    const sec = createModelGroupSection(g, groupModels, false);
+    el.modelPickerList.appendChild(sec);
+  });
+
+  syncModelPickerUI();
+}
+
+export function selectModel(id) {
+  if (!id) return;
+  state.model = id.trim();
+  if (el.model) {
+    el.model.value = state.model;
+    el.model.dispatchEvent(new Event('change'));
+  }
+  syncModelPickerUI();
+  closeModelPicker();
+}
+
+export function syncModelPickerUI() {
+  const currentId = state.model;
+  const meta = state.modelMeta[currentId];
+  let labelText = currentId;
+  if (meta && meta.display_name) {
+    labelText = meta.display_name;
+  } else if (!currentId) {
+    labelText = '选择模型…';
+  }
+
+  if (el.modelPickerLabel) {
+    el.modelPickerLabel.textContent = labelText;
+    el.modelPickerLabel.title = currentId || '';
+  }
+
+  if (el.modelPickerList) {
+    const items = el.modelPickerList.querySelectorAll('.model-picker-item');
+    items.forEach((item) => {
+      const match = item.getAttribute('data-id') === currentId;
+      item.classList.toggle('active', match);
+      item.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+  }
+}
+
+export function openModelPicker() {
+  if (!el.modelPickerWrap) return;
+  el.modelPickerWrap.classList.add('open');
+  if (el.modelPickerBtn) el.modelPickerBtn.setAttribute('aria-expanded', 'true');
+  if (el.modelSearchInput) {
+    el.modelSearchInput.value = '';
+    filterModelPicker('');
+    setTimeout(() => {
+      if (el.modelSearchInput) el.modelSearchInput.focus();
+    }, 60);
+  }
+  const activeItem = el.modelPickerList ? el.modelPickerList.querySelector('.model-picker-item.active') : null;
+  if (activeItem) {
+    activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+export function closeModelPicker() {
+  if (!el.modelPickerWrap) return;
+  el.modelPickerWrap.classList.remove('open');
+  if (el.modelPickerBtn) el.modelPickerBtn.setAttribute('aria-expanded', 'false');
+}
+
+export function toggleModelPicker() {
+  if (!el.modelPickerWrap) return;
+  if (el.modelPickerWrap.classList.contains('open')) {
+    closeModelPicker();
+  } else {
+    openModelPicker();
+  }
+}
+
+export function filterModelPicker(query) {
+  if (!el.modelPickerList) return;
+  const q = (query || '').trim().toLowerCase();
+
+  if (el.modelSearchClear) {
+    el.modelSearchClear.classList.toggle('hide', !q);
+  }
+
+  const sections = el.modelPickerList.querySelectorAll('.model-group-section');
+  let totalVisible = 0;
+
+  sections.forEach((sec) => {
+    const items = sec.querySelectorAll('.model-picker-item');
+    let sectionVisibleCount = 0;
+    const groupName = sec.getAttribute('data-group') || '';
+
+    items.forEach((item) => {
+      const id = (item.getAttribute('data-id') || '').toLowerCase();
+      const name = (item.querySelector('.model-item-name')?.textContent || '').toLowerCase();
+      const match = !q || id.includes(q) || name.includes(q) || groupName.includes(q);
+      item.style.display = match ? 'flex' : 'none';
+      if (match) {
+        sectionVisibleCount++;
+        totalVisible++;
+      }
+    });
+
+    sec.style.display = sectionVisibleCount > 0 ? 'flex' : 'none';
+  });
+
+  let emptyEl = el.modelPickerList.querySelector('.model-picker-empty');
+  if (totalVisible === 0) {
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.className = 'model-picker-empty';
+      emptyEl.textContent = '未找到匹配的模型';
+      el.modelPickerList.appendChild(emptyEl);
+    }
+    emptyEl.style.display = 'block';
+  } else if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
 }
 
 export function syncEffort() {
@@ -268,6 +508,7 @@ export function syncModelCapabilities() {
   const isImgGen = hasImageGen(meta);
   syncEffort();
   syncWorkstationMode(isImgGen, meta);
+  syncModelPickerUI();
 }
 
 export function loadModels() {
@@ -760,7 +1001,12 @@ export function send() {
   if ((!text && !atts.length) || state.busy) return;
   if (!state.model) {
     toast('请先选择模型', 'info');
-    if (el.model) el.model.focus();
+    if (el.modelPickerBtn) {
+      el.modelPickerBtn.focus();
+      openModelPicker();
+    } else if (el.model) {
+      el.model.focus();
+    }
     return;
   }
 
@@ -1024,6 +1270,58 @@ function initEventListeners() {
       showGate('');
     });
   }
+
+  if (el.modelPickerBtn) {
+    el.modelPickerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleModelPicker();
+    });
+  }
+
+  if (el.modelPickerClose) {
+    el.modelPickerClose.addEventListener('click', () => closeModelPicker());
+  }
+
+  if (el.modelPickerBackdrop) {
+    el.modelPickerBackdrop.addEventListener('click', () => closeModelPicker());
+  }
+
+  if (el.modelSearchInput) {
+    el.modelSearchInput.addEventListener('input', () => {
+      filterModelPicker(el.modelSearchInput.value);
+    });
+    el.modelSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModelPicker();
+        if (el.modelPickerBtn) el.modelPickerBtn.focus();
+      }
+    });
+  }
+
+  if (el.modelSearchClear) {
+    el.modelSearchClear.addEventListener('click', () => {
+      if (el.modelSearchInput) {
+        el.modelSearchInput.value = '';
+        filterModelPicker('');
+        el.modelSearchInput.focus();
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (el.modelPickerWrap && el.modelPickerWrap.classList.contains('open')) {
+      if (!el.modelPickerWrap.contains(e.target)) {
+        closeModelPicker();
+      }
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && el.modelPickerWrap && el.modelPickerWrap.classList.contains('open')) {
+      closeModelPicker();
+      if (el.modelPickerBtn) el.modelPickerBtn.focus();
+    }
+  });
 
   if (el.model) {
     el.model.addEventListener('change', () => {
