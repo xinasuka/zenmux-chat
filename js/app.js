@@ -391,13 +391,20 @@ export function openModelPicker() {
   if (el.modelSearchInput) {
     el.modelSearchInput.value = '';
     filterModelPicker('');
-    setTimeout(() => {
-      if (el.modelSearchInput) el.modelSearchInput.focus();
-    }, 60);
+    // Focus search input exclusively on desktop to prevent mobile virtual keyboard surge
+    if (window.innerWidth > 768) {
+      setTimeout(() => {
+        if (el.modelSearchInput) el.modelSearchInput.focus();
+      }, 60);
+    }
   }
   const activeItem = el.modelPickerList ? el.modelPickerList.querySelector('.model-picker-item.active') : null;
-  if (activeItem) {
-    activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (activeItem && el.modelPickerList) {
+    // Scroll active item into view strictly inside the picker container without shifting window viewport
+    const listRect = el.modelPickerList.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+    const offsetDiff = itemRect.top - listRect.top;
+    el.modelPickerList.scrollTop += (offsetDiff - (listRect.height / 2) + (itemRect.height / 2));
   }
 }
 
