@@ -1,6 +1,7 @@
-// edge-functions/api/images.js
-// 在 EdgeOne Pages 边缘节点上反向代理 ZenMux 的 images/generations 接口。
-// 客户端向此接口发送原生生图请求，API Key 安全保存在服务端环境变量中。
+// cloud-functions/api/images.js
+// 在 EdgeOne Cloud Functions (云函数容器沙箱) 上反向代理 ZenMux 的 images/generations 接口。
+// 运行于中心机房 Node.js 22 容器环境，享有 300 秒超长物理时限，从容支撑 2K 高清扩散与漫长去噪过程。
+// 客户端向此接口发送生图请求，API Key 安全保存在服务端环境变量中。
 
 const UPSTREAM = 'https://zenmux.ai/api/v1/images/generations';
 
@@ -97,7 +98,7 @@ export async function onRequestPost(context) {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
-          'User-Agent': 'ZenMux-Chat/2.12 (contact@zenmux.ai)',
+          'User-Agent': 'ZenMux-Chat-Cloud/2.12 (contact@zenmux.ai)',
         },
         body: JSON.stringify(forwardBody),
       });
@@ -130,7 +131,7 @@ export async function onRequestPost(context) {
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
-                'User-Agent': 'ZenMux-Chat/2.12 (contact@zenmux.ai)',
+                'User-Agent': 'ZenMux-Chat-Cloud/2.12 (contact@zenmux.ai)',
               },
               body: JSON.stringify(retryBody),
             });
@@ -151,10 +152,10 @@ export async function onRequestPost(context) {
       const encoder = new TextEncoder();
 
       (async () => {
-        // Immediate ping to flush headers & establish streaming connection on EdgeOne
+        // Immediate ping to flush headers & establish streaming connection
         await writer.write(encoder.encode(': ping\n\n'));
 
-        // Keep-alive timer sends comment every 2.5s to prevent EdgeOne 20s TTFB gateway timeout
+        // Keep-alive timer sends comment every 2.5s to maintain active socket
         const timer = setInterval(async () => {
           try {
             await writer.write(encoder.encode(': keep-alive\n\n'));
@@ -210,4 +211,16 @@ export async function onRequestPost(context) {
       detail: String(fatalErr && fatalErr.message),
     }, 500);
   }
+}
+
+// Universal handler fallback for EdgeOne Cloud Functions router
+export async function onRequest(context) {
+  const method = (context.request.method || 'GET').toUpperCase();
+  if (method === 'OPTIONS') {
+    return onRequestOptions(context);
+  }
+  if (method === 'POST') {
+    return onRequestPost(context);
+  }
+  return json({ error: `Method ${method} not allowed` }, 405);
 }
