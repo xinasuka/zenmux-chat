@@ -633,17 +633,16 @@ export async function executeImageGeneration(userMsg, options = {}) {
     const imageId = 'img_' + uid();
     const revisedPrompt = item.revised_prompt || '';
 
-    // Save image binary to IndexedDB (zero remote server footprint)
-    if (blob) {
-      await ZenMuxDB.putImage(imageId, blob, {
-        prompt,
-        revisedPrompt,
-        model: state.model,
-        size: state.imageSize,
-        quality: state.imageQuality,
-        createdAt: Date.now()
-      });
-    }
+    // Save image binary or remote URL to IndexedDB (zero remote server footprint)
+    await ZenMuxDB.putImage(imageId, blob, {
+      prompt,
+      revisedPrompt,
+      model: state.model,
+      size: state.imageSize,
+      quality: state.imageQuality,
+      url: src && src.startsWith('http') ? src : '',
+      createdAt: Date.now()
+    }).catch(() => {});
 
     // Replace skeleton with real image card
     const card = createImageCard({
@@ -663,6 +662,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
       role: 'assistant',
       type: 'image',
       imageId,
+      url: src && src.startsWith('http') ? src : undefined,
       content: prompt,
       revisedPrompt,
       model: state.model,

@@ -985,6 +985,7 @@ export function renderThread() {
       revisedPrompt: m.revisedPrompt,
       size: m.size,
       quality: m.quality,
+      url: m.url,
     } : null;
 
     el.threadInner.appendChild(

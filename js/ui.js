@@ -364,9 +364,10 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
     `;
     col.appendChild(cardWrap);
 
-    if (imageMeta.imageId) {
+    if (imageMeta.imageId || imageMeta.url) {
       import('./db.js').then(({ ZenMuxDB }) => {
-        ZenMuxDB.getImage(imageMeta.imageId).then((rec) => {
+        const fetchRecord = imageMeta.imageId ? ZenMuxDB.getImage(imageMeta.imageId) : Promise.resolve(null);
+        fetchRecord.then((rec) => {
           if (rec && rec.blob) {
             const src = URL.createObjectURL(rec.blob);
             const card = createImageCard({
@@ -379,11 +380,44 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
               quality: rec.quality || imageMeta.quality
             }, onRegenerate);
             cardWrap.replaceWith(card);
+          } else if (imageMeta.url || (rec && rec.url)) {
+            const fallbackSrc = imageMeta.url || (rec && rec.url);
+            const card = createImageCard({
+              src: fallbackSrc,
+              prompt: (rec && rec.prompt) || content,
+              revisedPrompt: (rec && rec.revisedPrompt) || imageMeta.revisedPrompt,
+              model: (rec && rec.model) || model,
+              size: (rec && rec.size) || imageMeta.size,
+              quality: (rec && rec.quality) || imageMeta.quality
+            }, onRegenerate);
+            cardWrap.replaceWith(card);
           } else {
-            cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">本地图片已清理或不存在</div>';
+            const promptText = (rec && rec.prompt) || content;
+            cardWrap.innerHTML = `
+              <div class="img-card-wrap" style="padding:12px 14px;border:1px dashed var(--border);border-radius:10px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div style="font-size:12px;color:var(--text-secondary)">本地图片数据已清理或未在当前浏览器持久化</div>
+                ${typeof onRegenerate === 'function' ? '<button class="img-card-btn" style="border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;color:var(--text);background:transparent">重新生成</button>' : ''}
+              </div>
+            `;
+            if (typeof onRegenerate === 'function') {
+              const retryBtn = cardWrap.querySelector('button');
+              if (retryBtn) retryBtn.addEventListener('click', () => onRegenerate(msgIndex, promptText));
+            }
           }
         }).catch(() => {
-          cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">读取本地图片异常</div>';
+          if (imageMeta.url) {
+            const card = createImageCard({
+              src: imageMeta.url,
+              prompt: content,
+              revisedPrompt: imageMeta.revisedPrompt,
+              model: model,
+              size: imageMeta.size,
+              quality: imageMeta.quality
+            }, onRegenerate);
+            cardWrap.replaceWith(card);
+          } else {
+            cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">读取本地图片异常</div>';
+          }
         });
       });
     }

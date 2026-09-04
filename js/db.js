@@ -98,7 +98,8 @@ export const ZenMuxDB = {
         const store = tx.objectStore(STORE_IMAGES);
         const record = {
           id,
-          blob,
+          blob: blob || null,
+          url: meta.url || '',
           prompt: meta.prompt || '',
           revisedPrompt: meta.revisedPrompt || '',
           model: meta.model || '',
