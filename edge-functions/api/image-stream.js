@@ -42,7 +42,6 @@ export async function onRequestGet(context) {
 
     // 从上游对象存储/CDN拉取二进制图像流
     const upstreamRes = await fetch(target, {
-      signal: AbortSignal.timeout(15000),
       headers: {
         'User-Agent': 'ZenMux-Chat-ImageStream/2.16 (contact@zenmux.ai)',
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
@@ -74,7 +73,7 @@ export async function onRequestGet(context) {
 
     const contentLength = upstreamRes.headers.get('content-length');
     if (contentLength) {
-      headers['Content-Length'] = contentLength;
+      headers['X-Content-Length'] = contentLength;
     }
 
     // 零拷贝直接流式返回二进制 Body
