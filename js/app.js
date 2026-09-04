@@ -165,8 +165,12 @@ export function fillModels(list) {
   el.model.appendChild(ph);
 
   const groups = {};
+  const seen = new Set();
   list.forEach((m) => {
-    state.modelMeta[m.id] = m;
+    const id = m.id || m.name;
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    state.modelMeta[id] = m;
     const g = m.owned_by || '其他';
     (groups[g] = groups[g] || []).push(m);
   });

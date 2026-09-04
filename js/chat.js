@@ -541,7 +541,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
           if (block.startsWith(':')) {
             // Heartbeat comment from edge gateway keep-alive
             const elapsed = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-            const tipEl = skeletonCard.querySelector('.image-card-tip');
+            const tipEl = skeletonCard.querySelector('.img-card-skeleton-text') || skeletonCard.querySelector('.image-card-tip');
             if (tipEl) {
               tipEl.textContent = `正在调度生图引擎渲染画面 (${elapsed}s)...`;
             }

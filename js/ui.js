@@ -265,7 +265,7 @@ export function createImageCard(item, onRegenerate) {
     preview.innerHTML = `
       <div class="img-card-skeleton">
         <div class="img-card-skeleton-spinner"></div>
-        <div class="img-card-skeleton-text">🎨 正在调度生图引擎渲染画面…</div>
+        <div class="img-card-skeleton-text">正在调度生图引擎渲染画面…</div>
       </div>
     `;
   } else if (item.src) {
