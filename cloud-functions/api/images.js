@@ -273,7 +273,7 @@ export function onRequestOptions() {
 }
 
 export async function onRequestGet(context) {
-  //  legacy 重定向：将 GET 请求无缝引导至高吞吐 Anycast 边缘函数 /api/proxy-image
+  // legacy 重定向：将 GET 请求无缝引导至高吞吐 Anycast 边缘流式函数 /api/image-stream
   const { request } = context;
   const url = new URL(request.url);
   const target = url.searchParams.get('url');
@@ -284,7 +284,7 @@ export async function onRequestGet(context) {
     status: 307,
     headers: {
       ...CORS,
-      Location: `/api/proxy-image?url=${encodeURIComponent(target)}`,
+      Location: `/api/image-stream?url=${encodeURIComponent(target)}`,
     },
   });
 }

@@ -1,5 +1,5 @@
-// edge-functions/api/proxy-image.js
-// 在 EdgeOne Pages Anycast 边缘节点上反向代理并流式透传任意外部图像资源。
+// edge-functions/api/image-stream.js
+// 在 EdgeOne Pages Anycast 边缘节点上流式透传任意外部图像资源。
 // 运行于轻量 V8 Isolate 沙箱（冷启动 <5ms），彻底消除浏览器跨域限制 (CORS)，
 // 并支持端侧 IndexedDB 离线归档（零云端存储开销）。
 
@@ -44,7 +44,7 @@ export async function onRequestGet(context) {
     const upstreamRes = await fetch(target, {
       signal: AbortSignal.timeout(15000),
       headers: {
-        'User-Agent': 'ZenMux-Chat-EdgeProxy/2.16 (contact@zenmux.ai)',
+        'User-Agent': 'ZenMux-Chat-ImageStream/2.16 (contact@zenmux.ai)',
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
       },
     });
@@ -84,7 +84,7 @@ export async function onRequestGet(context) {
     });
   } catch (fatalErr) {
     return json({
-      error: '边缘图像流式代理异常',
+      error: '边缘图像流式传输异常',
       detail: String(fatalErr && fatalErr.message),
     }, 500);
   }

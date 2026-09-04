@@ -313,7 +313,7 @@ export function createImageCard(item, onRegenerate) {
         } else if (item.src && item.src.startsWith('http')) {
           try {
             const tokenHeader = (state && state.token) ? { 'X-Access-Token': state.token } : {};
-            const res = await fetch(`/api/proxy-image?url=${encodeURIComponent(item.src)}`, { headers: tokenHeader });
+            const res = await fetch(`/api/image-stream?url=${encodeURIComponent(item.src)}`, { headers: tokenHeader });
             if (res.ok) {
               const b = await res.blob();
               item.blob = b;
@@ -416,10 +416,10 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
             }, onRegenerate);
             cardWrap.replaceWith(card);
 
-            // Self-healing: if historical record has remote URL but missing blob, cache via proxy
+            // Self-healing: if historical record has remote URL but missing blob, cache via image-stream
             if (imageMeta.imageId && fallbackSrc && fallbackSrc.startsWith('http')) {
               const tokenHeader = (state && state.token) ? { 'X-Access-Token': state.token } : {};
-              fetch(`/api/proxy-image?url=${encodeURIComponent(fallbackSrc)}`, { headers: tokenHeader })
+              fetch(`/api/image-stream?url=${encodeURIComponent(fallbackSrc)}`, { headers: tokenHeader })
                 .then((r) => (r.ok ? r.blob() : null))
                 .catch(() => fetch(fallbackSrc).then((r) => (r.ok ? r.blob() : null)).catch(() => null))
                 .then((fetchedBlob) => {
