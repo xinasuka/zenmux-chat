@@ -15,7 +15,41 @@ const VERTEX_PROVIDERS = new Set([
   'tencent',
   'z-ai',
   'sapiens-ai',
+  'meta',
+  'x-ai',
 ]);
+
+const KNOWN_PROVIDER_PREFIXES = {
+  kling: 'klingai',
+  qwen: 'qwen',
+  seedream: 'bytedance',
+  doubao: 'bytedance',
+  flux: 'bfl',
+  glm: 'z-ai',
+  hy: 'tencent',
+  hunyuan: 'tencent',
+  agnes: 'sapiens-ai',
+  gemini: 'google',
+  imagen: 'google',
+  gpt: 'openai',
+  dall: 'openai',
+  muse: 'meta',
+  grok: 'x-ai',
+};
+
+function normalizeModelIdentifier(rawModel) {
+  if (!rawModel) return 'openai/gpt-image-2';
+  const trimmed = String(rawModel).trim();
+  if (trimmed.includes('/')) return trimmed;
+
+  const lower = trimmed.toLowerCase();
+  for (const [prefix, provider] of Object.entries(KNOWN_PROVIDER_PREFIXES)) {
+    if (lower.startsWith(prefix) || lower.includes(prefix)) {
+      return `${provider}/${trimmed}`;
+    }
+  }
+  return trimmed;
+}
 
 function isGoogleGeminiModel(modelId) {
   if (!modelId) return false;
@@ -32,41 +66,81 @@ function isVertexModel(modelId) {
 function extractImageFromResponse(parsed, defaultPrompt = '') {
   if (!parsed || typeof parsed !== 'object') return [];
   const images = [];
+  const seenUrls = new Set();
+  const seenB64Prefixes = new Set();
 
   const pushItem = (item, revised = '') => {
     if (!item) return;
+
+    // 1. Direct string handling (URL or base64)
     if (typeof item === 'string') {
       const trimmed = item.trim();
       if (!trimmed) return;
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        images.push({ url: trimmed, revised_prompt: revised || defaultPrompt });
+        if (!seenUrls.has(trimmed)) {
+          seenUrls.add(trimmed);
+          images.push({ url: trimmed, revised_prompt: revised || defaultPrompt });
+        }
       } else {
         const cleanB64 = trimmed.replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '');
-        images.push({ b64_json: cleanB64, revised_prompt: revised || defaultPrompt });
+        const prefix = cleanB64.slice(0, 32);
+        if (cleanB64.length > 50 && !seenB64Prefixes.has(prefix)) {
+          seenB64Prefixes.add(prefix);
+          images.push({ b64_json: cleanB64, revised_prompt: revised || defaultPrompt });
+        }
       }
       return;
     }
 
+    if (typeof item !== 'object') return;
+
+    // 2. String representation inside image property
+    if (typeof item.image === 'string') {
+      pushItem(item.image, revised || item.revised_prompt || item.revisedPrompt || item.prompt);
+      return;
+    }
+
+    // 3. Exhaustive Base64 extraction across all vendor conventions
     const b64 =
       item.b64_json ||
       item.bytesBase64Encoded ||
+      item.binary_data_base64 ||
       item.imageBytes ||
       item.image_bytes ||
-      (item.image && (item.image.imageBytes || item.image.image_bytes || item.image.b64_json || item.image.bytesBase64Encoded)) ||
+      item.b64_image ||
+      (item.image && (item.image.imageBytes || item.image.image_bytes || item.image.b64_json || item.image.bytesBase64Encoded || item.image.binary_data_base64)) ||
       (item.inlineData && item.inlineData.data) ||
       (item.inline_data && item.inline_data.data);
 
-    const url = item.url || (item.image && item.image.url);
-    const revisedPrompt = item.revised_prompt || item.revisedPrompt || revised || defaultPrompt;
+    // 4. Exhaustive URL extraction (including gcsUri, uri, imageUrl, image_url)
+    const url =
+      item.url ||
+      item.gcsUri ||
+      item.gcs_uri ||
+      item.uri ||
+      item.imageUrl ||
+      item.image_url ||
+      (item.image && (item.image.url || item.image.gcsUri || item.image.uri || item.image.imageUrl));
+
+    const revisedPrompt = item.revised_prompt || item.revisedPrompt || item.prompt || revised || defaultPrompt;
 
     if (b64) {
       const cleanB64 = String(b64).replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '');
-      images.push({ b64_json: cleanB64, revised_prompt: revisedPrompt });
+      const prefix = cleanB64.slice(0, 32);
+      if (cleanB64.length > 50 && !seenB64Prefixes.has(prefix)) {
+        seenB64Prefixes.add(prefix);
+        images.push({ b64_json: cleanB64, revised_prompt: revisedPrompt });
+      }
     } else if (url) {
-      images.push({ url: String(url).trim(), revised_prompt: revisedPrompt });
+      const trimmedUrl = String(url).trim();
+      if (trimmedUrl && !seenUrls.has(trimmedUrl)) {
+        seenUrls.add(trimmedUrl);
+        images.push({ url: trimmedUrl, revised_prompt: revisedPrompt });
+      }
     }
   };
 
+  // Upstream prediction structures
   if (Array.isArray(parsed.predictions)) {
     parsed.predictions.forEach((p) => pushItem(p));
   }
@@ -101,6 +175,65 @@ function extractImageFromResponse(parsed, defaultPrompt = '') {
 
   if (Array.isArray(parsed.images)) {
     parsed.images.forEach((p) => pushItem(p));
+  }
+
+  // Alibaba DashScope / Qwen Wanx structures
+  if (parsed.output && typeof parsed.output === 'object') {
+    if (Array.isArray(parsed.output.results)) {
+      parsed.output.results.forEach((p) => pushItem(p));
+    }
+    if (Array.isArray(parsed.output.images)) {
+      parsed.output.images.forEach((p) => pushItem(p));
+    }
+    if (typeof parsed.output.url === 'string') {
+      pushItem(parsed.output.url);
+    }
+  }
+
+  // Kling AI task_result structures
+  if (parsed.task_result && typeof parsed.task_result === 'object') {
+    if (Array.isArray(parsed.task_result.images)) {
+      parsed.task_result.images.forEach((p) => pushItem(p));
+    }
+  }
+
+  // Generic result container structures
+  if (parsed.result && typeof parsed.result === 'object') {
+    if (Array.isArray(parsed.result.images)) {
+      parsed.result.images.forEach((p) => pushItem(p));
+    }
+    if (Array.isArray(parsed.result.data)) {
+      parsed.result.data.forEach((p) => pushItem(p));
+    }
+    if (typeof parsed.result.url === 'string') {
+      pushItem(parsed.result.url);
+    }
+  }
+
+  // Deep recursive fallback if primary structural matching found nothing
+  if (images.length === 0) {
+    const scanObject = (obj, depth = 0) => {
+      if (!obj || depth > 5) return;
+      if (typeof obj === 'string') {
+        const str = obj.trim();
+        if (str.startsWith('https://') || str.startsWith('http://')) {
+          if (/\.(png|jpg|jpeg|webp|gif)(\?|$)/i.test(str) || /(storage\.googleapis|dashscope|kling|byteimg|myqcloud|volces|zenmux)/i.test(str)) {
+            pushItem(str);
+          }
+        } else if (str.length > 200 && /^[A-Za-z0-9+/=]+$/.test(str.replace(/\s+/g, ''))) {
+          pushItem(str);
+        }
+        return;
+      }
+      if (Array.isArray(obj)) {
+        obj.forEach((child) => scanObject(child, depth + 1));
+      } else if (typeof obj === 'object') {
+        for (const k of Object.keys(obj)) {
+          scanObject(obj[k], depth + 1);
+        }
+      }
+    };
+    scanObject(parsed);
   }
 
   return images;
@@ -166,7 +299,7 @@ export async function onRequestPost(context) {
       return json({ error: '缺少必需的 prompt 参数' }, 400);
     }
 
-    const model = payload.model || 'openai/gpt-image-2';
+    const model = normalizeModelIdentifier(payload.model || 'openai/gpt-image-2');
     const isGemini = isGoogleGeminiModel(model);
     const isVertex = isVertexModel(model);
     const isGptModel = /^(openai\/|gpt-|dall-e)/i.test(model);
@@ -180,7 +313,7 @@ export async function onRequestPost(context) {
         let vertexBody = null;
 
         if (isGemini) {
-          // Google Gemini Banana 模型 (gemini-2.5-flash-image, gemini-3-pro-image-preview 等)
+          // Google Gemini Banana 模型 (gemini-2.5-flash-image, gemini-3.1-flash-lite-image 等)
           // 依据 ZenMux 官方规范，必须调用 generateContent 接口并声明 responseModalities: ['TEXT', 'IMAGE']
           const geminiModelName = model.includes('/') ? model.split('/').slice(1).join('/') : model;
           vertexUrl = `${UPSTREAM_VERTEX_BASE}/google/models/${geminiModelName}:generateContent`;
@@ -198,15 +331,38 @@ export async function onRequestPost(context) {
         } else {
           // 非 Google 扩散模型 (Kling, Qwen, Flux, ByteDance Seedream 等) 调用 predict 接口
           const parts = model.split('/');
-          const provider = parts[0];
-          const modelName = parts.slice(1).join('/');
+          const provider = parts.length > 1 ? parts[0] : (KNOWN_PROVIDER_PREFIXES[model.toLowerCase()] || 'google');
+          const modelName = parts.length > 1 ? parts.slice(1).join('/') : model;
           vertexUrl = `${UPSTREAM_VERTEX_BASE}/${provider}/models/${modelName}:predict`;
+
+          const parameters = {
+            sampleCount: payload.n ? Math.max(1, Math.min(Number(payload.n) || 1, 4)) : 1,
+            outputOptions: {
+              mimeType: 'image/png',
+            },
+          };
+
+          const ratio = mapSizeToAspectRatio(payload.size);
+          if (ratio) {
+            parameters.aspectRatio = ratio;
+          }
+
+          if (payload.size && payload.size !== 'auto') {
+            if (payload.size === '2k' || payload.size.includes('2048')) {
+              parameters.sampleImageSize = '2K';
+            } else if (payload.size === '1k' || payload.size === '1024x1024') {
+              parameters.sampleImageSize = '1K';
+            }
+            parameters.imageSize = payload.size;
+          }
+
+          if (payload.quality && payload.quality !== 'auto') {
+            parameters.quality = payload.quality;
+          }
+
           vertexBody = {
             instances: [{ prompt: String(payload.prompt).trim() }],
-            parameters: {
-              sampleCount: payload.n ? Math.max(1, Math.min(Number(payload.n) || 1, 4)) : 1,
-              aspectRatio: mapSizeToAspectRatio(payload.size),
-            },
+            parameters,
           };
         }
 
@@ -222,6 +378,31 @@ export async function onRequestPost(context) {
 
         let status = upstream.status;
         let text = await upstream.text();
+
+        // 自主参数降级：若非 Google 模型因参数冲突返回 400/422，立即用纯净基线参数自动重试
+        if (!isGemini && (status === 400 || status === 422)) {
+          try {
+            const baselineBody = {
+              instances: [{ prompt: String(payload.prompt).trim() }],
+              parameters: {
+                sampleCount: 1,
+              },
+            };
+            const retryRes = await fetch(vertexUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+                'User-Agent': 'ZenMux-Chat-Cloud/2.14 (contact@zenmux.ai)',
+              },
+              body: JSON.stringify(baselineBody),
+            });
+            if (retryRes.ok) {
+              status = retryRes.status;
+              text = await retryRes.text();
+            }
+          } catch (_) {}
+        }
 
         // 容灾回退：若 Vertex AI 返回 404 (如 model_not_supported)，自动回退至 OpenAI Images 接口重试
         if (status === 404 && text.includes('model_not_supported')) {
@@ -245,13 +426,19 @@ export async function onRequestPost(context) {
           } catch (_) {}
         }
 
-        // 全能归一化：将任意上游结构 (predictions, generatedImages, candidates, data) 统一转为 OpenAI data[].b64_json 格式
+        // 全能归一化：将任意上游结构统一转为 OpenAI data[].b64_json 格式
         if (status >= 200 && status < 300) {
           try {
             const parsed = JSON.parse(text);
             const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
             if (images.length > 0) {
               text = JSON.stringify({ data: images });
+            } else {
+              status = 502;
+              text = JSON.stringify({
+                error: '上游图像生成服务未返回可识别的图像数据',
+                detail: text,
+              });
             }
           } catch (_) {}
         }
@@ -353,6 +540,12 @@ export async function onRequestPost(context) {
           const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
           if (images.length > 0) {
             text = JSON.stringify({ data: images });
+          } else {
+            status = 502;
+            text = JSON.stringify({
+              error: '上游图像生成服务未返回可识别的图像数据',
+              detail: text,
+            });
           }
         } catch (_) {}
       }

@@ -23,7 +23,10 @@ export function explainError(raw, status) {
   if (status === 504 || (typeof raw === 'string' && (raw.includes('CLOUD_FUNCTION_INVOCATION_TIMEOUT') || raw.includes('504')))) {
     return '生图超时 (HTTP 504)：上游模型渲染耗时过长，超出了边缘函数执行时限。建议稍后重试或尝试切换其他生图模型。';
   }
-  if (status === 502) return '边缘节点连接 ZenMux 失败，稍后重试。';
+  if (status === 502) {
+    if (outer.error) return `网关异常 (HTTP 502)：${outer.error}`;
+    return '边缘节点连接 ZenMux 失败，稍后重试。';
+  }
   if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
     return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
   }
@@ -619,6 +622,12 @@ export async function executeImageGeneration(userMsg, options = {}) {
       src = URL.createObjectURL(blob);
     } else {
       src = item.url;
+      try {
+        const remoteRes = await fetch(src);
+        if (remoteRes.ok) {
+          blob = await remoteRes.blob();
+        }
+      } catch (_) {}
     }
 
     const imageId = 'img_' + uid();
