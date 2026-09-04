@@ -391,6 +391,27 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
               quality: (rec && rec.quality) || imageMeta.quality
             }, onRegenerate);
             cardWrap.replaceWith(card);
+
+            // Self-healing: if historical record has remote URL but missing blob, cache via proxy
+            if (imageMeta.imageId && fallbackSrc && fallbackSrc.startsWith('http')) {
+              fetch(`/api/images?url=${encodeURIComponent(fallbackSrc)}`)
+                .then((r) => (r.ok ? r.blob() : null))
+                .catch(() => fetch(fallbackSrc).then((r) => (r.ok ? r.blob() : null)).catch(() => null))
+                .then((fetchedBlob) => {
+                  if (fetchedBlob) {
+                    ZenMuxDB.putImage(imageMeta.imageId, fetchedBlob, {
+                      prompt: (rec && rec.prompt) || content,
+                      revisedPrompt: (rec && rec.revisedPrompt) || imageMeta.revisedPrompt,
+                      model: (rec && rec.model) || model,
+                      size: (rec && rec.size) || imageMeta.size,
+                      quality: (rec && rec.quality) || imageMeta.quality,
+                      url: fallbackSrc,
+                      createdAt: (rec && rec.createdAt) || Date.now()
+                    }).catch(() => {});
+                  }
+                })
+                .catch(() => {});
+            }
           } else {
             const promptText = (rec && rec.prompt) || content || '';
             const modelText = (rec && rec.model) || (imageMeta && imageMeta.model) || model || '';

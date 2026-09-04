@@ -638,10 +638,12 @@ export async function executeImageGeneration(userMsg, options = {}) {
       createdAt: Date.now()
     }).catch(() => {});
 
-    // 2. Opportunistic background caching: if remote URL, attempt non-blocking blob fetch to enable clipboard copy
+    // 2. Opportunistic background caching: if remote URL, attempt non-blocking blob fetch via proxy to bypass CORS
     if (!blob && src && src.startsWith('http')) {
-      fetch(src)
+      const proxyUrl = `/api/images?url=${encodeURIComponent(src)}`;
+      fetch(proxyUrl)
         .then((r) => (r.ok ? r.blob() : null))
+        .catch(() => fetch(src).then((r) => (r.ok ? r.blob() : null)).catch(() => null))
         .then((fetchedBlob) => {
           if (fetchedBlob) {
             ZenMuxDB.putImage(imageId, fetchedBlob, {

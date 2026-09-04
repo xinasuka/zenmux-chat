@@ -253,9 +253,34 @@ function mapSizeToAspectRatio(size) {
   return '1:1';
 }
 
+async function enrichImagesWithBase64(images) {
+  if (!Array.isArray(images) || images.length === 0) return images;
+  await Promise.all(
+    images.map(async (img) => {
+      if (img && img.url && !img.b64_json) {
+        try {
+          const res = await fetch(img.url, {
+            signal: AbortSignal.timeout(8000),
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          });
+          if (res.ok) {
+            const ab = await res.arrayBuffer();
+            img.b64_json = Buffer.from(ab).toString('base64');
+          }
+        } catch (_) {
+          // Gracefully keep img.url intact if network fetch times out
+        }
+      }
+    })
+  );
+  return images;
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, Content-Type',
   'Access-Control-Max-Age': '86400',
 };
@@ -269,6 +294,48 @@ function json(obj, status = 200) {
 
 export function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
+}
+
+export async function onRequestGet(context) {
+  try {
+    const { request, env } = context;
+
+    const accessToken = env && env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
+    if (accessToken) {
+      const auth = request.headers.get('X-Access-Token') || '';
+      if (auth !== accessToken) {
+        return json({ error: 'unauthorized' }, 401);
+      }
+    }
+
+    const url = new URL(request.url);
+    const target = url.searchParams.get('url');
+    if (!target || (!target.startsWith('http://') && !target.startsWith('https://'))) {
+      return json({ error: '缺少有效的 url 参数' }, 400);
+    }
+
+    const res = await fetch(target, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!res.ok) {
+      return json({ error: `无法获取图片: ${res.status} ${res.statusText}` }, 502);
+    }
+
+    const contentType = res.headers.get('content-type') || 'image/png';
+    return new Response(res.body, {
+      status: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  } catch (err) {
+    return json({ error: err.message }, 500);
+  }
 }
 
 export async function onRequestPost(context) {
@@ -432,6 +499,7 @@ export async function onRequestPost(context) {
             const parsed = JSON.parse(text);
             const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
             if (images.length > 0) {
+              await enrichImagesWithBase64(images);
               text = JSON.stringify({ data: images });
             } else {
               status = 502;
@@ -539,6 +607,7 @@ export async function onRequestPost(context) {
           const parsed = JSON.parse(text);
           const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
           if (images.length > 0) {
+            await enrichImagesWithBase64(images);
             text = JSON.stringify({ data: images });
           } else {
             status = 502;
