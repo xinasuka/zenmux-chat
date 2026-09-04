@@ -184,7 +184,7 @@ export function fillModels(list) {
   // 1. 独立专区：图像生成专区（置顶呈现，不与文本模型混杂）
   if (imageModels.length > 0) {
     const imgGroup = document.createElement('optgroup');
-    imgGroup.label = '🎨 图像生成专区 (Image Generation)';
+    imgGroup.label = '图像生成 (Image Generation)';
 
     // 依展示名称或 ID 进行自然排序
     imageModels.sort((a, b) => (a.display_name || a.id).localeCompare(b.display_name || b.id));
