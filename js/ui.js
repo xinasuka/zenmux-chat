@@ -392,16 +392,44 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
             }, onRegenerate);
             cardWrap.replaceWith(card);
           } else {
-            const promptText = (rec && rec.prompt) || content;
+            const promptText = (rec && rec.prompt) || content || '';
+            const modelText = (rec && rec.model) || (imageMeta && imageMeta.model) || model || '';
+            const sizeText = (rec && rec.size) || (imageMeta && imageMeta.size) || '';
+
             cardWrap.innerHTML = `
-              <div class="img-card-wrap" style="padding:12px 14px;border:1px dashed var(--border);border-radius:10px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:space-between;gap:12px">
-                <div style="font-size:12px;color:var(--text-secondary)">本地图片数据已清理或未在当前浏览器持久化</div>
-                ${typeof onRegenerate === 'function' ? '<button class="img-card-btn" style="border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;color:var(--text);background:transparent">重新生成</button>' : ''}
+              <div class="img-card-wrap" style="padding:14px 16px;border:1px dashed var(--line);background:rgba(255,255,255,.015);box-shadow:none">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg-dim)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <span>图片数据已失效</span>
+                  </div>
+                  ${modelText ? `<div style="font-size:11px;color:var(--fg-dim);opacity:.7">${esc(modelText.split('/').pop())}${sizeText ? ' · ' + esc(sizeText) : ''}</div>` : ''}
+                </div>
+                <div style="font-size:12px;color:var(--fg-dim);line-height:1.6;margin-bottom:12px">
+                  <div>· 本地未保留二进制图像（IndexedDB 离线缓存已清理或未写入）</div>
+                  <div>· 远程图床链接已过期或未提供</div>
+                </div>
+                ${promptText ? `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--line);gap:8px">
+                  <div style="font-size:11.5px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px" title="${esc(promptText)}">${esc(promptText)}</div>
+                  <button class="img-card-btn copy-prompt-btn" style="white-space:nowrap">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    复制提示词
+                  </button>
+                </div>` : ''}
               </div>
             `;
-            if (typeof onRegenerate === 'function') {
-              const retryBtn = cardWrap.querySelector('button');
-              if (retryBtn) retryBtn.addEventListener('click', () => onRegenerate(msgIndex, promptText));
+
+            const copyBtn = cardWrap.querySelector('.copy-prompt-btn');
+            if (copyBtn && promptText) {
+              copyBtn.addEventListener('click', async () => {
+                try {
+                  await navigator.clipboard.writeText(promptText);
+                  toast('提示词已复制到剪贴板', 'success');
+                } catch (_) {
+                  toast('复制失败，请手动选取', 'error');
+                }
+              });
             }
           }
         }).catch(() => {
