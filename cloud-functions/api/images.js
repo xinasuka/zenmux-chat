@@ -3,7 +3,39 @@
 // 运行于中心机房 Node.js 22 容器环境，享有 300 秒超长物理时限，从容支撑 2K 高清扩散与漫长去噪过程。
 // 客户端向此接口发送生图请求，API Key 安全保存在服务端环境变量中。
 
-const UPSTREAM = 'https://zenmux.ai/api/v1/images/generations';
+const UPSTREAM_OPENAI = 'https://zenmux.ai/api/v1/images/generations';
+const UPSTREAM_VERTEX_BASE = 'https://zenmux.ai/api/vertex-ai/v1/publishers';
+
+const VERTEX_PROVIDERS = new Set([
+  'bfl',
+  'klingai',
+  'qwen',
+  'bytedance',
+  'google',
+  'tencent',
+  'z-ai',
+  'sapiens-ai',
+]);
+
+function isVertexModel(modelId) {
+  if (!modelId) return false;
+  const provider = modelId.split('/')[0].toLowerCase();
+  return VERTEX_PROVIDERS.has(provider);
+}
+
+function mapSizeToAspectRatio(size) {
+  if (!size || size === 'auto' || size === '1024x1024' || size === '1k' || size === '2k') {
+    return '1:1';
+  }
+  if (size === '1536x1024' || size === '3:2') return '3:2';
+  if (size === '1024x1536' || size === '2:3') return '2:3';
+  if (size === '16:9') return '16:9';
+  if (size === '9:16') return '9:16';
+  if (size === '4:3') return '4:3';
+  if (size === '3:4') return '3:4';
+  if (size === '21:9') return '21:9';
+  return '1:1';
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -52,53 +84,102 @@ export async function onRequestPost(context) {
     }
 
     const model = payload.model || 'openai/gpt-image-2';
+    const isVertex = isVertexModel(model);
     const isGptModel = /^(openai\/|gpt-|dall-e)/i.test(model);
-
-    const forwardBody = {
-      model,
-      prompt: String(payload.prompt).trim(),
-    };
-
-    if (payload.n) {
-      forwardBody.n = Math.max(1, Math.min(Number(payload.n) || 1, 4));
-    }
-
-    if (isGptModel) {
-      // OpenAI GPT Image models support pixel sizes, quality, background, output_format
-      if (payload.size && payload.size !== 'auto') {
-        forwardBody.size = payload.size;
-      }
-      if (payload.quality && payload.quality !== 'auto') {
-        forwardBody.quality = payload.quality;
-      }
-      if (payload.background && payload.background !== 'auto') {
-        forwardBody.background = payload.background;
-      }
-      if (payload.output_format && payload.output_format !== 'auto') {
-        forwardBody.output_format = payload.output_format;
-      }
-    } else {
-      // Non-GPT models (e.g. Google Imagen, Recraft, Flux) expect 1k/2k resolutions and standard formats
-      if (payload.size && payload.size !== 'auto') {
-        if (payload.size === '1024x1024' || payload.size === '1k') {
-          forwardBody.size = '1k';
-        } else if (payload.size.includes('2048') || payload.size === '2k') {
-          forwardBody.size = '2k';
-        } else {
-          forwardBody.size = payload.size;
-        }
-      }
-    }
 
     const acceptsSse = Boolean(request.headers.get('Accept') && request.headers.get('Accept').includes('text/event-stream'));
 
     const doFetchUpstream = async () => {
-      let upstream = await fetch(UPSTREAM, {
+      // 1. 针对 Google Vertex AI 生态模型进行动态路由与协议转换
+      if (isVertex) {
+        const parts = model.split('/');
+        const provider = parts[0];
+        const modelName = parts.slice(1).join('/');
+        const vertexUrl = `${UPSTREAM_VERTEX_BASE}/${provider}/models/${modelName}:predict`;
+
+        const vertexBody = {
+          instances: [{ prompt: String(payload.prompt).trim() }],
+          parameters: {
+            sampleCount: payload.n ? Math.max(1, Math.min(Number(payload.n) || 1, 4)) : 1,
+            aspectRatio: mapSizeToAspectRatio(payload.size),
+          },
+        };
+
+        let upstream = await fetch(vertexUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
+          },
+          body: JSON.stringify(vertexBody),
+        });
+
+        let status = upstream.status;
+        let text = await upstream.text();
+
+        // 将 Vertex AI predictions[].bytesBase64Encoded 统一归一化为 OpenAI data[].b64_json 格式
+        if (status >= 200 && status < 300) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed.predictions && parsed.predictions.length > 0) {
+              const normalizedData = {
+                data: parsed.predictions.map((p) => ({
+                  b64_json: p.bytesBase64Encoded,
+                  revised_prompt: String(payload.prompt).trim(),
+                })),
+              };
+              text = JSON.stringify(normalizedData);
+            }
+          } catch (_) {}
+        }
+
+        return { status, text };
+      }
+
+      // 2. 针对 OpenAI / xAI / Meta 等原生 OpenAI Images 接口模型
+      const forwardBody = {
+        model,
+        prompt: String(payload.prompt).trim(),
+      };
+
+      if (payload.n) {
+        forwardBody.n = Math.max(1, Math.min(Number(payload.n) || 1, 4));
+      }
+
+      if (isGptModel) {
+        // OpenAI GPT Image models support pixel sizes, quality, background, output_format
+        if (payload.size && payload.size !== 'auto') {
+          forwardBody.size = payload.size;
+        }
+        if (payload.quality && payload.quality !== 'auto') {
+          forwardBody.quality = payload.quality;
+        }
+        if (payload.background && payload.background !== 'auto') {
+          forwardBody.background = payload.background;
+        }
+        if (payload.output_format && payload.output_format !== 'auto') {
+          forwardBody.output_format = payload.output_format;
+        }
+      } else {
+        // Non-GPT models on OpenAI endpoint (e.g. Grok, Muse) expect 1k/2k
+        if (payload.size && payload.size !== 'auto') {
+          if (payload.size === '1024x1024' || payload.size === '1k') {
+            forwardBody.size = '1k';
+          } else if (payload.size.includes('2048') || payload.size === '2k') {
+            forwardBody.size = '2k';
+          } else {
+            forwardBody.size = payload.size;
+          }
+        }
+      }
+
+      let upstream = await fetch(UPSTREAM_OPENAI, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
-          'User-Agent': 'ZenMux-Chat-Cloud/2.12 (contact@zenmux.ai)',
+          'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
         },
         body: JSON.stringify(forwardBody),
       });
@@ -126,12 +207,12 @@ export async function onRequestPost(context) {
 
         if (shouldRetry) {
           try {
-            const retryRes = await fetch(UPSTREAM, {
+            const retryRes = await fetch(UPSTREAM_OPENAI, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
-                'User-Agent': 'ZenMux-Chat-Cloud/2.12 (contact@zenmux.ai)',
+                'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
               },
               body: JSON.stringify(retryBody),
             });

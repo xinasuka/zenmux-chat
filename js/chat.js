@@ -578,14 +578,15 @@ export async function executeImageGeneration(userMsg, options = {}) {
     }
 
     const item = data && data.data && data.data[0];
-    if (!item || (!item.b64_json && !item.url)) {
+    const b64Data = item && (item.b64_json || item.bytesBase64Encoded);
+    if (!item || (!b64Data && !item.url)) {
       throw new Error((data && data.error) || '上游未返回有效的图像数据');
     }
 
     let blob = null;
     let src = '';
-    if (item.b64_json) {
-      const binaryString = atob(item.b64_json);
+    if (b64Data) {
+      const binaryString = atob(b64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) {

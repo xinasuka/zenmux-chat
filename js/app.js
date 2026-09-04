@@ -137,12 +137,11 @@ export function hasVision(m) {
 
 export function hasImageGen(m) {
   if (!m) return false;
-  if (Array.isArray(m.output_modalities)) {
-    return m.output_modalities.indexOf('image') !== -1;
-  }
+  if (Array.isArray(m.output_modalities) && m.output_modalities.includes('image')) return true;
+  if (Array.isArray(m.outputModalities) && m.outputModalities.includes('image')) return true;
   if (m.capabilities && (m.capabilities.image_generation || m.capabilities.image_output)) return true;
-  const id = (m.id || '').toLowerCase();
-  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft/i.test(id);
+  const id = (m.id || m.name || '').toLowerCase();
+  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft|gpt-image|kling|seedream|hy-image|glm-image|agnes-image/i.test(id);
 }
 
 function isFree(m) {
@@ -164,26 +163,53 @@ export function fillModels(list) {
   ph.textContent = list.length ? '选择模型…' : '无可用模型';
   el.model.appendChild(ph);
 
-  const groups = {};
+  const imageModels = [];
+  const textGroups = {};
   const seen = new Set();
+
   list.forEach((m) => {
     const id = m.id || m.name;
     if (!id || seen.has(id)) return;
     seen.add(id);
     state.modelMeta[id] = m;
-    const g = m.owned_by || '其他';
-    (groups[g] = groups[g] || []).push(m);
+
+    if (hasImageGen(m)) {
+      imageModels.push(m);
+    } else {
+      const g = m.owned_by || '其他';
+      (textGroups[g] = textGroups[g] || []).push(m);
+    }
   });
 
-  Object.keys(groups).sort().forEach((g) => {
+  // 1. 独立专区：图像生成专区（置顶呈现，不与文本模型混杂）
+  if (imageModels.length > 0) {
+    const imgGroup = document.createElement('optgroup');
+    imgGroup.label = '🎨 图像生成专区 (Image Generation)';
+
+    // 依展示名称或 ID 进行自然排序
+    imageModels.sort((a, b) => (a.display_name || a.id).localeCompare(b.display_name || b.id));
+
+    imageModels.forEach((m) => {
+      const o = document.createElement('option');
+      o.value = m.id;
+      // 呈现精炼、高可读性的标签（仅呈现必要核心信息，避免信息过载）
+      let label = m.display_name || m.id;
+      if (isFree(m)) label += ' ·免费';
+      o.textContent = label;
+      imgGroup.appendChild(o);
+    });
+    el.model.appendChild(imgGroup);
+  }
+
+  // 2. 文本对话模型专区（按厂商分别归集）
+  Object.keys(textGroups).sort().forEach((g) => {
     const og = document.createElement('optgroup');
     og.label = g;
-    groups[g].forEach((m) => {
+    textGroups[g].forEach((m) => {
       const o = document.createElement('option');
       o.value = m.id;
       let label = m.display_name || m.id;
       if (hasVision(m)) label += ' ·视觉';
-      if (hasImageGen(m)) label += ' ·生图';
       if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
       if (isFree(m)) label += ' ·免费';
       o.textContent = label;
