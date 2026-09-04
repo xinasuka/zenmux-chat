@@ -21,11 +21,11 @@ This document outlines the mandatory engineering standards, development lifecycl
 
 Every feature, refactor, bugfix, or documentation update must be accompanied by an atomic semantic version bump and a strictly formatted Git commit.
 
-### 2.1 Version Tri-Synchronization
-When bumping a version (e.g., from `2.6.1` to `2.6.2`), synchronize all three files simultaneously:
-1. `package.json`: `"version": "X.Y.Z"`
-2. `js/state.js`: `export const APP_VERSION = 'X.Y.Z';`
-3. `index.html`: `<span class="app-version-badge">vX.Y.Z</span>`
+### 2.1 Single Source of Truth (SSOT) Versioning
+Version management is centralized in `package.json` as the canonical Single Source of Truth (SSOT):
+- Execute the version bump utility: `npm run bump patch`, `npm run bump minor`, or `node scripts/bump.js <target_version>`.
+- The script automatically synchronizes `package.json` and `js/state.js` (`APP_VERSION`).
+- `index.html` dynamically hydrates all `.app-version-badge` elements at runtime via `initApp()` in `js/app.js`. **Do not manually edit `index.html` for version increments.**
 
 ### 2.2 Version Badge UI Styling Rule
 - The version badge in the sidebar header must remain minimalist and clean: compact font size, subtle text color, and **no background pill color**.
