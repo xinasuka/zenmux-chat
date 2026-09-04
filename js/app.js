@@ -141,7 +141,7 @@ export function hasImageGen(m) {
   if (Array.isArray(m.outputModalities) && m.outputModalities.includes('image')) return true;
   if (m.capabilities && (m.capabilities.image_generation || m.capabilities.image_output)) return true;
   const id = (m.id || m.name || '').toLowerCase();
-  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft|gpt-image|kling|seedream|hy-image|glm-image|agnes-image/i.test(id);
+  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft|gpt-image|kling|seedream|hy-image|glm-image|agnes-image|-image\b|image-|\/image\b/i.test(id);
 }
 
 function isFree(m) {

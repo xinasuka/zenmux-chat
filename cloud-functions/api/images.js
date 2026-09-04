@@ -17,10 +17,93 @@ const VERTEX_PROVIDERS = new Set([
   'sapiens-ai',
 ]);
 
+function isGoogleGeminiModel(modelId) {
+  if (!modelId) return false;
+  return /gemini/i.test(modelId);
+}
+
 function isVertexModel(modelId) {
   if (!modelId) return false;
+  if (isGoogleGeminiModel(modelId)) return true;
   const provider = modelId.split('/')[0].toLowerCase();
   return VERTEX_PROVIDERS.has(provider);
+}
+
+function extractImageFromResponse(parsed, defaultPrompt = '') {
+  if (!parsed || typeof parsed !== 'object') return [];
+  const images = [];
+
+  const pushItem = (item, revised = '') => {
+    if (!item) return;
+    if (typeof item === 'string') {
+      const trimmed = item.trim();
+      if (!trimmed) return;
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        images.push({ url: trimmed, revised_prompt: revised || defaultPrompt });
+      } else {
+        const cleanB64 = trimmed.replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '');
+        images.push({ b64_json: cleanB64, revised_prompt: revised || defaultPrompt });
+      }
+      return;
+    }
+
+    const b64 =
+      item.b64_json ||
+      item.bytesBase64Encoded ||
+      item.imageBytes ||
+      item.image_bytes ||
+      (item.image && (item.image.imageBytes || item.image.image_bytes || item.image.b64_json || item.image.bytesBase64Encoded)) ||
+      (item.inlineData && item.inlineData.data) ||
+      (item.inline_data && item.inline_data.data);
+
+    const url = item.url || (item.image && item.image.url);
+    const revisedPrompt = item.revised_prompt || item.revisedPrompt || revised || defaultPrompt;
+
+    if (b64) {
+      const cleanB64 = String(b64).replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '');
+      images.push({ b64_json: cleanB64, revised_prompt: revisedPrompt });
+    } else if (url) {
+      images.push({ url: String(url).trim(), revised_prompt: revisedPrompt });
+    }
+  };
+
+  if (Array.isArray(parsed.predictions)) {
+    parsed.predictions.forEach((p) => pushItem(p));
+  }
+
+  const genImgs = parsed.generatedImages || parsed.generated_images;
+  if (Array.isArray(genImgs)) {
+    genImgs.forEach((p) => pushItem(p));
+  }
+
+  if (Array.isArray(parsed.candidates)) {
+    parsed.candidates.forEach((cand) => {
+      const parts = (cand.content && cand.content.parts) || [];
+      let textDesc = '';
+      parts.forEach((part) => {
+        if (part.text) {
+          textDesc = part.text.trim();
+        }
+      });
+      parts.forEach((part) => {
+        if (part.inlineData && part.inlineData.data) {
+          pushItem(part.inlineData.data, textDesc);
+        } else if (part.inline_data && part.inline_data.data) {
+          pushItem(part.inline_data.data, textDesc);
+        }
+      });
+    });
+  }
+
+  if (Array.isArray(parsed.data)) {
+    parsed.data.forEach((p) => pushItem(p));
+  }
+
+  if (Array.isArray(parsed.images)) {
+    parsed.images.forEach((p) => pushItem(p));
+  }
+
+  return images;
 }
 
 function mapSizeToAspectRatio(size) {
@@ -84,6 +167,7 @@ export async function onRequestPost(context) {
     }
 
     const model = payload.model || 'openai/gpt-image-2';
+    const isGemini = isGoogleGeminiModel(model);
     const isVertex = isVertexModel(model);
     const isGptModel = /^(openai\/|gpt-|dall-e)/i.test(model);
 
@@ -92,25 +176,46 @@ export async function onRequestPost(context) {
     const doFetchUpstream = async () => {
       // 1. 针对 Google Vertex AI 生态模型进行动态路由与协议转换
       if (isVertex) {
-        const parts = model.split('/');
-        const provider = parts[0];
-        const modelName = parts.slice(1).join('/');
-        const vertexUrl = `${UPSTREAM_VERTEX_BASE}/${provider}/models/${modelName}:predict`;
+        let vertexUrl = '';
+        let vertexBody = null;
 
-        const vertexBody = {
-          instances: [{ prompt: String(payload.prompt).trim() }],
-          parameters: {
-            sampleCount: payload.n ? Math.max(1, Math.min(Number(payload.n) || 1, 4)) : 1,
-            aspectRatio: mapSizeToAspectRatio(payload.size),
-          },
-        };
+        if (isGemini) {
+          // Google Gemini Banana 模型 (gemini-2.5-flash-image, gemini-3-pro-image-preview 等)
+          // 依据 ZenMux 官方规范，必须调用 generateContent 接口并声明 responseModalities: ['TEXT', 'IMAGE']
+          const geminiModelName = model.includes('/') ? model.split('/').slice(1).join('/') : model;
+          vertexUrl = `${UPSTREAM_VERTEX_BASE}/google/models/${geminiModelName}:generateContent`;
+          vertexBody = {
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: String(payload.prompt).trim() }],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          };
+        } else {
+          // 非 Google 扩散模型 (Kling, Qwen, Flux, ByteDance Seedream 等) 调用 predict 接口
+          const parts = model.split('/');
+          const provider = parts[0];
+          const modelName = parts.slice(1).join('/');
+          vertexUrl = `${UPSTREAM_VERTEX_BASE}/${provider}/models/${modelName}:predict`;
+          vertexBody = {
+            instances: [{ prompt: String(payload.prompt).trim() }],
+            parameters: {
+              sampleCount: payload.n ? Math.max(1, Math.min(Number(payload.n) || 1, 4)) : 1,
+              aspectRatio: mapSizeToAspectRatio(payload.size),
+            },
+          };
+        }
 
         let upstream = await fetch(vertexUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${apiKey}`,
-            'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
+            'User-Agent': 'ZenMux-Chat-Cloud/2.14 (contact@zenmux.ai)',
           },
           body: JSON.stringify(vertexBody),
         });
@@ -118,18 +223,35 @@ export async function onRequestPost(context) {
         let status = upstream.status;
         let text = await upstream.text();
 
-        // 将 Vertex AI predictions[].bytesBase64Encoded 统一归一化为 OpenAI data[].b64_json 格式
+        // 容灾回退：若 Vertex AI 返回 404 (如 model_not_supported)，自动回退至 OpenAI Images 接口重试
+        if (status === 404 && text.includes('model_not_supported')) {
+          try {
+            const fallbackRes = await fetch(UPSTREAM_OPENAI, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+                'User-Agent': 'ZenMux-Chat-Cloud/2.14 (contact@zenmux.ai)',
+              },
+              body: JSON.stringify({
+                model,
+                prompt: String(payload.prompt).trim(),
+              }),
+            });
+            if (fallbackRes.ok) {
+              status = fallbackRes.status;
+              text = await fallbackRes.text();
+            }
+          } catch (_) {}
+        }
+
+        // 全能归一化：将任意上游结构 (predictions, generatedImages, candidates, data) 统一转为 OpenAI data[].b64_json 格式
         if (status >= 200 && status < 300) {
           try {
             const parsed = JSON.parse(text);
-            if (parsed.predictions && parsed.predictions.length > 0) {
-              const normalizedData = {
-                data: parsed.predictions.map((p) => ({
-                  b64_json: p.bytesBase64Encoded,
-                  revised_prompt: String(payload.prompt).trim(),
-                })),
-              };
-              text = JSON.stringify(normalizedData);
+            const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
+            if (images.length > 0) {
+              text = JSON.stringify({ data: images });
             }
           } catch (_) {}
         }
@@ -179,7 +301,7 @@ export async function onRequestPost(context) {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
-          'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
+          'User-Agent': 'ZenMux-Chat-Cloud/2.14 (contact@zenmux.ai)',
         },
         body: JSON.stringify(forwardBody),
       });
@@ -212,7 +334,7 @@ export async function onRequestPost(context) {
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
-                'User-Agent': 'ZenMux-Chat-Cloud/2.13 (contact@zenmux.ai)',
+                'User-Agent': 'ZenMux-Chat-Cloud/2.14 (contact@zenmux.ai)',
               },
               body: JSON.stringify(retryBody),
             });
@@ -222,6 +344,17 @@ export async function onRequestPost(context) {
             // Keep original response if retry network fails
           }
         }
+      }
+
+      // Universal response normalization for both Vertex and OpenAI branches
+      if (status >= 200 && status < 300) {
+        try {
+          const parsed = JSON.parse(text);
+          const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
+          if (images.length > 0) {
+            text = JSON.stringify({ data: images });
+          }
+        } catch (_) {}
       }
 
       return { status, text };

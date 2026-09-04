@@ -577,8 +577,31 @@ export async function executeImageGeneration(userMsg, options = {}) {
       data = await res.json();
     }
 
-    const item = data && data.data && data.data[0];
-    const b64Data = item && (item.b64_json || item.bytesBase64Encoded);
+    let item = data && data.data && data.data[0];
+    if (!item && data && typeof data === 'object') {
+      // Defensive client fallback for direct multimodal responses
+      if (Array.isArray(data.predictions) && data.predictions[0]) {
+        const p = data.predictions[0];
+        item = typeof p === 'string' ? { b64_json: p } : { b64_json: p.bytesBase64Encoded || p.imageBytes || p.b64_json, url: p.url };
+      } else if (Array.isArray(data.generatedImages || data.generated_images)) {
+        const g = (data.generatedImages || data.generated_images)[0];
+        item = g && g.image ? { b64_json: g.image.imageBytes || g.image.b64_json, url: g.image.url } : null;
+      } else if (Array.isArray(data.candidates) && data.candidates[0]) {
+        const parts = (data.candidates[0].content && data.candidates[0].content.parts) || [];
+        for (const pt of parts) {
+          if (pt.inlineData && pt.inlineData.data) {
+            item = { b64_json: pt.inlineData.data };
+            break;
+          } else if (pt.inline_data && pt.inline_data.data) {
+            item = { b64_json: pt.inline_data.data };
+            break;
+          }
+        }
+      }
+    }
+
+    const rawB64 = item && (item.b64_json || item.bytesBase64Encoded || item.imageBytes);
+    const b64Data = rawB64 ? String(rawB64).replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '') : '';
     if (!item || (!b64Data && !item.url)) {
       throw new Error((data && data.error) || '上游未返回有效的图像数据');
     }
