@@ -622,18 +622,12 @@ export async function executeImageGeneration(userMsg, options = {}) {
       src = URL.createObjectURL(blob);
     } else {
       src = item.url;
-      try {
-        const remoteRes = await fetch(src);
-        if (remoteRes.ok) {
-          blob = await remoteRes.blob();
-        }
-      } catch (_) {}
     }
 
     const imageId = 'img_' + uid();
     const revisedPrompt = item.revised_prompt || '';
 
-    // Save image binary or remote URL to IndexedDB (zero remote server footprint)
+    // 1. Instantly save image record with remote URL to IndexedDB
     await ZenMuxDB.putImage(imageId, blob, {
       prompt,
       revisedPrompt,
@@ -643,6 +637,26 @@ export async function executeImageGeneration(userMsg, options = {}) {
       url: src && src.startsWith('http') ? src : '',
       createdAt: Date.now()
     }).catch(() => {});
+
+    // 2. Opportunistic background caching: if remote URL, attempt non-blocking blob fetch to enable clipboard copy
+    if (!blob && src && src.startsWith('http')) {
+      fetch(src)
+        .then((r) => (r.ok ? r.blob() : null))
+        .then((fetchedBlob) => {
+          if (fetchedBlob) {
+            ZenMuxDB.putImage(imageId, fetchedBlob, {
+              prompt,
+              revisedPrompt,
+              model: state.model,
+              size: state.imageSize,
+              quality: state.imageQuality,
+              url: src,
+              createdAt: Date.now()
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
 
     // Replace skeleton with real image card
     const card = createImageCard({
