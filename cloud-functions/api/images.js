@@ -253,30 +253,6 @@ function mapSizeToAspectRatio(size) {
   return '1:1';
 }
 
-async function enrichImagesWithBase64(images) {
-  if (!Array.isArray(images) || images.length === 0) return images;
-  await Promise.all(
-    images.map(async (img) => {
-      if (img && img.url && !img.b64_json) {
-        try {
-          const res = await fetch(img.url, {
-            signal: AbortSignal.timeout(8000),
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            },
-          });
-          if (res.ok) {
-            const ab = await res.arrayBuffer();
-            img.b64_json = Buffer.from(ab).toString('base64');
-          }
-        } catch (_) {
-          // Gracefully keep img.url intact if network fetch times out
-        }
-      }
-    })
-  );
-  return images;
-}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -297,45 +273,20 @@ export function onRequestOptions() {
 }
 
 export async function onRequestGet(context) {
-  try {
-    const { request, env } = context;
-
-    const accessToken = env && env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
-    if (accessToken) {
-      const auth = request.headers.get('X-Access-Token') || '';
-      if (auth !== accessToken) {
-        return json({ error: 'unauthorized' }, 401);
-      }
-    }
-
-    const url = new URL(request.url);
-    const target = url.searchParams.get('url');
-    if (!target || (!target.startsWith('http://') && !target.startsWith('https://'))) {
-      return json({ error: '缺少有效的 url 参数' }, 400);
-    }
-
-    const res = await fetch(target, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
-
-    if (!res.ok) {
-      return json({ error: `无法获取图片: ${res.status} ${res.statusText}` }, 502);
-    }
-
-    const contentType = res.headers.get('content-type') || 'image/png';
-    return new Response(res.body, {
-      status: 200,
-      headers: {
-        ...CORS,
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400',
-      },
-    });
-  } catch (err) {
-    return json({ error: err.message }, 500);
+  //  legacy 重定向：将 GET 请求无缝引导至高吞吐 Anycast 边缘函数 /api/proxy-image
+  const { request } = context;
+  const url = new URL(request.url);
+  const target = url.searchParams.get('url');
+  if (!target) {
+    return json({ error: '缺少有效的 url 参数' }, 400);
   }
+  return new Response(null, {
+    status: 307,
+    headers: {
+      ...CORS,
+      Location: `/api/proxy-image?url=${encodeURIComponent(target)}`,
+    },
+  });
 }
 
 export async function onRequestPost(context) {
@@ -493,13 +444,12 @@ export async function onRequestPost(context) {
           } catch (_) {}
         }
 
-        // 全能归一化：将任意上游结构统一转为 OpenAI data[].b64_json 格式
+        // 全能归一化：提取任意上游结构生成的图像 URL 或 Base64，即刻返回，不阻塞等待二进制下载
         if (status >= 200 && status < 300) {
           try {
             const parsed = JSON.parse(text);
             const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
             if (images.length > 0) {
-              await enrichImagesWithBase64(images);
               text = JSON.stringify({ data: images });
             } else {
               status = 502;
@@ -601,13 +551,12 @@ export async function onRequestPost(context) {
         }
       }
 
-      // Universal response normalization for both Vertex and OpenAI branches
+      // Universal response normalization: return generated image URL/base64 immediately
       if (status >= 200 && status < 300) {
         try {
           const parsed = JSON.parse(text);
           const images = extractImageFromResponse(parsed, String(payload.prompt).trim());
           if (images.length > 0) {
-            await enrichImagesWithBase64(images);
             text = JSON.stringify({ data: images });
           } else {
             status = 502;

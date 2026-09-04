@@ -298,16 +298,40 @@ export function createImageCard(item, onRegenerate) {
     const actions = document.createElement('div');
     actions.className = 'img-card-actions';
 
-    // 1. 下载按钮
+    // 1. 下载按钮 (优先利用本地二进制 Blob，若为远程链接则借助边缘代理下载以防浏览器跨域拦截)
     const dlBtn = document.createElement('button');
     dlBtn.className = 'img-card-btn';
     dlBtn.title = '下载高清图片 (PNG)';
     dlBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> 下载';
-    dlBtn.addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.href = item.src;
-      a.download = `zenmux-${Date.now()}.png`;
-      a.click();
+    dlBtn.addEventListener('click', async () => {
+      try {
+        let downloadUrl = item.src;
+        let objectUrlToRevoke = null;
+        if (item.blob) {
+          downloadUrl = URL.createObjectURL(item.blob);
+          objectUrlToRevoke = downloadUrl;
+        } else if (item.src && item.src.startsWith('http')) {
+          try {
+            const tokenHeader = (state && state.token) ? { 'X-Access-Token': state.token } : {};
+            const res = await fetch(`/api/proxy-image?url=${encodeURIComponent(item.src)}`, { headers: tokenHeader });
+            if (res.ok) {
+              const b = await res.blob();
+              item.blob = b;
+              downloadUrl = URL.createObjectURL(b);
+              objectUrlToRevoke = downloadUrl;
+            }
+          } catch (_) {}
+        }
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `zenmux-${Date.now()}.png`;
+        a.click();
+        if (objectUrlToRevoke) {
+          setTimeout(() => URL.revokeObjectURL(objectUrlToRevoke), 10000);
+        }
+      } catch (e) {
+        window.open(item.src, '_blank');
+      }
     });
     actions.appendChild(dlBtn);
 
@@ -394,7 +418,8 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
 
             // Self-healing: if historical record has remote URL but missing blob, cache via proxy
             if (imageMeta.imageId && fallbackSrc && fallbackSrc.startsWith('http')) {
-              fetch(`/api/images?url=${encodeURIComponent(fallbackSrc)}`)
+              const tokenHeader = (state && state.token) ? { 'X-Access-Token': state.token } : {};
+              fetch(`/api/proxy-image?url=${encodeURIComponent(fallbackSrc)}`, { headers: tokenHeader })
                 .then((r) => (r.ok ? r.blob() : null))
                 .catch(() => fetch(fallbackSrc).then((r) => (r.ok ? r.blob() : null)).catch(() => null))
                 .then((fetchedBlob) => {

@@ -638,10 +638,11 @@ export async function executeImageGeneration(userMsg, options = {}) {
       createdAt: Date.now()
     }).catch(() => {});
 
-    // 2. Opportunistic background caching: if remote URL, attempt non-blocking blob fetch via proxy to bypass CORS
+    // 2. Opportunistic background caching: if remote URL, retrieve binary stream via Anycast Edge Function to eliminate CORS
     if (!blob && src && src.startsWith('http')) {
-      const proxyUrl = `/api/images?url=${encodeURIComponent(src)}`;
-      fetch(proxyUrl)
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
+      const tokenHeader = (state && state.token) ? { 'X-Access-Token': state.token } : {};
+      fetch(proxyUrl, { headers: tokenHeader })
         .then((r) => (r.ok ? r.blob() : null))
         .catch(() => fetch(src).then((r) => (r.ok ? r.blob() : null)).catch(() => null))
         .then((fetchedBlob) => {
