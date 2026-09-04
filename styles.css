@@ -166,8 +166,8 @@
     transition:border-color .15s;
   }
   #model:hover{border-color:var(--accent)}
-  #model:focus{outline:none;border-color:var(--accent)}
-  #model optgroup{background:var(--bg-side);color:var(--fg-dim);font-style:normal}
+  #model optgroup{background:var(--bg-side);color:var(--accent-hover,#928bf2);font-weight:600;font-style:normal}
+  [data-theme="light"] #model optgroup{color:var(--accent,#CC785C)}
   #model option{background:var(--bg-elev);color:var(--fg)}
   #topbar-params{display:flex;align-items:center;gap:8px}
   .mini-sel{

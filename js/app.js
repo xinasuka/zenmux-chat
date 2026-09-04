@@ -192,8 +192,9 @@ export function fillModels(list) {
     imageModels.forEach((m) => {
       const o = document.createElement('option');
       o.value = m.id;
-      // 呈现精炼、高可读性的标签（仅呈现必要核心信息，避免信息过载）
+      // 呈现精炼、高可读性的标签，统一附带 ·生图 标牌与免费状态
       let label = m.display_name || m.id;
+      label += ' ·生图';
       if (isFree(m)) label += ' ·免费';
       o.textContent = label;
       imgGroup.appendChild(o);
