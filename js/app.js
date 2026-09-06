@@ -117,7 +117,12 @@ export function toggleSidebar() {
 export function autoGrow() {
   if (!el.input) return;
   el.input.style.height = 'auto';
-  el.input.style.height = Math.min(el.input.scrollHeight, 200) + 'px';
+  const sh = el.input.scrollHeight;
+  if (sh > 0) {
+    el.input.style.height = Math.min(Math.max(sh, 34), 200) + 'px';
+  } else {
+    el.input.style.removeProperty('height');
+  }
 }
 
 export function syncSend() {
@@ -1123,6 +1128,9 @@ export function hideGate() {
     el.gate.classList.add('hide');
     el.gate.classList.remove('dissolve');
   }
+  requestAnimationFrame(() => {
+    autoGrow();
+  });
 }
 
 export function dissipateGate() {
@@ -1134,6 +1142,9 @@ export function dissipateGate() {
       el.gate.classList.remove('dissolve');
     }, 400);
   }
+  requestAnimationFrame(() => {
+    autoGrow();
+  });
 }
 
 async function unlockAndHydrateWorkspace(modelsList) {
@@ -1152,6 +1163,12 @@ async function unlockAndHydrateWorkspace(modelsList) {
   syncPluginsUI();
   renderThread();
   syncSend();
+  requestAnimationFrame(() => {
+    autoGrow();
+    if (el.input && !isMobileScreen()) {
+      el.input.focus();
+    }
+  });
 }
 
 export async function submitGate() {

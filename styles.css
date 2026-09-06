@@ -1023,9 +1023,10 @@
   }
   #input{
     flex:1;background:transparent;border:0;color:var(--fg);resize:none;
-    font:inherit;line-height:1.55;max-height:200px;padding:6px 0;outline:none;
+    font:inherit;line-height:1.55;min-height:34px;height:34px;max-height:200px;
+    padding:6px 0;outline:none;
   }
-  #input::placeholder{color:var(--fg-faint)}
+  #input::placeholder{color:var(--fg-faint);line-height:1.55}
   #send{
     flex:0 0 auto;background:var(--accent);border:0;color:#fff;border-radius:9px;
     width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;
