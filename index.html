@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="styles.css" data-page-node-id="6kEmaC6Kp2sT5ELRqtxGfL">
 </head>
-<body data-page-node-id="YdTK9aH82CgKi4dCCtn1aI">
+<body class="is-gated" data-page-node-id="YdTK9aH82CgKi4dCCtn1aI">
 
 <aside id="sidebar" data-page-node-id="IjMet6IvisWsyveK4sh3tK">
   <div id="sidebar-topbar" class="sidebar-topbar">
@@ -332,10 +332,17 @@
 
 <div id="gate" data-page-node-id="3RnzGpSr4STVNxFOqkxUDl">
   <div id="gate-box" data-page-node-id="4QaGa55sm8Sj358xR8iCSA">
-    <h2 data-page-node-id="kXn3sLRhenARrsyM9PdBCO">访问口令</h2>
-    <p data-page-node-id="SIHXPRHvy6BVFQHE50FOr6">请输入管理员分配的访问口令 (Access Token)。</p>
-    <input id="gate-input" type="password" autocomplete="current-password" placeholder="口令" data-page-node-id="5pQiupAVFWi5shCMXos2zR">
-    <button id="gate-go" data-page-node-id="xy5SJwKqNjMdJkvUpF7LVQ">进入</button>
+    <div class="gate-brand-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <h2 data-page-node-id="kXn3sLRhenARrsyM9PdBCO">工作台身份验证</h2>
+    <p data-page-node-id="SIHXPRHvy6BVFQHE50FOr6">请输入管理员分配的访问口令 (Access Token) 以解锁个人 AI 工作台</p>
+    <div class="gate-form-group">
+      <input id="gate-input" type="password" autocomplete="current-password" placeholder="输入访问口令…" data-page-node-id="5pQiupAVFWi5shCMXos2zR" spellcheck="false">
+    </div>
+    <button id="gate-go" data-page-node-id="xy5SJwKqNjMdJkvUpF7LVQ">验证并进入</button>
     <div id="gate-err" data-page-node-id="AyyzGwOMvOuqejWvVif1h7"></div>
   </div>
 </div>

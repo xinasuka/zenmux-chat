@@ -521,7 +521,11 @@ export function syncModelCapabilities() {
 export function loadModels() {
   return fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
     .then((r) => {
-      if (!r.ok) throw new Error(r.status === 401 ? '口令不正确' : `HTTP ${r.status}`);
+      if (r.status === 401) {
+        showGate('访问口令已失效或已被停用，请重新输入');
+        throw new Error('口令不正确');
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     })
     .then((j) => {
@@ -538,7 +542,9 @@ export function loadModels() {
       renderThread();
     })
     .catch((e) => {
-      toast(`模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
+      if (e.message !== '口令不正确') {
+        toast(`模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
+      }
     });
 }
 
@@ -1093,46 +1099,85 @@ export function send() {
   }
 }
 
-export function showGate(err) {
-  if (el.gate) el.gate.classList.remove('hide');
-  if (el.gateErr) el.gateErr.textContent = err || '';
-  setTimeout(() => { if (el.gateInput) el.gateInput.focus(); }, 30);
+export function showGate(err = '', isLoading = false) {
+  document.body.classList.add('is-gated');
+  if (el.gate) {
+    el.gate.classList.remove('hide', 'dissolve');
+  }
+  if (el.gateErr) {
+    el.gateErr.textContent = err || '';
+    el.gateErr.className = isLoading ? 'gate-loading' : '';
+  }
+  if (el.gateGo) {
+    el.gateGo.disabled = isLoading;
+    el.gateGo.textContent = isLoading ? '正在验证…' : '验证并进入';
+  }
+  if (!isLoading && el.gateInput) {
+    setTimeout(() => { if (el.gateInput) el.gateInput.focus(); }, 40);
+  }
 }
 
 export function hideGate() {
-  if (el.gate) el.gate.classList.add('hide');
+  document.body.classList.remove('is-gated');
+  if (el.gate) {
+    el.gate.classList.add('hide');
+    el.gate.classList.remove('dissolve');
+  }
 }
 
-export function submitGate() {
+export function dissipateGate() {
+  document.body.classList.remove('is-gated');
+  if (el.gate) {
+    el.gate.classList.add('dissolve');
+    setTimeout(() => {
+      el.gate.classList.add('hide');
+      el.gate.classList.remove('dissolve');
+    }, 400);
+  }
+}
+
+async function unlockAndHydrateWorkspace(modelsList) {
+  dissipateGate();
+  await loadAllConversations();
+  if (modelsList && modelsList.length) {
+    fillModels(modelsList);
+    const ids = modelsList.map((m) => m.id);
+    if (!state.model || ids.indexOf(state.model) === -1) {
+      state.model = modelsList[0].id;
+    }
+    if (el.model) el.model.value = state.model;
+    localStorage.setItem(LS.model, state.model);
+    syncModelCapabilities();
+  }
+  syncPluginsUI();
+  renderThread();
+  syncSend();
+}
+
+export async function submitGate() {
   if (!el.gateInput) return;
   const v = el.gateInput.value.trim();
-  if (el.gateErr) el.gateErr.textContent = '验证中…';
-  fetch('/api/models', { headers: { 'X-Access-Token': v } })
-    .then((r) => {
-      if (r.status === 401) throw new Error('口令不正确');
-      if (!r.ok) throw new Error('服务端 HTTP ' + r.status);
-      return r.json();
-    })
-    .then((j) => {
-      state.token = v;
-      localStorage.setItem(LS.token, v);
-      localStorage.setItem(LS.gated, '1');
-      hideGate();
-      const list = (j && j.data) || [];
-      fillModels(list);
-      const ids = list.map((m) => m.id);
-      if (list.length && (!state.model || ids.indexOf(state.model) === -1)) {
-        state.model = list[0].id;
-      }
-      if (el.model) el.model.value = state.model;
-      localStorage.setItem(LS.model, state.model);
-      syncModelCapabilities();
-      renderThread();
-      syncSend();
-    })
-    .catch((e) => {
-      showGate(e.message || String(e));
-    });
+  if (!v) {
+    showGate('请输入访问口令');
+    return;
+  }
+  showGate('正在验证身份凭据…', true);
+
+  try {
+    const res = await fetch('/api/models', { headers: { 'X-Access-Token': v } });
+    if (res.status === 401) throw new Error('访问口令无效或已被管理员停用');
+    if (!res.ok) throw new Error(`服务端异常 (HTTP ${res.status})`);
+    const data = await res.json();
+    const modelsList = (data && data.data) || [];
+
+    state.token = v;
+    localStorage.setItem(LS.token, v);
+    localStorage.setItem(LS.gated, '1');
+
+    await unlockAndHydrateWorkspace(modelsList);
+  } catch (err) {
+    showGate(err.message || String(err));
+  }
 }
 
 function initVoiceInput() {
@@ -1582,7 +1627,7 @@ function initEventListeners() {
 }
 
 /* ---------- Bootstrap Application Lifecycle ---------- */
-export function initApp() {
+export async function initApp() {
   document.querySelectorAll('.app-version-badge').forEach((badge) => {
     badge.textContent = 'v' + APP_VERSION;
   });
@@ -1597,20 +1642,38 @@ export function initApp() {
   if (el.toolTurns) el.toolTurns.value = String(state.toolMaxTurns);
   if (el.ctx) el.ctx.value = String(state.ctxN);
 
-  syncModelCapabilities();
-  syncPluginsUI();
   initVoiceInput();
   autoGrow();
-  syncSend();
 
-  loadAllConversations().then(() => {
-    if (localStorage.getItem(LS.gated) === '1') {
-      hideGate();
-      loadModels();
-    } else {
-      showGate('');
+  const savedToken = state.token || (typeof localStorage !== 'undefined' ? localStorage.getItem(LS.token) : '');
+  if (savedToken) {
+    // 门禁前置验证：在未确认凭据有效前，彻底隐藏工作台与历史对话，杜绝任何内容泄漏
+    showGate('正在验证身份凭据…', true);
+    if (el.gateInput) el.gateInput.value = savedToken;
+
+    try {
+      const res = await fetch('/api/models', { headers: { 'X-Access-Token': savedToken } });
+      if (res.status === 401) throw new Error('访问口令已失效或未授权，请重新输入');
+      if (!res.ok) throw new Error(`服务端验证异常 (HTTP ${res.status})`);
+      const data = await res.json();
+      const modelsList = (data && data.data) || [];
+
+      state.token = savedToken;
+      localStorage.setItem(LS.token, savedToken);
+      localStorage.setItem(LS.gated, '1');
+
+      await unlockAndHydrateWorkspace(modelsList);
+    } catch (err) {
+      // 凭据无效或已失效：彻底清除无效凭据并停留在门禁主屏，严禁展示工作台
+      state.token = '';
+      localStorage.removeItem(LS.token);
+      localStorage.removeItem(LS.gated);
+      showGate(err.message || String(err));
     }
-  });
+  } else {
+    // 首次访问或已登出：前置拦截，工作台保持绝对隔离隐藏
+    showGate('');
+  }
 }
 
 // Kickstart
