@@ -14,6 +14,7 @@ const rootDir = path.resolve(__dirname, '..');
 const pkgPath = path.join(rootDir, 'package.json');
 const statePath = path.join(rootDir, 'js', 'state.js');
 const htmlPath = path.join(rootDir, 'index.html');
+const versionJsonPath = path.join(rootDir, 'version.json');
 
 function parseSemver(v) {
   const clean = (v || '').replace(/^v/, '').trim();
@@ -102,9 +103,17 @@ Usage:
     }
   }
 
+  // 5. Generate version.json for client-side stale detection
+  const versionPayload = {
+    version: newVersion,
+    buildTime: new Date().toISOString()
+  };
+  fs.writeFileSync(versionJsonPath, JSON.stringify(versionPayload, null, 2) + '\n', 'utf8');
+
   console.log(`ZenMux Chat version synchronized: v${newVersion}`);
   console.log(`- package.json : ${currentVersion} -> ${newVersion}`);
   console.log(`- js/state.js  : APP_VERSION = '${newVersion}'`);
+  console.log(`- version.json : v${newVersion} (${versionPayload.buildTime})`);
   console.log(`- index.html   : dynamic runtime hydration active (no manual edits needed)`);
 }
 

@@ -9,6 +9,7 @@ import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSideb
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
+import { initVersionChecker, flushPendingUpdate } from './updater.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -128,6 +129,9 @@ export function autoGrow() {
 export function syncSend() {
   const hasContent = !!(el.input && el.input.value.trim()) || state.pendingAttachments.length > 0;
   if (el.send) el.send.disabled = state.busy || !hasContent || !state.model;
+  if (!state.busy) {
+    flushPendingUpdate();
+  }
 }
 
 export function hasVision(m) {
@@ -1652,6 +1656,7 @@ export async function initApp() {
   initTheme(toast);
   initEventListeners();
   initSidebarResizer();
+  initVersionChecker();
 
   if (el.model) el.model.value = state.model;
   if (el.effort) el.effort.value = state.effort;

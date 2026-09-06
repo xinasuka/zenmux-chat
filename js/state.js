@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.17.8';
+export const APP_VERSION = '2.17.9';
 
 export const LS = {
   cur: 'zm.current',
@@ -23,6 +23,7 @@ export const LS = {
   imageSize: 'zm.image.size',
   imageQuality: 'zm.image.quality',
   imageBackground: 'zm.image.background',
+  updateSnoozedUntil: 'zm.update.snoozed_until',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -115,6 +116,12 @@ export const el = {
   gateInput: $('gate-input'),
   gateGo: $('gate-go'),
   gateErr: $('gate-err'),
+
+  updateBanner: $('update-banner'),
+  updateText: $('update-text'),
+  updateReload: $('update-reload-btn'),
+  updateLater: $('update-later-btn'),
+  updateClose: $('update-close-btn'),
 
   toast: $('toast'),
 };
