@@ -7,7 +7,8 @@ import {
   json,
   verifyAdminToken,
   generateToken,
-  invalidateTokenCache
+  invalidateTokenCache,
+  getKV
 } from '../_auth.js';
 
 export function onRequestOptions() {
@@ -23,9 +24,11 @@ export async function onRequestGet(context) {
       return json({ error: auth.error }, auth.status);
     }
 
-    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    const kv = getKV(context);
     if (!kv) {
-      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+      return json({
+        error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。'
+      }, 500);
     }
 
     const index = (await kv.get('users:index', { type: 'json' })) || [];
@@ -66,9 +69,11 @@ export async function onRequestPost(context) {
       return json({ error: auth.error }, auth.status);
     }
 
-    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    const kv = getKV(context);
     if (!kv) {
-      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+      return json({
+        error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。'
+      }, 500);
     }
 
     let payload = {};
@@ -122,9 +127,11 @@ export async function onRequestPatch(context) {
       return json({ error: auth.error }, auth.status);
     }
 
-    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    const kv = getKV(context);
     if (!kv) {
-      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+      return json({
+        error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。'
+      }, 500);
     }
 
     let payload = {};
@@ -170,9 +177,11 @@ export async function onRequestDelete(context) {
       return json({ error: auth.error }, auth.status);
     }
 
-    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    const kv = getKV(context);
     if (!kv) {
-      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+      return json({
+        error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。'
+      }, 500);
     }
 
     const reqUrl = new URL(request.url);

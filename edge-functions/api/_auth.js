@@ -68,8 +68,49 @@ export function verifyAdminToken(request, env) {
   return { ok: true };
 }
 
+// 获取 EdgeOne KV 命名空间实例
+// 腾讯云 EdgeOne 官方规范：项目绑定的 KV 变量直接注入全局作用域 (globalThis)，并非仅挂载在 context.env 下
+export function getKV(envOrContext) {
+  // 1. 全局变量直接引用（EdgeOne 核心机制）
+  try {
+    if (typeof ZENMUX_CHAT !== 'undefined' && ZENMUX_CHAT && typeof ZENMUX_CHAT.get === 'function') {
+      return ZENMUX_CHAT;
+    }
+  } catch (_) {}
+
+  // 2. globalThis 命名空间查找
+  if (typeof globalThis !== 'undefined') {
+    if (globalThis.ZENMUX_CHAT && typeof globalThis.ZENMUX_CHAT.get === 'function') {
+      return globalThis.ZENMUX_CHAT;
+    }
+    if (globalThis.ZENMUX_KV && typeof globalThis.ZENMUX_KV.get === 'function') {
+      return globalThis.ZENMUX_KV;
+    }
+  }
+
+  // 3. context 或 env 对象属性查找
+  if (envOrContext && typeof envOrContext === 'object') {
+    if (envOrContext.ZENMUX_CHAT && typeof envOrContext.ZENMUX_CHAT.get === 'function') {
+      return envOrContext.ZENMUX_CHAT;
+    }
+    if (envOrContext.ZENMUX_KV && typeof envOrContext.ZENMUX_KV.get === 'function') {
+      return envOrContext.ZENMUX_KV;
+    }
+    if (envOrContext.env && typeof envOrContext.env === 'object') {
+      if (envOrContext.env.ZENMUX_CHAT && typeof envOrContext.env.ZENMUX_CHAT.get === 'function') {
+        return envOrContext.env.ZENMUX_CHAT;
+      }
+      if (envOrContext.env.ZENMUX_KV && typeof envOrContext.env.ZENMUX_KV.get === 'function') {
+        return envOrContext.env.ZENMUX_KV;
+      }
+    }
+  }
+
+  return null;
+}
+
 // 用户访问口令鉴权：从请求头 X-Access-Token 获取，并在 EdgeOne KV 中校验状态
-export async function verifyUserToken(request, env) {
+export async function verifyUserToken(request, env, context) {
   const token = (request.headers.get('X-Access-Token') || '').trim();
   if (!token) {
     return { ok: false, status: 401, error: '未提供访问口令 (X-Access-Token)' };
@@ -81,10 +122,14 @@ export async function verifyUserToken(request, env) {
     return cached.result;
   }
 
-  // 2. 查验 EdgeOne 绑定的 KV 命名空间
-  const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+  // 2. 查验 EdgeOne 绑定的 KV 命名空间（兼容全局注入与 context/env）
+  const kv = getKV(context || env);
   if (!kv) {
-    return { ok: false, status: 500, error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' };
+    return {
+      ok: false,
+      status: 500,
+      error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。'
+    };
   }
 
   try {

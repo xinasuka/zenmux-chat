@@ -303,9 +303,11 @@ export async function onRequestPost(context) {
     if (!token) {
       return json({ error: '未提供访问口令 (X-Access-Token)' }, 401);
     }
-    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    const kv = (typeof ZENMUX_CHAT !== 'undefined' && ZENMUX_CHAT && typeof ZENMUX_CHAT.get === 'function')
+      ? ZENMUX_CHAT
+      : ((typeof globalThis !== 'undefined' && (globalThis.ZENMUX_CHAT || globalThis.ZENMUX_KV)) || (env && (env.ZENMUX_CHAT || env.ZENMUX_KV)));
     if (!kv) {
-      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+      return json({ error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。' }, 500);
     }
     const user = await kv.get(`user:${token}`, { type: 'json' }).catch(() => null);
     if (!user || user.status !== 'active') {
