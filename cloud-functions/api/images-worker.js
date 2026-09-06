@@ -1,7 +1,6 @@
-// cloud-functions/api/images.js
-// 在 EdgeOne Cloud Functions (云函数容器沙箱) 上反向代理 ZenMux 的 images/generations 接口。
-// 运行于中心机房 Node.js 22 容器环境，享有 300 秒超长物理时限，从容支撑 2K 高清扩散与漫长去噪过程。
-// 客户端向此接口发送生图请求，API Key 安全保存在服务端环境变量中。
+// cloud-functions/api/images-worker.js
+// 在 EdgeOne Cloud Functions (云函数容器沙箱) 上执行长耗时文生图扩散算法 (/api/images-worker)。
+// 运行于中心机房 Node.js 22 容器环境，享有 300 秒超长物理时限，受 Edge Gatekeeper 保护，零 KV 依赖。
 
 const UPSTREAM_OPENAI = 'https://zenmux.ai/api/v1/images/generations';
 const UPSTREAM_VERTEX_BASE = 'https://zenmux.ai/api/vertex-ai/v1/publishers';
@@ -257,7 +256,7 @@ function mapSizeToAspectRatio(size) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, X-Internal-Secret, Content-Type',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -298,20 +297,13 @@ export async function onRequestPost(context) {
       return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
     }
 
-    // 统一门禁鉴权：通过 EdgeOne KV (ZENMUX_CHAT) 校验 8 位用户口令
-    const token = (request.headers.get('X-Access-Token') || '').trim();
-    if (!token) {
-      return json({ error: '未提供访问口令 (X-Access-Token)' }, 401);
-    }
-    const kv = (typeof ZENMUX_CHAT !== 'undefined' && ZENMUX_CHAT && typeof ZENMUX_CHAT.get === 'function')
-      ? ZENMUX_CHAT
-      : ((typeof globalThis !== 'undefined' && (globalThis.ZENMUX_CHAT || globalThis.ZENMUX_KV)) || (env && (env.ZENMUX_CHAT || env.ZENMUX_KV)));
-    if (!kv) {
-      return json({ error: '服务端未检测到 ZENMUX_CHAT KV 绑定。若刚在控制台完成绑定，请重新部署 Pages 项目使绑定生效。' }, 500);
-    }
-    const user = await kv.get(`user:${token}`, { type: 'json' }).catch(() => null);
-    if (!user || user.status !== 'active') {
-      return json({ error: '访问口令无效或已被禁用' }, 401);
+    // 内部通信门禁：仅允许通过 Edge Gatekeeper 转发的合法请求（零 KV 依赖）
+    const internalSecret = (request.headers.get('X-Internal-Secret') || '').trim();
+    const expectedSecret = (env.ADMIN_TOKEN ? String(env.ADMIN_TOKEN).trim() : '') 
+      || (env.ZENMUX_API_KEY ? String(env.ZENMUX_API_KEY).trim() : 'zenmux-internal-gatekeeper');
+
+    if (!expectedSecret || internalSecret !== expectedSecret) {
+      return json({ error: '禁止直接调用内部生图计算容器 (Forbidden: Internal Worker Only)' }, 403);
     }
 
     let payload;
