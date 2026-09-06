@@ -60,7 +60,7 @@ export async function onRequestGet(context) {
         display_name: m.displayName || m.name,
         owned_by: provider,
         input_modalities: m.inputModalities || ['text'],
-        output_modalities: m.outputModalities || ['image'],
+        output_modalities: m.outputModalities || ['text'],
         capabilities: {
           reasoning: !!m.thinking,
           image_generation: Array.isArray(m.outputModalities) && m.outputModalities.includes('image'),
