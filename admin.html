@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ZenMux 控制台 - 用户口令与权限管理</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
   <style>
     :root {
       --bg: #090a0f;
@@ -35,7 +37,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background-image: 
+      background-image:
         radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
         radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
       background-attachment: fixed;
@@ -455,17 +457,117 @@
       gap: 8px;
     }
 
-    .toast-success { border-color: rgba(16, 185, 129, 0.4); }
-    .toast-error { border-color: rgba(239, 68, 68, 0.4); }
+    .toast-success {
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .toast-error {
+      border-color: rgba(239, 68, 68, 0.4);
+    }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 模态弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 950;
+      padding: 20px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-card {
+      background: #141724;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      position: relative;
+      animation: slideUp 0.2s ease;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .input-with-action {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .input-with-action .form-input {
+      flex: 1;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.4;
     }
 
     .hidden {
@@ -473,13 +575,15 @@
     }
   </style>
 </head>
+
 <body>
 
   <!-- 顶部导航 -->
   <header class="admin-header">
     <div class="nav-container">
       <div class="brand">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
         </svg>
         <span>ZenMux</span>
@@ -498,7 +602,8 @@
     <!-- 1. 登录门禁视窗 -->
     <div id="login-view" class="login-wrapper">
       <div class="login-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
@@ -509,7 +614,8 @@
       <form id="login-form">
         <div class="form-group">
           <label class="form-label" for="admin-token-input">管理口令 (ADMIN_TOKEN)</label>
-          <input type="password" id="admin-token-input" class="form-input" placeholder="输入管理口令..." required autocomplete="current-password">
+          <input type="password" id="admin-token-input" class="form-input" placeholder="输入管理口令..." required
+            autocomplete="current-password">
         </div>
         <button type="submit" id="login-submit-btn" class="btn-primary">验证并登录</button>
       </form>
@@ -522,7 +628,8 @@
       <section class="panel-card">
         <div class="panel-header">
           <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="8.5" cy="7" r="4"></circle>
               <line x1="20" y1="8" x2="20" y2="14"></line>
@@ -532,7 +639,7 @@
           </h2>
         </div>
         <form id="create-user-form" class="create-form">
-          <input type="text" id="user-name-input" class="form-input" placeholder="输入用户备注名称 (例如: 研发组-小王 / 市场部)" required maxlength="50">
+          <input type="text" id="user-name-input" class="form-input" placeholder="输入用户备注名称" required maxlength="50">
           <button type="submit" id="create-user-btn" class="btn-primary">生成访问口令</button>
         </form>
 
@@ -550,7 +657,8 @@
       <section class="panel-card">
         <div class="panel-header">
           <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="9" cy="7" r="4"></circle>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -586,6 +694,43 @@
 
   </main>
 
+  <!-- 编辑用户与口令模态弹窗 -->
+  <div id="edit-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">编辑用户与访问口令</h3>
+        <button type="button" id="edit-modal-close" class="modal-close-btn" title="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="edit-user-form">
+        <input type="hidden" id="edit-user-orig-token">
+        
+        <div class="form-group">
+          <label class="form-label" for="edit-user-name">用户备注名称</label>
+          <input type="text" id="edit-user-name" class="form-input" required maxlength="50" placeholder="例如: 研发组-小王">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-user-token">访问口令 (Token)</label>
+          <div class="input-with-action">
+            <input type="text" id="edit-user-token" class="form-input" required minlength="3" maxlength="64" style="font-family: var(--font-mono); letter-spacing: 1px;" autocomplete="off" spellcheck="false">
+            <button type="button" id="edit-user-regen-btn" class="btn-secondary" style="white-space: nowrap;">随机生成</button>
+          </div>
+          <div class="form-hint">支持 3~64 位字符（仅限字母、数字、下划线及连字符）。修改口令将迁移 KV 记录并立即使旧口令失效。</div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="edit-modal-cancel" class="btn-secondary">取消</button>
+          <button type="submit" id="edit-modal-submit" class="btn-primary" style="width: auto;">保存更改</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container"></div>
 
   <script type="module">
@@ -609,6 +754,15 @@
       userCountBadge: document.getElementById('user-count-badge'),
       usersTableBody: document.getElementById('users-table-body'),
       toastContainer: document.getElementById('toast-container'),
+      editModal: document.getElementById('edit-modal'),
+      editModalClose: document.getElementById('edit-modal-close'),
+      editModalCancel: document.getElementById('edit-modal-cancel'),
+      editUserForm: document.getElementById('edit-user-form'),
+      editUserOrigToken: document.getElementById('edit-user-orig-token'),
+      editUserName: document.getElementById('edit-user-name'),
+      editUserToken: document.getElementById('edit-user-token'),
+      editUserRegenBtn: document.getElementById('edit-user-regen-btn'),
+      editModalSubmit: document.getElementById('edit-modal-submit'),
     };
 
     function toast(msg, type = 'info') {
@@ -680,6 +834,9 @@
             <td style="color: var(--text-muted); font-size: 12px;">${formatTime(u.createdAt)}</td>
             <td style="text-align: right;">
               <div class="table-actions" style="justify-content: flex-end;">
+                <button class="btn-action edit-btn" data-token="${escapeHtml(u.token)}" data-name="${escapeHtml(u.name || '')}">
+                  编辑
+                </button>
                 <button class="btn-action toggle-btn" data-token="${escapeHtml(u.token)}" data-status="${isRevoked ? 'active' : 'revoked'}">
                   ${isRevoked ? '恢复启用' : '禁用'}
                 </button>
@@ -690,6 +847,15 @@
             </td>
           `;
           el.usersTableBody.appendChild(tr);
+        });
+
+        // 绑定编辑按钮
+        el.usersTableBody.querySelectorAll('.edit-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const token = btn.getAttribute('data-token');
+            const name = btn.getAttribute('data-name');
+            openEditModal(token, name);
+          });
         });
 
         // 绑定复制按钮
@@ -750,7 +916,7 @@
     }
 
     function escapeHtml(str) {
-      return String(str || '').replace(/[&<>'"]/g, 
+      return String(str || '').replace(/[&<>'"]/g,
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
       );
     }
@@ -837,10 +1003,99 @@
       }
     });
 
+    // 模态弹窗与编辑口令事件
+    function openEditModal(token, name) {
+      el.editUserOrigToken.value = token;
+      el.editUserName.value = name || '';
+      el.editUserToken.value = token;
+      el.editModal.classList.remove('hidden');
+      el.editUserName.focus();
+    }
+
+    function closeEditModal() {
+      el.editModal.classList.add('hidden');
+    }
+
+    function generateRandomToken(len = 8) {
+      const chars = '23456789abcdefghjkmnpqrstuvwxyz';
+      let res = '';
+      const bytes = new Uint8Array(len);
+      crypto.getRandomValues(bytes);
+      for (let i = 0; i < len; i++) {
+        res += chars[bytes[i] % chars.length];
+      }
+      return res;
+    }
+
+    el.editModalClose.addEventListener('click', closeEditModal);
+    el.editModalCancel.addEventListener('click', closeEditModal);
+    el.editModal.addEventListener('click', (e) => {
+      if (e.target === el.editModal) closeEditModal();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !el.editModal.classList.contains('hidden')) {
+        closeEditModal();
+      }
+    });
+
+    el.editUserRegenBtn.addEventListener('click', () => {
+      el.editUserToken.value = generateRandomToken(8);
+      toast('已随机生成新口令', 'info');
+    });
+
+    el.editUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const origToken = el.editUserOrigToken.value.trim();
+      const name = el.editUserName.value.trim();
+      const newToken = el.editUserToken.value.trim();
+
+      if (!name) {
+        toast('用户备注名称不能为空', 'error');
+        return;
+      }
+      if (!newToken) {
+        toast('访问口令不能为空', 'error');
+        return;
+      }
+      if (newToken.length < 3 || newToken.length > 64) {
+        toast('访问口令长度需在 3 到 64 个字符之间', 'error');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_\-]+$/.test(newToken)) {
+        toast('访问口令仅支持字母、数字、下划线及连字符', 'error');
+        return;
+      }
+
+      el.editModalSubmit.disabled = true;
+      el.editModalSubmit.textContent = '正在保存...';
+
+      try {
+        const payload = { token: origToken, name };
+        if (newToken !== origToken) {
+          payload.newToken = newToken;
+        }
+
+        await adminFetch('/api/admin/users', {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+
+        toast('用户信息与口令已成功更新', 'success');
+        closeEditModal();
+        loadUsers();
+      } catch (err) {
+        toast(`更新失败: ${err.message}`, 'error');
+      } finally {
+        el.editModalSubmit.disabled = false;
+        el.editModalSubmit.textContent = '保存更改';
+      }
+    });
+
     // 页面初始化：若已有 session 则尝试自动免密进入
     if (currentAdminToken) {
       handleLogin(currentAdminToken);
     }
   </script>
 </body>
+
 </html>

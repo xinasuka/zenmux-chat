@@ -91,8 +91,25 @@ export async function onRequestPost(context) {
       return json({ error: '用户名称不能超过 50 个字符' }, 400);
     }
 
-    // 生成 8 位无歧义小写字母与数字组合口令
-    const token = generateToken(8);
+    // 支持管理员自定义初始口令，或自动生成 8 位无歧义组合口令
+    let token = '';
+    const customToken = String(payload.token || '').trim();
+    if (customToken) {
+      if (customToken.length < 3 || customToken.length > 64) {
+        return json({ error: '访问口令长度需在 3 到 64 个字符之间' }, 400);
+      }
+      if (!/^[a-zA-Z0-9_\-]+$/.test(customToken)) {
+        return json({ error: '访问口令仅支持字母、数字、下划线及连字符' }, 400);
+      }
+      const existing = await kv.get(`user:${customToken}`, { type: 'json' });
+      if (existing) {
+        return json({ error: `访问口令「${customToken}」已被其他用户占用，请更换` }, 409);
+      }
+      token = customToken;
+    } else {
+      token = generateToken(8);
+    }
+
     const user = {
       token,
       name,
@@ -118,7 +135,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// 3. 切换用户状态 (active <-> revoked)
+// 3. 编辑用户信息与口令 (切换状态、修改名称、更换口令)
 export async function onRequestPatch(context) {
   try {
     const { request, env } = context;
@@ -142,9 +159,8 @@ export async function onRequestPatch(context) {
     }
 
     const token = String(payload.token || '').trim();
-    const status = String(payload.status || '').trim();
-    if (!token || !['active', 'revoked'].includes(status)) {
-      return json({ error: '缺少有效的 token 或 status 参数' }, 400);
+    if (!token) {
+      return json({ error: '缺少必需的 token 参数' }, 400);
     }
 
     const user = await kv.get(`user:${token}`, { type: 'json' });
@@ -152,17 +168,81 @@ export async function onRequestPatch(context) {
       return json({ error: '未找到该用户' }, 404);
     }
 
-    user.status = status;
-    user.updatedAt = Date.now();
-    await kv.put(`user:${token}`, JSON.stringify(user));
+    let modified = false;
 
-    // 同步清除边缘隔离区只读缓存，确保立即生效
-    invalidateTokenCache(token);
+    // A. 状态更新 (active / revoked)
+    if (payload.status !== undefined) {
+      const status = String(payload.status).trim();
+      if (!['active', 'revoked'].includes(status)) {
+        return json({ error: '状态参数必须为 active 或 revoked' }, 400);
+      }
+      user.status = status;
+      modified = true;
+    }
+
+    // B. 用户备注名称更新 (name)
+    if (payload.name !== undefined) {
+      const name = String(payload.name).trim();
+      if (!name) {
+        return json({ error: '用户备注名称不能为空' }, 400);
+      }
+      if (name.length > 50) {
+        return json({ error: '用户名称不能超过 50 个字符' }, 400);
+      }
+      user.name = name;
+      modified = true;
+    }
+
+    // C. 访问口令更新 (newToken)
+    const rawNewToken = payload.newToken !== undefined ? String(payload.newToken).trim() : '';
+    if (rawNewToken && rawNewToken !== token) {
+      if (rawNewToken.length < 3 || rawNewToken.length > 64) {
+        return json({ error: '新访问口令长度需在 3 到 64 个字符之间' }, 400);
+      }
+      if (!/^[a-zA-Z0-9_\-]+$/.test(rawNewToken)) {
+        return json({ error: '新访问口令仅支持字母、数字、下划线及连字符' }, 400);
+      }
+
+      // 查重：确保新口令未被其他人占用
+      const existing = await kv.get(`user:${rawNewToken}`, { type: 'json' });
+      if (existing) {
+        return json({ error: `访问口令「${rawNewToken}」已被其他用户占用，请更换` }, 409);
+      }
+
+      user.token = rawNewToken;
+      user.updatedAt = Date.now();
+
+      // 1. 写入新 Key
+      await kv.put(`user:${rawNewToken}`, JSON.stringify(user));
+      // 2. 删除旧 Key
+      await kv.delete(`user:${token}`);
+
+      // 3. 更新全局索引中的 token
+      let index = (await kv.get('users:index', { type: 'json' })) || [];
+      if (Array.isArray(index)) {
+        index = index.map((t) => (t === token ? rawNewToken : t));
+        if (!index.includes(rawNewToken)) index.unshift(rawNewToken);
+        await kv.put('users:index', JSON.stringify(index));
+      }
+
+      // 4. 清除新旧口令的边缘隔离区只读缓存
+      invalidateTokenCache(token);
+      invalidateTokenCache(rawNewToken);
+
+      return json({ success: true, user });
+    }
+
+    if (modified) {
+      user.updatedAt = Date.now();
+      await kv.put(`user:${token}`, JSON.stringify(user));
+      invalidateTokenCache(token);
+      return json({ success: true, user });
+    }
 
     return json({ success: true, user });
   } catch (fatalErr) {
     return json({
-      error: '更新用户状态失败',
+      error: '更新用户信息失败',
       detail: String(fatalErr && fatalErr.message)
     }, 500);
   }
