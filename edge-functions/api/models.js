@@ -17,6 +17,8 @@ function json(obj, status = 200) {
   });
 }
 
+import { verifyUserToken } from './_auth.js';
+
 export function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -30,12 +32,10 @@ export async function onRequestGet(context) {
       return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
     }
 
-    const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
-    if (accessToken) {
-      const auth = request.headers.get('X-Access-Token') || '';
-      if (auth !== accessToken) {
-        return json({ error: 'unauthorized' }, 401);
-      }
+    // 统一门禁鉴权：通过 EdgeOne KV (ZENMUX_CHAT) 校验 8 位用户口令
+    const auth = await verifyUserToken(request, env);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
     }
 
     const headers = {

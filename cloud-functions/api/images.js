@@ -298,12 +298,18 @@ export async function onRequestPost(context) {
       return json({ error: '服务端未配置环境变量 ZENMUX_API_KEY' }, 500);
     }
 
-    const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
-    if (accessToken) {
-      const auth = request.headers.get('X-Access-Token') || '';
-      if (auth !== accessToken) {
-        return json({ error: 'unauthorized' }, 401);
-      }
+    // 统一门禁鉴权：通过 EdgeOne KV (ZENMUX_CHAT) 校验 8 位用户口令
+    const token = (request.headers.get('X-Access-Token') || '').trim();
+    if (!token) {
+      return json({ error: '未提供访问口令 (X-Access-Token)' }, 401);
+    }
+    const kv = (env && env.ZENMUX_CHAT) || (env && env.ZENMUX_KV);
+    if (!kv) {
+      return json({ error: '服务端未绑定 ZENMUX_CHAT KV 命名空间' }, 500);
+    }
+    const user = await kv.get(`user:${token}`, { type: 'json' }).catch(() => null);
+    if (!user || user.status !== 'active') {
+      return json({ error: '访问口令无效或已被禁用' }, 401);
     }
 
     let payload;

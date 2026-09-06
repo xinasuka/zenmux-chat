@@ -5,19 +5,7 @@
 const OPENALEX_ENDPOINT = 'https://api.openalex.org/works';
 const SELECT_FIELDS = 'id,doi,title,publication_year,cited_by_count,primary_location,open_access,authorships,abstract_inverted_index';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
-  });
-}
+import { CORS, json, verifyUserToken } from '../_auth.js';
 
 function reconstructAbstract(invertedIndex) {
   if (!invertedIndex || typeof invertedIndex !== 'object') return '';
@@ -40,13 +28,10 @@ export async function onRequestPost(context) {
   try {
     const { request, env } = context;
 
-    // 1. 门禁鉴权
-    const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
-    if (accessToken) {
-      const auth = request.headers.get('X-Access-Token') || '';
-      if (auth !== accessToken) {
-        return json({ error: 'unauthorized' }, 401);
-      }
+    // 1. 统一门禁鉴权：通过 EdgeOne KV (ZENMUX_CHAT) 校验用户口令
+    const auth = await verifyUserToken(request, env);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
     }
 
     let payload;

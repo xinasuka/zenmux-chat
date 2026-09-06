@@ -39,6 +39,7 @@
 * **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
 * **Private & Safe**: Chat history is stored locally in your browser (IndexedDB). API keys are encrypted securely on the edge server and never exposed to the client.
+* **Enterprise-Grade Access Governance**: Dedicated Admin Console (`admin.html`) backed by Tencent Cloud EdgeOne Key-Value (KV: `ZENMUX_CHAT`) storage and in-memory V8 isolate caching. Create, enable, or revoke user access tokens instantly with zero external database configuration.
 * **Zero Infrastructure Cost**: Hosted on Tencent Cloud EdgeOne Pages serverless infrastructure.
 
 ---
@@ -52,9 +53,10 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 
 ### 2. Deploy on Tencent Cloud EdgeOne Pages
 1. Log in to [Tencent Cloud EdgeOne](https://edgeone.ai/) (or EdgeOne International).
-2. Navigate to **Pages** -> **New Project** -> Link your GitHub repository.
-3. Configure the following **Environment Variables**:
-   - `ACCESS_TOKEN`: A private password of your choice to protect your chat site (e.g. `mysecret123`).
+2. Create a Key-Value (KV) Namespace named `ZENMUX_CHAT` in EdgeOne Console and bind it to your Pages project with variable name `ZENMUX_CHAT`.
+3. Navigate to **Pages** -> **New Project** -> Link your GitHub repository.
+4. Configure the following **Environment Variables**:
+   - `ADMIN_TOKEN`: Master secret password for accessing the `/admin.html` console to generate and manage user tokens.
    - `ZENMUX_API_KEY`: Your API Key from [ZenMux](https://zenmux.ai).
    - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch for real-time web search.
    - `FIRECRAWL_API_KEY` *(Optional)*: Your API Key from [Firecrawl](https://firecrawl.dev) for deep React/SPA webpage extraction.
@@ -63,7 +65,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `NEWSAPI_KEY` *(Optional)*: Your API Key from [NewsAPI.org](https://newsapi.org) for international breaking news.
    - `SEMANTIC_SCHOLAR_KEY` *(Optional)*: For enhanced Semantic Scholar search rate limits.
    - `GITHUB_TOKEN` *(Optional)*: For higher GitHub API rate limits.
-4. Click **Deploy**. Your personal AI assistant is live.
+5. Click **Deploy**.
+6. Visit `https://<your-domain>/admin.html`, log in with your `ADMIN_TOKEN`, and issue access tokens for your users.
 
 ---
 
@@ -105,15 +108,17 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 6. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
 7. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 8. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
-9. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
-10. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
+9. **多租户口令管理与后台**：内置基于腾讯云 EdgeOne 边缘键值存储（KV: `ZENMUX_CHAT`）的管理后台 (`admin.html`)，管理员可直接为不同使用者分配、禁用或删除访问口令，零外部数据库依赖。
+10. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
+11. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
 
 ### 极速部署指南
 
 1. **获取代码**：Fork 本项目到你的 GitHub 账户。
-2. **连接 EdgeOne**：在 [腾讯云 EdgeOne 控制台](https://edgeone.ai/) 新建 Pages 项目并绑定该仓库。
-3. **配置环境变量**：
-   - `ACCESS_TOKEN`：你的专属访问密码（打开网页时输入验证）。
+2. **创建 KV 命名空间**：在腾讯云 EdgeOne 控制台「边缘函数/边缘键值存储 KV」中创建命名空间 `ZENMUX_CHAT`，并在 Pages 项目中绑定变量名 `ZENMUX_CHAT`。
+3. **连接 EdgeOne**：在 [腾讯云 EdgeOne 控制台](https://edgeone.ai/) 新建 Pages 项目并绑定该仓库。
+4. **配置环境变量**：
+   - `ADMIN_TOKEN`：管理员主控密码（用于登录 `/admin.html` 生成和管理用户口令）。
    - `ZENMUX_API_KEY`：[ZenMux.ai](https://zenmux.ai) 平台的 API Key。
    - `ANYSEARCH_API_KEY`（可选）：联网检索服务的 API Key。
    - `FIRECRAWL_API_KEY`（可选）：[Firecrawl](https://firecrawl.dev) 深度网页抓取服务的 API Key。
@@ -122,7 +127,8 @@ git clone https://github.com/xinasuka/zenmux-chat.git
    - `NEWSAPI_KEY`（可选）：[NewsAPI.org](https://newsapi.org) 新闻检索 API Key。
    - `SEMANTIC_SCHOLAR_KEY`（可选）：学术检索 API Key。
    - `GITHUB_TOKEN`（可选）：GitHub API Token。
-4. **一键部署**：点击部署，稍等 1 分钟即可拥有属于你自己的个人 AI 工作站。
+5. **一键部署**：点击部署，完成首次构建。
+6. **分配访问口令**：在浏览器中打开 `https://<你的域名>/admin.html`，输入 `ADMIN_TOKEN` 登录管理后台，为使用者生成访问口令，用户凭口令即可进入主站畅快使用。
 
 ---
 

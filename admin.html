@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZenMux 控制台 - 用户口令与权限管理</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-bg: rgba(18, 20, 29, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-hover: rgba(99, 102, 241, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    /* 顶部导航 */
+    .admin-header {
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(9, 10, 15, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .nav-container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand svg {
+      color: var(--primary);
+    }
+
+    .badge-admin {
+      background: rgba(99, 102, 241, 0.16);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-link:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* 主布局 */
+    .admin-main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* 登录卡片 */
+    .login-wrapper {
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 36px 32px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      text-align: center;
+    }
+
+    .login-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .login-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .login-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 仪表盘面板 */
+    .dashboard-grid {
+      display: grid;
+      gap: 24px;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 新建用户栏 */
+    .create-form {
+      display: flex;
+      gap: 12px;
+    }
+
+    .create-form .form-input {
+      flex: 1;
+    }
+
+    .create-form .btn-primary {
+      width: auto;
+      white-space: nowrap;
+      padding: 10px 20px;
+    }
+
+    /* 新生成口令展示卡片 */
+    .new-token-banner {
+      margin-top: 16px;
+      padding: 16px 20px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .new-token-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .new-token-label {
+      font-size: 12px;
+      color: #6ee7b7;
+    }
+
+    .new-token-val {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #10b981;
+    }
+
+    /* 用户表格 */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .token-cell {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+
+    .copy-btn:hover {
+      color: var(--text);
+    }
+
+    /* 状态徽标 */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .status-active {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-active::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .status-revoked {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-revoked::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--danger);
+    }
+
+    .table-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-action-danger:hover {
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.4);
+      background: var(--danger-bg);
+    }
+
+    .empty-placeholder {
+      padding: 40px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Toast 消息提示 */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .toast {
+      background: rgba(18, 20, 29, 0.95);
+      border: 1px solid var(--card-border);
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(12px);
+      animation: slideUp 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-success { border-color: rgba(16, 185, 129, 0.4); }
+    .toast-error { border-color: rgba(239, 68, 68, 0.4); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="admin-header">
+    <div class="nav-container">
+      <div class="brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+        </svg>
+        <span>ZenMux</span>
+        <span class="badge-admin">控制台</span>
+      </div>
+      <div class="nav-actions">
+        <a href="./index.html" class="btn-link">← 返回聊天</a>
+        <button id="logout-btn" class="btn-secondary hidden">退出登录</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主容器 -->
+  <main class="admin-main">
+
+    <!-- 1. 登录门禁视窗 -->
+    <div id="login-view" class="login-wrapper">
+      <div class="login-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+      <h1 class="login-title">管理员身份认证</h1>
+      <p class="login-desc">请输入环境变量中配置的 ADMIN_TOKEN 以解锁用户口令与权限管理系统</p>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="admin-token-input">管理口令 (ADMIN_TOKEN)</label>
+          <input type="password" id="admin-token-input" class="form-input" placeholder="输入管理口令..." required autocomplete="current-password">
+        </div>
+        <button type="submit" id="login-submit-btn" class="btn-primary">验证并登录</button>
+      </form>
+    </div>
+
+    <!-- 2. 仪表盘视窗 -->
+    <div id="dashboard-view" class="dashboard-grid hidden">
+
+      <!-- 卡片：新建用户 -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            分配新用户访问口令
+          </h2>
+        </div>
+        <form id="create-user-form" class="create-form">
+          <input type="text" id="user-name-input" class="form-input" placeholder="输入用户备注名称 (例如: 研发组-小王 / 市场部)" required maxlength="50">
+          <button type="submit" id="create-user-btn" class="btn-primary">生成访问口令</button>
+        </form>
+
+        <!-- 新生成口令高亮通知栏 -->
+        <div id="new-token-callout" class="new-token-banner hidden">
+          <div class="new-token-meta">
+            <span class="new-token-label">新生成访问口令已写入 EdgeOne KV：</span>
+            <span id="new-token-display" class="new-token-val">--------</span>
+          </div>
+          <button type="button" id="copy-new-token-btn" class="btn-secondary">一键复制口令</button>
+        </div>
+      </section>
+
+      <!-- 卡片：用户列表 -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            用户与口令目录
+            <span id="user-count-badge" class="badge-admin">0 个用户</span>
+          </h2>
+          <button type="button" id="refresh-btn" class="btn-secondary">刷新数据</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>用户名称</th>
+                <th>访问口令 (Token)</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th style="text-align: right;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr>
+                <td colspan="5" class="empty-placeholder">正在同步 EdgeOne KV 数据...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module">
+    const STORAGE_KEY = 'zm_admin_token';
+    let currentAdminToken = sessionStorage.getItem(STORAGE_KEY) || '';
+
+    const el = {
+      loginView: document.getElementById('login-view'),
+      dashboardView: document.getElementById('dashboard-view'),
+      loginForm: document.getElementById('login-form'),
+      adminTokenInput: document.getElementById('admin-token-input'),
+      loginSubmitBtn: document.getElementById('login-submit-btn'),
+      logoutBtn: document.getElementById('logout-btn'),
+      createUserForm: document.getElementById('create-user-form'),
+      userNameInput: document.getElementById('user-name-input'),
+      createUserBtn: document.getElementById('create-user-btn'),
+      newTokenCallout: document.getElementById('new-token-callout'),
+      newTokenDisplay: document.getElementById('new-token-display'),
+      copyNewTokenBtn: document.getElementById('copy-new-token-btn'),
+      refreshBtn: document.getElementById('refresh-btn'),
+      userCountBadge: document.getElementById('user-count-badge'),
+      usersTableBody: document.getElementById('users-table-body'),
+      toastContainer: document.getElementById('toast-container'),
+    };
+
+    function toast(msg, type = 'info') {
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      el.toastContainer.appendChild(t);
+      setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transition = 'opacity 0.3s';
+        setTimeout(() => t.remove(), 300);
+      }, 3000);
+    }
+
+    // 格式化时间戳
+    function formatTime(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // 统一发送后台管理请求
+    async function adminFetch(endpoint, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': currentAdminToken,
+        ...(options.headers || {})
+      };
+      const res = await fetch(endpoint, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    // 加载并渲染用户列表
+    async function loadUsers() {
+      try {
+        const data = await adminFetch('/api/admin/users');
+        const users = data.users || [];
+        el.userCountBadge.textContent = `${users.length} 个用户`;
+
+        if (users.length === 0) {
+          el.usersTableBody.innerHTML = '<tr><td colspan="5" class="empty-placeholder">暂无任何用户口令，请在上表单中输入名称并生成。</td></tr>';
+          return;
+        }
+
+        el.usersTableBody.innerHTML = '';
+        users.forEach((u) => {
+          const tr = document.createElement('tr');
+          const isRevoked = u.status === 'revoked';
+
+          tr.innerHTML = `
+            <td style="font-weight: 500;">${escapeHtml(u.name || '未命名')}</td>
+            <td>
+              <span class="token-cell">
+                <span>${escapeHtml(u.token)}</span>
+                <button class="copy-btn" title="复制口令" data-token="${escapeHtml(u.token)}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+              </span>
+            </td>
+            <td>
+              <span class="status-badge ${isRevoked ? 'status-revoked' : 'status-active'}">
+                ${isRevoked ? '已禁用' : '正常'}
+              </span>
+            </td>
+            <td style="color: var(--text-muted); font-size: 12px;">${formatTime(u.createdAt)}</td>
+            <td style="text-align: right;">
+              <div class="table-actions" style="justify-content: flex-end;">
+                <button class="btn-action toggle-btn" data-token="${escapeHtml(u.token)}" data-status="${isRevoked ? 'active' : 'revoked'}">
+                  ${isRevoked ? '恢复启用' : '禁用'}
+                </button>
+                <button class="btn-action btn-action-danger delete-btn" data-token="${escapeHtml(u.token)}" data-name="${escapeHtml(u.name)}">
+                  删除
+                </button>
+              </div>
+            </td>
+          `;
+          el.usersTableBody.appendChild(tr);
+        });
+
+        // 绑定复制按钮
+        el.usersTableBody.querySelectorAll('.copy-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const token = btn.getAttribute('data-token');
+            navigator.clipboard.writeText(token);
+            toast(`已复制口令: ${token}`, 'success');
+          });
+        });
+
+        // 绑定切换状态按钮
+        el.usersTableBody.querySelectorAll('.toggle-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const token = btn.getAttribute('data-token');
+            const targetStatus = btn.getAttribute('data-status');
+            btn.disabled = true;
+            try {
+              await adminFetch('/api/admin/users', {
+                method: 'PATCH',
+                body: JSON.stringify({ token, status: targetStatus })
+              });
+              toast(`用户口令状态已更新为：${targetStatus === 'active' ? '正常' : '已禁用'}`, 'success');
+              loadUsers();
+            } catch (err) {
+              toast(`操作失败: ${err.message}`, 'error');
+              btn.disabled = false;
+            }
+          });
+        });
+
+        // 绑定删除按钮
+        el.usersTableBody.querySelectorAll('.delete-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const token = btn.getAttribute('data-token');
+            const name = btn.getAttribute('data-name');
+            if (!confirm(`确定彻底删除用户「${name}」(${token}) 吗？删除后该口令将立即失去所有访问权限。`)) return;
+            btn.disabled = true;
+            try {
+              await adminFetch(`/api/admin/users?token=${encodeURIComponent(token)}`, {
+                method: 'DELETE'
+              });
+              toast('用户口令已成功删除', 'success');
+              loadUsers();
+            } catch (err) {
+              toast(`删除失败: ${err.message}`, 'error');
+              btn.disabled = false;
+            }
+          });
+        });
+
+      } catch (err) {
+        el.usersTableBody.innerHTML = `<tr><td colspan="5" class="empty-placeholder" style="color: #ef4444;">无法读取数据: ${escapeHtml(err.message)}</td></tr>`;
+        if (err.message.includes('401') || err.message.includes('认证失败')) {
+          logout();
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // 登录处理
+    async function handleLogin(token) {
+      el.loginSubmitBtn.disabled = true;
+      el.loginSubmitBtn.textContent = '正在验证...';
+      try {
+        currentAdminToken = token.trim();
+        // 尝试发包验证
+        await adminFetch('/api/admin/users');
+        sessionStorage.setItem(STORAGE_KEY, currentAdminToken);
+        el.loginView.classList.add('hidden');
+        el.dashboardView.classList.remove('hidden');
+        el.logoutBtn.classList.remove('hidden');
+        toast('管理员身份验证成功', 'success');
+        loadUsers();
+      } catch (err) {
+        toast(`登录失败: ${err.message}`, 'error');
+        currentAdminToken = '';
+        sessionStorage.removeItem(STORAGE_KEY);
+      } finally {
+        el.loginSubmitBtn.disabled = false;
+        el.loginSubmitBtn.textContent = '验证并登录';
+      }
+    }
+
+    function logout() {
+      currentAdminToken = '';
+      sessionStorage.removeItem(STORAGE_KEY);
+      el.loginView.classList.remove('hidden');
+      el.dashboardView.classList.add('hidden');
+      el.logoutBtn.classList.add('hidden');
+      el.adminTokenInput.value = '';
+      el.newTokenCallout.classList.add('hidden');
+      toast('已退出管理会话', 'info');
+    }
+
+    // 表单事件
+    el.loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleLogin(el.adminTokenInput.value);
+    });
+
+    el.logoutBtn.addEventListener('click', logout);
+
+    el.refreshBtn.addEventListener('click', () => {
+      toast('正在刷新数据...', 'info');
+      loadUsers();
+    });
+
+    el.createUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = el.userNameInput.value.trim();
+      if (!name) return;
+
+      el.createUserBtn.disabled = true;
+      el.createUserBtn.textContent = '正在生成...';
+      try {
+        const data = await adminFetch('/api/admin/users', {
+          method: 'POST',
+          body: JSON.stringify({ name })
+        });
+        const user = data.user;
+        el.userNameInput.value = '';
+        el.newTokenDisplay.textContent = user.token;
+        el.newTokenCallout.classList.remove('hidden');
+        toast(`用户「${user.name}」已创建，口令为: ${user.token}`, 'success');
+        loadUsers();
+      } catch (err) {
+        toast(`创建失败: ${err.message}`, 'error');
+      } finally {
+        el.createUserBtn.disabled = false;
+        el.createUserBtn.textContent = '生成访问口令';
+      }
+    });
+
+    el.copyNewTokenBtn.addEventListener('click', () => {
+      const token = el.newTokenDisplay.textContent;
+      if (token && token !== '--------') {
+        navigator.clipboard.writeText(token);
+        toast(`已复制口令: ${token}`, 'success');
+      }
+    });
+
+    // 页面初始化：若已有 session 则尝试自动免密进入
+    if (currentAdminToken) {
+      handleLogin(currentAdminToken);
+    }
+  </script>
+</body>
+</html>

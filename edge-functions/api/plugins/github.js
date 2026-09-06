@@ -2,21 +2,9 @@
 // 在 EdgeOne Pages 边缘节点上代理 GitHub REST API，提供开源仓库详情检索与热门项目关键词搜索探索。
 // GITHUB_TOKEN 为可选 Secret 环境变量（配置后可获得 5,000 次/小时高配额）。
 
+import { CORS, json, verifyUserToken } from '../_auth.js';
+
 const GITHUB_API_BASE = 'https://api.github.com';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, X-Access-Token, Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
-  });
-}
 
 export function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -26,14 +14,11 @@ export async function onRequestPost(context) {
   try {
     const { request, env } = context;
 
-  // 1. 门禁鉴权
-  const accessToken = env.ACCESS_TOKEN ? String(env.ACCESS_TOKEN).trim() : '';
-  if (accessToken) {
-    const auth = request.headers.get('X-Access-Token') || '';
-    if (auth !== accessToken) {
-      return json({ error: 'unauthorized' }, 401);
+    // 1. 统一门禁鉴权：通过 EdgeOne KV (ZENMUX_CHAT) 校验用户口令
+    const auth = await verifyUserToken(request, env);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
     }
-  }
 
   let payload;
   try {
