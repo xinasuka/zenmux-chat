@@ -1338,6 +1338,44 @@
     color: #a5b4fc;
   }
 
+  /* ---------- Light theme gate aesthetics ---------- */
+  [data-theme="light"] #gate {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 50% 20%, rgba(204, 120, 92, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 85% 85%, rgba(204, 120, 92, 0.06) 0%, transparent 50%);
+  }
+  [data-theme="light"] #gate-box {
+    background: var(--bg-elev);
+    border-color: var(--line);
+    box-shadow: 0 20px 50px rgba(60, 50, 40, 0.09), 0 4px 16px rgba(60, 50, 40, 0.04);
+  }
+  [data-theme="light"] .gate-brand-icon {
+    background: var(--accent-glow);
+    color: var(--accent);
+    border-color: rgba(204, 120, 92, 0.3);
+    box-shadow: 0 0 24px rgba(204, 120, 92, 0.18);
+  }
+  [data-theme="light"] #gate-input {
+    background: rgba(0, 0, 0, 0.035);
+    border-color: var(--line);
+    color: var(--fg);
+  }
+  [data-theme="light"] #gate-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.22);
+  }
+  [data-theme="light"] #gate-err:not(:empty) {
+    background: rgba(217, 56, 56, 0.08);
+    border-color: rgba(217, 56, 56, 0.22);
+    color: var(--danger);
+  }
+  [data-theme="light"] #gate-err.gate-loading {
+    background: rgba(204, 120, 92, 0.1);
+    border-color: rgba(204, 120, 92, 0.25);
+    color: var(--accent);
+  }
+
   #toast{
     position:absolute;left:50%;transform:translateX(-50%);bottom:96px;
     padding:9px 18px;border-radius:10px;font-size:13px;max-width:70vw;

@@ -7,6 +7,19 @@
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<script>
+  (function() {
+    try {
+      var m = localStorage.getItem('zm.theme.mode') || localStorage.getItem('zm.theme') || 'auto';
+      var isLight = m === 'light' || (m === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+      if (isLight) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    } catch (e) {}
+  })();
+</script>
 <link rel="stylesheet" href="styles.css" data-page-node-id="6kEmaC6Kp2sT5ELRqtxGfL">
 </head>
 <body class="is-gated" data-page-node-id="YdTK9aH82CgKi4dCCtn1aI">
