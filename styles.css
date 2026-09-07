@@ -487,6 +487,9 @@
     position: relative;
     flex: 0 0 auto;
   }
+  .param-picker-wrap.open {
+    z-index: 1200;
+  }
   .param-picker-btn {
     display: inline-flex;
     align-items: center;
@@ -720,30 +723,36 @@
     }
     .model-group-header{padding:9px 16px;font-size:12px}
     #settings-btn{order:3;flex:0 0 auto;display:flex;width:34px;height:34px;padding:0;align-items:center;justify-content:center}
-    #theme-toggle{order:4;flex:0 0 auto;display:flex}
-    #logout{order:5;flex:0 0 auto}
+    #logout{order:4;flex:0 0 auto;height:34px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;border-radius:9px}
     .spacer{display:none}
     #topbar-params{
-      order:6;width:100%;display:flex;gap:6px;align-items:center;
+      order:5;width:100%;display:flex;gap:4px;align-items:center;min-width:0;position:relative;z-index:105;
     }
     #topbar-params .chat-params-group, #topbar-params .image-params-group{
-      width:100%;display:flex;gap:6px;align-items:center;
+      width:100%;display:flex;gap:4px;align-items:center;min-width:0;flex:1 1 0%;
     }
     #topbar-params .mini-sel{
-      flex:1 1 0%;min-width:0;padding:6px 3px;font-size:11.5px;text-align:center;
+      flex:1 1 0%;min-width:0;padding:6px 2px;font-size:11px;text-align:center;
       text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
     }
     #topbar-params .param-picker-wrap{
       flex:1 1 0%;min-width:0;
     }
+    #topbar-params .param-picker-wrap.open{
+      z-index:1300;
+    }
     #topbar-params .param-picker-btn{
-      width:100%;padding:6px 4px;font-size:11px;justify-content:center;gap:3px;
+      width:100%;min-width:0;padding:6px 3px;font-size:11px;justify-content:space-between;gap:2px;overflow:hidden;
     }
     #topbar-params .param-picker-label{
-      font-size:11px;text-align:center;
+      font-size:11px;text-align:center;min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    #topbar-params .param-picker-arrow{
+      width:10px;height:10px;flex:0 0 10px;
     }
     #topbar-params .param-picker-panel{
       max-width:85vw;
+      box-shadow:0 8px 32px rgba(0,0,0,0.55), 0 0 1px rgba(255,255,255,0.12);
     }
     #composer-wrap{padding:0 12px 12px}
     #composer{
@@ -762,6 +771,53 @@
     }
     #input{
       flex:1;min-width:0;
+    }
+
+    /* Mobile Bottom Sheet Modals (Settings & Plugins) */
+    .modal-backdrop{
+      align-items:flex-end;
+      padding:0;
+    }
+    .modal-sheet-handle{
+      display:block;width:38px;height:4px;border-radius:2px;background:var(--fg-faint);opacity:.5;
+      margin:0 auto 10px;flex-shrink:0;
+    }
+    .settings-modal, .plugins-modal{
+      width:100%;max-width:100%;
+      max-height:86dvh;height:auto;
+      display:flex;flex-direction:column;
+      border-radius:20px 20px 0 0;
+      border-bottom:none;
+      box-shadow:0 -12px 48px rgba(0,0,0,.65);
+      padding:16px 16px max(16px, env(safe-area-inset-bottom));
+      gap:12px;
+      margin:0;
+      animation: sheetSlideUp .25s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    .settings-modal-header, .plugins-modal-header{
+      flex:0 0 auto;
+    }
+    .settings-modal-body, .plugins-modal-body{
+      flex:1 1 auto;
+      min-height:0;
+      max-height:none;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
+      gap:12px;
+      padding-right:2px;
+    }
+    .settings-section{
+      padding:12px 14px;
+      gap:8px;
+    }
+    .settings-textarea{
+      min-height:80px;
+      font-size:14px;
+    }
+    .settings-modal-footer{
+      flex:0 0 auto;
+      padding-top:10px;
     }
   }
   .spacer{flex:1}
@@ -1731,6 +1787,11 @@
   @keyframes modalScaleUp{
     from{opacity:0;transform:scale(.95) translateY(8px)}
     to{opacity:1;transform:scale(1) translateY(0)}
+  }
+  .modal-sheet-handle{display:none}
+  @keyframes sheetSlideUp{
+    from{transform:translateY(100%)}
+    to{transform:translateY(0)}
   }
 
   .plugins-modal-header{
