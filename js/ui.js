@@ -743,9 +743,9 @@ export function initParamPickers() {
         wrap.classList.add('open');
         btn.setAttribute('aria-expanded', 'true');
 
-        // Dynamic edge collision detection
+        // Dynamic edge collision detection: align right if panel overflows or element is in right hemisphere on compact screens
         const rect = wrap.getBoundingClientRect();
-        if (rect.left + 140 > window.innerWidth) {
+        if (rect.left + 140 > window.innerWidth || (window.innerWidth <= 768 && rect.left + rect.width / 2 > window.innerWidth / 2)) {
           wrap.classList.add('align-right');
         } else {
           wrap.classList.remove('align-right');
