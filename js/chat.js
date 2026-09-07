@@ -46,6 +46,33 @@ export function getToolCallFingerprint(name, args) {
   return name + '::' + JSON.stringify(sorted);
 }
 
+export function compileTemporalAnchor(now = new Date()) {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+
+    const weekdaysEn = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdaysZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const dayIdx = now.getDay();
+    const weekday = `${weekdaysEn[dayIdx]} / ${weekdaysZh[dayIdx]}`;
+
+    const offsetMin = -now.getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const absMin = Math.abs(offsetMin);
+    const offsetHrs = Math.floor(absMin / 60);
+    const offsetRemMin = absMin % 60;
+    const gmtOffset = `UTC${sign}${offsetHrs}${offsetRemMin ? ':' + String(offsetRemMin).padStart(2, '0') : ''}`;
+
+    return `[Current Time Context: ${year}-${month}-${day} ${hours}:${minutes} (${weekday}), Timezone: ${timeZone} (${gmtOffset})]`;
+  } catch (e) {
+    return `[Current Time Context: ${now.toISOString()}]`;
+  }
+}
+
 export function pump(res, onChunk) {
   const reader = res.body.getReader();
   const dec = new TextDecoder('utf-8');
@@ -160,6 +187,10 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
   function buildPayload(msgs, allowTools) {
     const systemParts = [];
+    const temporalAnchor = compileTemporalAnchor();
+    if (temporalAnchor) {
+      systemParts.push(temporalAnchor);
+    }
     if (state.instructions && state.instructions.trim() && state.instructionsEnabled) {
       systemParts.push(state.instructions.trim());
     }
@@ -178,6 +209,8 @@ export async function executeAssistantStream(userMsg, options = {}) {
       };
       if (!finalMsgs.length || finalMsgs[0].role !== 'system') {
         finalMsgs = [systemInstruction, ...finalMsgs];
+      } else {
+        finalMsgs = [systemInstruction, ...finalMsgs.slice(1)];
       }
     }
 
