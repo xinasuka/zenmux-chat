@@ -745,7 +745,7 @@ export function initParamPickers() {
 
         // Dynamic edge collision detection
         const rect = wrap.getBoundingClientRect();
-        if (rect.left + 160 > window.innerWidth) {
+        if (rect.left + 140 > window.innerWidth) {
           wrap.classList.add('align-right');
         } else {
           wrap.classList.remove('align-right');

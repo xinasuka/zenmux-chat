@@ -153,7 +153,7 @@
   #sidebar footer{padding:12px 14px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--fg-faint);text-align:center}
 
   /* ---------- main ---------- */
-  #main{flex:1;display:flex;flex-direction:column;min-width:0;max-width:100%;overflow-x:hidden}
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
   #topbar{
     position:relative;
     z-index:100;
@@ -487,6 +487,9 @@
     position: relative;
     flex: 0 0 auto;
   }
+  .param-picker-wrap.open {
+    z-index: 1200;
+  }
   .param-picker-btn {
     display: inline-flex;
     align-items: center;
@@ -723,7 +726,7 @@
     #logout{order:4;flex:0 0 auto;height:34px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;border-radius:9px}
     .spacer{display:none}
     #topbar-params{
-      order:5;width:100%;display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden;
+      order:5;width:100%;display:flex;gap:4px;align-items:center;min-width:0;position:relative;z-index:105;
     }
     #topbar-params .chat-params-group, #topbar-params .image-params-group{
       width:100%;display:flex;gap:4px;align-items:center;min-width:0;flex:1 1 0%;
@@ -733,7 +736,10 @@
       text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
     }
     #topbar-params .param-picker-wrap{
-      flex:1 1 0%;min-width:0;overflow:hidden;
+      flex:1 1 0%;min-width:0;
+    }
+    #topbar-params .param-picker-wrap.open{
+      z-index:1300;
     }
     #topbar-params .param-picker-btn{
       width:100%;min-width:0;padding:6px 3px;font-size:11px;justify-content:space-between;gap:2px;overflow:hidden;
@@ -746,6 +752,7 @@
     }
     #topbar-params .param-picker-panel{
       max-width:85vw;
+      box-shadow:0 8px 32px rgba(0,0,0,0.55), 0 0 1px rgba(255,255,255,0.12);
     }
     #composer-wrap{padding:0 12px 12px}
     #composer{
