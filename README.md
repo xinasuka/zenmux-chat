@@ -38,6 +38,7 @@
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
 * **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
+* **Real-Time Token Usage Metrics**: Transparent tracking of prompt, completion, and reasoning token consumption per conversational turn.
 * **Private & Safe**: Chat history is stored locally in your browser (IndexedDB). API keys are encrypted securely on the edge server and never exposed to the client.
 * **Enterprise-Grade Access Governance**: Dedicated Admin Console (`admin.html`) backed by Tencent Cloud EdgeOne Key-Value (KV: `ZENMUX_CHAT`) storage and in-memory V8 isolate caching. Create, enable, or revoke user access tokens instantly with zero external database configuration.
 * **Zero Infrastructure Cost**: Hosted on Tencent Cloud EdgeOne Pages serverless infrastructure.
@@ -70,15 +71,6 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 
 ---
 
-## Modern Experience
-
-* **Responsive Layout**: Seamless experience across desktop, tablet, and mobile browsers.
-* **Anthropic-Style Design**: Switch between Dark Mode and warm Paper Light Mode.
-* **Token Usage Metrics**: Track token consumption for each conversation turn.
-* **Markdown Export**: Copy responses in clean Markdown format with one click.
-
----
-
 <br>
 
 <div align="center" id="中文说明">
@@ -108,9 +100,10 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 6. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
 7. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
 8. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
-9. **多租户口令管理与后台**：内置基于腾讯云 EdgeOne 边缘键值存储（KV: `ZENMUX_CHAT`）的管理后台 (`admin.html`)，管理员可直接为不同使用者分配、禁用或删除访问口令，零外部数据库依赖。
-10. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
-11. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
+9. **Token 用量与消耗透明追踪**：每轮对话均支持直观查看 Prompt 输入、Completion 输出及深度推理的精确 Token 消耗指标。
+10. **多租户口令管理与后台**：内置基于腾讯云 EdgeOne 边缘键值存储（KV: `ZENMUX_CHAT`）的管理后台 (`admin.html`)，管理员可直接为不同使用者分配、禁用或删除访问口令，零外部数据库依赖。
+11. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
+12. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
 
 ### 极速部署指南
 
