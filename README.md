@@ -126,4 +126,4 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 ---
 
 ## License
-MIT License (c) 2026 ZenMux Chat
+Apache License 2.0. See [LICENSE](LICENSE) for details.

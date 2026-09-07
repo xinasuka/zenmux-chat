@@ -1,8 +1,9 @@
 {
   "name": "zenmux-chat",
-  "version": "2.17.17",
+  "version": "2.17.18",
   "private": true,
   "description": "A high-performance, serverless personal AI chat workstation powered by ZenMux and Tencent Cloud EdgeOne Pages.",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 8088",
