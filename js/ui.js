@@ -587,3 +587,195 @@ export function appendBubble(role, sources) {
   if (el.threadInner) el.threadInner.appendChild(wrap);
   return wrap.querySelector('.body');
 }
+
+/* ---------- Custom Parameter Pickers (Visual Parity with Model Picker) ---------- */
+
+export function closeAllParamPickers() {
+  document.querySelectorAll('.param-picker-wrap.open').forEach((w) => {
+    w.classList.remove('open');
+    const b = w.querySelector('.param-picker-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+export function syncParamPicker(selectEl) {
+  if (selectEl && typeof selectEl._syncParamPicker === 'function') {
+    selectEl._syncParamPicker();
+  }
+}
+
+export function initParamPickers() {
+  const selects = [
+    el.effort,
+    el.searchDepth,
+    el.toolTurns,
+    el.ctx,
+    el.imageSize,
+    el.imageQuality,
+    el.imageBackground
+  ].filter(Boolean);
+
+  selects.forEach((sel) => {
+    if (sel.dataset.hasParamPicker) return;
+    sel.dataset.hasParamPicker = 'true';
+
+    // Visually conceal native select while maintaining complete accessibility and form value state
+    sel.classList.add('param-select-hidden');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'param-picker-wrap';
+    wrap.id = `param-picker-${sel.id}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'param-picker-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.title = sel.title || '';
+
+    const label = document.createElement('span');
+    label.className = 'param-picker-label';
+
+    const arrowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    arrowSvg.setAttribute('class', 'param-picker-arrow');
+    arrowSvg.setAttribute('width', '11');
+    arrowSvg.setAttribute('height', '11');
+    arrowSvg.setAttribute('viewBox', '0 0 24 24');
+    arrowSvg.setAttribute('fill', 'none');
+    arrowSvg.setAttribute('stroke', 'currentColor');
+    arrowSvg.setAttribute('stroke-width', '2');
+    arrowSvg.setAttribute('stroke-linecap', 'round');
+    arrowSvg.setAttribute('stroke-linejoin', 'round');
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline.setAttribute('points', '6 9 12 15 18 9');
+    arrowSvg.appendChild(polyline);
+
+    btn.appendChild(label);
+    btn.appendChild(arrowSvg);
+
+    const panel = document.createElement('div');
+    panel.className = 'param-picker-panel';
+    panel.setAttribute('role', 'listbox');
+
+    wrap.appendChild(btn);
+    wrap.appendChild(panel);
+
+    if (sel.parentNode) {
+      sel.parentNode.insertBefore(wrap, sel.nextSibling);
+    }
+
+    function syncUI() {
+      btn.disabled = !!sel.disabled;
+      btn.title = sel.title || '';
+      const activeOpt = Array.from(sel.options).find((o) => o.value === sel.value) || sel.options[0];
+      label.textContent = activeOpt ? activeOpt.textContent : '';
+
+      panel.querySelectorAll('.param-picker-item').forEach((item) => {
+        const isMatch = item.getAttribute('data-value') === sel.value;
+        item.classList.toggle('active', isMatch);
+        item.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+      });
+    }
+
+    function renderOptions() {
+      panel.innerHTML = '';
+      Array.from(sel.options).forEach((opt) => {
+        const item = document.createElement('div');
+        item.className = 'param-picker-item';
+        item.setAttribute('role', 'option');
+        item.setAttribute('data-value', opt.value);
+        item.setAttribute('tabindex', '0');
+
+        const text = document.createElement('span');
+        text.className = 'param-item-text';
+        text.textContent = opt.textContent;
+
+        const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        checkSvg.setAttribute('class', 'param-item-check');
+        checkSvg.setAttribute('width', '12');
+        checkSvg.setAttribute('height', '12');
+        checkSvg.setAttribute('viewBox', '0 0 24 24');
+        checkSvg.setAttribute('fill', 'none');
+        checkSvg.setAttribute('stroke', 'currentColor');
+        checkSvg.setAttribute('stroke-width', '2.5');
+        checkSvg.setAttribute('stroke-linecap', 'round');
+        checkSvg.setAttribute('stroke-linejoin', 'round');
+        const checkPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        checkPoly.setAttribute('points', '20 6 9 17 4 12');
+        checkSvg.appendChild(checkPoly);
+
+        item.appendChild(text);
+        item.appendChild(checkSvg);
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          syncUI();
+          wrap.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        });
+
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            item.click();
+          }
+        });
+
+        panel.appendChild(item);
+      });
+      syncUI();
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (btn.disabled) return;
+      const isOpen = wrap.classList.contains('open');
+
+      closeAllParamPickers();
+      if (el.modelPickerWrap) {
+        el.modelPickerWrap.classList.remove('open');
+        if (el.modelPickerBtn) el.modelPickerBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      if (!isOpen) {
+        wrap.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+
+        // Dynamic edge collision detection
+        const rect = wrap.getBoundingClientRect();
+        if (rect.left + 160 > window.innerWidth) {
+          wrap.classList.add('align-right');
+        } else {
+          wrap.classList.remove('align-right');
+        }
+      }
+    });
+
+    sel.addEventListener('change', syncUI);
+
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(() => syncUI());
+      observer.observe(sel, { attributes: true, attributeFilter: ['disabled', 'title'] });
+    }
+
+    renderOptions();
+    sel._syncParamPicker = syncUI;
+  });
+
+  // Global dismissal listeners (delegated once)
+  if (!document._paramPickerGlobalListeners) {
+    document._paramPickerGlobalListeners = true;
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.param-picker-wrap')) {
+        closeAllParamPickers();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllParamPickers();
+      }
+    });
+  }
+}

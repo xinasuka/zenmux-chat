@@ -5,7 +5,7 @@ import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc } from '.
 import { ZenMuxDB } from './db.js';
 import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
-import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter } from './ui.js';
+import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter, initParamPickers, syncParamPicker, closeAllParamPickers } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
@@ -395,6 +395,7 @@ export function syncModelPickerUI() {
 
 export function openModelPicker() {
   if (!el.modelPickerWrap) return;
+  closeAllParamPickers();
   el.modelPickerWrap.classList.add('open');
   if (el.modelPickerBtn) el.modelPickerBtn.setAttribute('aria-expanded', 'true');
   if (el.modelSearchInput) {
@@ -485,10 +486,12 @@ export function syncEffort() {
   el.effort.title = can
     ? '推理强度：ZenMux 不传此参数时默认 medium'
     : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
+  syncParamPicker(el.effort);
 }
 
 export function syncWorkstationMode(isImgGen, meta) {
   state.isImageMode = !!isImgGen;
+  closeAllParamPickers();
 
   if (el.chatParamsGroup) {
     if (isImgGen) el.chatParamsGroup.classList.add('hide');
@@ -1663,6 +1666,11 @@ export async function initApp() {
   if (el.searchDepth) el.searchDepth.value = state.searchDepth;
   if (el.toolTurns) el.toolTurns.value = String(state.toolMaxTurns);
   if (el.ctx) el.ctx.value = String(state.ctxN);
+  if (el.imageSize) el.imageSize.value = state.imageSize;
+  if (el.imageQuality) el.imageQuality.value = state.imageQuality;
+  if (el.imageBackground) el.imageBackground.value = state.imageBackground;
+
+  initParamPickers();
 
   initVoiceInput();
   autoGrow();

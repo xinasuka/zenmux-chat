@@ -467,6 +467,151 @@
   .mini-sel:disabled{opacity:.38;cursor:not-allowed}
   .mini-sel option{background:var(--bg-elev);color:var(--fg)}
 
+  /* Accessible concealment of underlying native select */
+  .param-select-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Bespoke Parameter Pickers (Visual Parity with Model Picker) */
+  .param-picker-wrap {
+    position: relative;
+    flex: 0 0 auto;
+  }
+  .param-picker-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    color: var(--fg);
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, color .15s ease, opacity .15s ease;
+    user-select: none;
+    text-align: left;
+    white-space: nowrap;
+    min-height: 32px;
+  }
+  .param-picker-btn:hover {
+    border-color: var(--accent);
+  }
+  .param-picker-wrap.open .param-picker-btn {
+    border-color: var(--accent);
+    background: var(--bg-side);
+  }
+  .param-picker-btn:disabled {
+    opacity: .38;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .param-picker-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .param-picker-arrow {
+    flex: 0 0 auto;
+    color: var(--fg-dim);
+    transition: transform .2s cubic-bezier(.16,1,.3,1), color .15s ease;
+  }
+  .param-picker-wrap.open .param-picker-arrow {
+    transform: rotate(180deg);
+    color: var(--accent);
+  }
+
+  /* Popover Dropdown Panel */
+  .param-picker-panel {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    min-width: 135px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.38), 0 0 1px rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 1100;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top left;
+    transition: opacity .16s cubic-bezier(.16,1,.3,1), transform .16s cubic-bezier(.16,1,.3,1), visibility .16s;
+    pointer-events: none;
+    overflow-y: auto;
+    max-height: 260px;
+  }
+  .param-picker-wrap.align-right .param-picker-panel {
+    left: auto;
+    right: 0;
+    transform-origin: top right;
+  }
+  .param-picker-wrap.open .param-picker-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  /* Dropdown Option Items */
+  .param-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--fg);
+    transition: background .12s ease, color .12s ease;
+    user-select: none;
+  }
+  .param-picker-item:hover, .param-picker-item.highlighted {
+    background: var(--bg-side);
+  }
+  .param-picker-item.active {
+    background: var(--accent-glow);
+    color: var(--accent-hover, #928bf2);
+    font-weight: 600;
+  }
+  [data-theme="light"] .param-picker-item.active {
+    background: var(--accent-glow);
+    color: var(--accent, #CC785C);
+  }
+  .param-item-text {
+    white-space: nowrap;
+  }
+  .param-item-check {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    opacity: 0;
+    color: var(--accent);
+    transition: opacity .15s ease;
+  }
+  .param-picker-item.active .param-item-check {
+    opacity: 1;
+  }
+
   #burger{
     display:none;background:transparent;border:1px solid var(--line);color:var(--fg-dim);
     border-radius:9px;padding:7px;width:34px;height:34px;cursor:pointer;
@@ -587,6 +732,18 @@
     #topbar-params .mini-sel{
       flex:1 1 0%;min-width:0;padding:6px 3px;font-size:11.5px;text-align:center;
       text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
+    }
+    #topbar-params .param-picker-wrap{
+      flex:1 1 0%;min-width:0;
+    }
+    #topbar-params .param-picker-btn{
+      width:100%;padding:6px 4px;font-size:11px;justify-content:center;gap:3px;
+    }
+    #topbar-params .param-picker-label{
+      font-size:11px;text-align:center;
+    }
+    #topbar-params .param-picker-panel{
+      max-width:85vw;
     }
     #composer-wrap{padding:0 12px 12px}
     #composer{
