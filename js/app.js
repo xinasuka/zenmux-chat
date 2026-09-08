@@ -1659,7 +1659,7 @@ export async function initApp() {
   initTheme(toast);
   initEventListeners();
   initSidebarResizer();
-  initVersionChecker();
+  initVersionChecker(toast);
 
   if (el.model) el.model.value = state.model;
   if (el.effort) el.effort.value = state.effort;

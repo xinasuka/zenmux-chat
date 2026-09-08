@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.18.2';
+export const APP_VERSION = '2.19.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -104,6 +104,8 @@ export const el = {
   settingsMemoryAddBtn: $('settings-memory-add-btn'),
   settingsMemoryClearBtn: $('settings-memory-clear-btn'),
   settingsMemoryCount: $('settings-memory-count'),
+  settingsCheckUpdateBtn: $('settings-check-update-btn'),
+  settingsUpdateStatus: $('settings-update-status'),
   themePillDark: $('theme-pill-dark'),
   themePillLight: $('theme-pill-light'),
   themePillAuto: $('theme-pill-auto'),

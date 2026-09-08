@@ -62,6 +62,16 @@ export function showUpdateBanner(newVersion) {
   if (el.updateBanner) {
     el.updateBanner.classList.remove('hide');
   }
+  // Synchronize settings modal version card if rendered
+  if (el.settingsUpdateStatus) {
+    el.settingsUpdateStatus.innerHTML = `发现新版本 <strong>v${newVersion}</strong>（当前 v${APP_VERSION}）`;
+    el.settingsUpdateStatus.classList.add('has-update');
+  }
+  if (el.settingsCheckUpdateBtn) {
+    el.settingsCheckUpdateBtn.classList.add('has-update');
+    const label = el.settingsCheckUpdateBtn.querySelector('.check-update-label');
+    if (label) label.textContent = '立即重启更新';
+  }
   // Subtle badge update on sidebar
   document.querySelectorAll('.app-version-badge').forEach((badge) => {
     badge.classList.add('has-update');
@@ -101,10 +111,10 @@ export function flushPendingUpdate() {
  */
 export async function checkVersionForUpdate(force = false) {
   const now = Date.now();
-  if (!force && (now - lastCheckTime) < THROTTLE_MS) return;
+  if (!force && (now - lastCheckTime) < THROTTLE_MS) return { throttled: true };
   lastCheckTime = now;
 
-  if (!force && isSnoozed()) return;
+  if (!force && isSnoozed()) return { snoozed: true };
 
   try {
     const res = await fetch(`/version.json?_t=${now}`, {
@@ -114,7 +124,7 @@ export async function checkVersionForUpdate(force = false) {
         'Pragma': 'no-cache'
       }
     });
-    if (!res.ok) return;
+    if (!res.ok) return { error: true, status: res.status };
     const data = await res.json();
     const remoteVer = data && data.version;
 
@@ -132,9 +142,11 @@ export async function checkVersionForUpdate(force = false) {
       } else {
         showUpdateBanner(remoteVer);
       }
+      return { hasUpdate: true, remoteVersion: remoteVer, currentVersion: APP_VERSION };
     }
+    return { hasUpdate: false, currentVersion: APP_VERSION };
   } catch (err) {
-    // Network errors fail silently without disturbing the user
+    return { error: true, message: err.message };
   }
 }
 
@@ -157,7 +169,7 @@ function stopPeriodicPolling() {
 /**
  * Initialize the SPA Version Checker, event listeners, and visibility triggers.
  */
-export function initVersionChecker() {
+export function initVersionChecker(onToast) {
   // Bind UI buttons
   if (el.updateReload) {
     el.updateReload.addEventListener('click', triggerAppReload);
@@ -167,6 +179,66 @@ export function initVersionChecker() {
   }
   if (el.updateClose) {
     el.updateClose.addEventListener('click', snoozeUpdate);
+  }
+
+  // Bind settings manual update check button
+  if (el.settingsCheckUpdateBtn) {
+    el.settingsCheckUpdateBtn.addEventListener('click', async () => {
+      const btn = el.settingsCheckUpdateBtn;
+      const statusEl = el.settingsUpdateStatus;
+      const label = btn.querySelector('.check-update-label');
+      const icon = btn.querySelector('.check-update-icon');
+
+      // If already in "Update Available" state and user clicks, trigger immediate reload
+      if (btn.classList.contains('has-update')) {
+        triggerAppReload();
+        return;
+      }
+
+      // Enter active checking state
+      btn.disabled = true;
+      if (icon) icon.classList.add('spinning');
+      if (label) label.textContent = '检查中…';
+      if (statusEl) {
+        statusEl.textContent = '正在连接服务器查询最新发布…';
+        statusEl.classList.remove('has-update', 'has-error');
+      }
+
+      try {
+        const res = await checkVersionForUpdate(true);
+        btn.disabled = false;
+        if (icon) icon.classList.remove('spinning');
+
+        if (res.hasUpdate) {
+          if (statusEl) {
+            statusEl.innerHTML = `发现新版本 <strong>v${res.remoteVersion}</strong>（当前 v${APP_VERSION}）`;
+            statusEl.classList.add('has-update');
+          }
+          btn.classList.add('has-update');
+          if (label) label.textContent = '立即重启更新';
+          if (onToast) onToast(`发现新版本 v${res.remoteVersion}，点击设置中的按钮即可更新`, 'info');
+        } else if (res.error) {
+          if (statusEl) {
+            statusEl.textContent = '未能获取版本信息，请检查网络连接后重试';
+            statusEl.classList.add('has-error');
+          }
+          if (label) label.textContent = '重新检查';
+          if (onToast) onToast('检查更新失败，请稍后重试', 'error');
+        } else {
+          if (statusEl) {
+            statusEl.textContent = `当前已是最新版本 (v${APP_VERSION})`;
+            statusEl.classList.remove('has-update', 'has-error');
+          }
+          if (label) label.textContent = '检查更新';
+          if (onToast) onToast(`当前已是最新版本 (v${APP_VERSION})`, 'info');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        if (icon) icon.classList.remove('spinning');
+        if (label) label.textContent = '检查更新';
+        if (statusEl) statusEl.textContent = '检查异常，请稍后重试';
+      }
+    });
   }
 
   // Page Visibility API integration: check on tab re-entry, pause polling when hidden
