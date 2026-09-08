@@ -1247,6 +1247,7 @@ function initVoiceInput() {
           if (el.input && text) {
             const cur = el.input.value.trim();
             el.input.value = (cur ? cur + ' ' : '') + text;
+            el.input.dispatchEvent(new Event('input', { bubbles: true }));
             autoGrow();
             syncSend();
           }

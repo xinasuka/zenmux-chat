@@ -4,7 +4,7 @@
 
 // CACHE_NAME acts as the primary invalidation catalyst.
 // Synchronized atomically with package.json via scripts/bump.js on every release.
-const CACHE_NAME = 'zenchat-shell-v2.20.0';
+const CACHE_NAME = 'zenchat-shell-v2.20.1';
 
 // Static application shell assets pre-cached during worker installation
 const PRECACHE_ASSETS = [
@@ -57,16 +57,19 @@ self.addEventListener('activate', (event) => {
  * while applying Stale-While-Revalidate (SWR) caching to static shell resources.
  */
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // 1. Strict Network-Only: Dynamic LLM APIs, SSE streams, and version polling
-  // Never cache chunked AI responses or metadata checks to prevent stream rupture or stale loops.
+  // 1. Strict Network-Only: Dynamic LLM APIs, SSE streams, version polling, and non-HTTP schemes
+  // Only process standard http/https GET requests. Ignore chrome-extension://, moz-extension://, data:, etc.
   if (
     event.request.method !== 'GET' ||
-    url.pathname.startsWith('/api/') ||
-    url.pathname === '/version.json'
+    !event.request.url ||
+    (!event.request.url.startsWith('http:') && !event.request.url.startsWith('https:'))
   ) {
     return; // Allow standard unmediated network pass-through
+  }
+
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/') || url.pathname === '/version.json') {
+    return;
   }
 
   // 2. Stale-While-Revalidate: Serve cached shell asset instantly while updating cache in background
@@ -76,7 +79,7 @@ self.addEventListener('fetch', (event) => {
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(event.request, networkResponse.clone()).catch(() => {});
             }
             return networkResponse;
           })
@@ -84,6 +87,6 @@ self.addEventListener('fetch', (event) => {
 
         return cachedResponse || fetchPromise;
       });
-    })
+    }).catch(() => fetch(event.request))
   );
 });

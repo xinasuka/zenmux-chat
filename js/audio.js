@@ -5,7 +5,7 @@
 // 3. 纯原生 JavaScript 零依赖生成 16-Bit Linear PCM RIFF/WAV 二进制并编码为 Base64。
 // 4. 将切除静音后的有效语音载荷分发至 /api/audio 边缘网关完成云端 ASR 识别。
 
-import { state } from './state.js';
+import { state, LS } from './state.js';
 
 /**
  * 将任意输入采样率的高精度 Float32Array 缓冲区线性下采样至 16,000 Hz 单声道
@@ -92,13 +92,18 @@ export function bufferToBase64(arrayBuffer) {
  * 核心语音转录客户端通信调度器
  */
 export async function transcribeAudio(base64Audio, model = 'bytedance/doubao-seed-asr-2.0', token = '') {
-  const gateToken = token || state.token || localStorage.getItem('zm.gate.token') || '';
+  const gateToken = token || state.token || localStorage.getItem(LS.token) || localStorage.getItem('zm.token') || '';
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (gateToken) {
+    headers['X-Access-Token'] = gateToken;
+    headers['Authorization'] = `Bearer ${gateToken}`;
+  }
+
   const response = await fetch('/api/audio', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Access-Token': gateToken
-    },
+    headers,
     body: JSON.stringify({
       audio: base64Audio,
       model,
@@ -130,7 +135,7 @@ export class AudioRecorder {
       sampleRate: 16000,
       frameSize: 2048,           // 脚本处理器缓冲区大小
       preBufferMs: 250,          // 前置语音回溯环形缓冲（防止开头爆破音/清辅音被裁切）
-      hangoverMs: 800,           // 尾部静音悬挂窗口（毫秒）
+      hangoverMs: 1200,          // 尾部静音悬挂窗口（1.2秒，兼顾自然语流停顿与敏捷收口）
       minSpeechDurationMs: 300,  // 最短有效语音时长（低于此值视为误触取消）
       maxSpeechDurationMs: 60000 // 单次录音物理上限（60秒自动截断）
     }, options);
@@ -172,15 +177,19 @@ export class AudioRecorder {
     if (this.state !== 'idle') return;
 
     try {
-      // 1. 申请麦克风权限（优先采用单声道、回声消除与自动降噪）
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+      // 1. 申请麦克风权限（优先采用单声道、回声消除与自动降噪，降级容灾兜底）
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+      } catch (_) {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
 
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       this.audioCtx = new AudioCtxClass();
@@ -196,11 +205,12 @@ export class AudioRecorder {
       this.maxPreBufferFrames = Math.max(2, Math.ceil((16000 * (this.options.preBufferMs / 1000)) / samplesPerFrame16k));
 
       this.recordedChunks = [];
-      this.preBuffer = [];
+      this.startTime = Date.now();
       this.speechStarted = false;
-      this.speechStartTime = 0;
-      this.lastSpeechTime = 0;
-      this.noiseFloor = 0.008;
+      this.speechStartIndex = -1;
+      this.lastSpeechTime = Date.now();
+      this.lastSpeechIndex = -1;
+      this.noiseFloor = 0.002;
 
       // 创建处理节点
       this.processorNode = this.audioCtx.createScriptProcessor(this.options.frameSize, 1, 1);
@@ -220,11 +230,11 @@ export class AudioRecorder {
       this.cleanup();
       let friendlyMsg = '无法启动语音输入';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        friendlyMsg = '麦克风权限未允许，请在浏览器或系统设置中授权麦克风访问';
+        friendlyMsg = '麦克风权限未开启，请在浏览器地址栏或系统设置中允许麦克风权限';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        friendlyMsg = '未检测到可用的麦克风输入设备';
+        friendlyMsg = '未检测到可用的麦克风硬件设备';
       } else if (err.name === 'NotReadableError') {
-        friendlyMsg = '麦克风已被其他应用占用，无法访问';
+        friendlyMsg = '麦克风已被其他应用独占，无法访问';
       } else {
         friendlyMsg = `麦克风初始化失败: ${err.message || String(err)}`;
       }
@@ -249,57 +259,42 @@ export class AudioRecorder {
     }
     const rms = Math.sqrt(sum / len);
 
-    // 计算归一化音量 (0 - 1)，供前端麦克风动效渲染
-    const normalizedVol = Math.min(1, rms * 12);
+    // 归一化音量反馈 (0 - 1)
+    const normalizedVol = Math.min(1, rms * 15);
     this.onVolume(normalizedVol);
 
     const now = Date.now();
+    const frameCopy = new Float32Array(frame16k);
+    this.recordedChunks.push(frameCopy);
+    const currentIndex = this.recordedChunks.length - 1;
 
-    // 3. 动态底噪学习与语音阈值判决
-    if (!this.speechStarted) {
-      // 维护前置 250ms 环形缓冲（保存人声触发前的小片段，保留声母音素）
-      this.preBuffer.push(new Float32Array(frame16k));
-      if (this.preBuffer.length > this.maxPreBufferFrames) {
-        this.preBuffer.shift();
-      }
+    // 3. 动态自适应底噪学习与 VAD 人声检测
+    this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
+    const speechTriggerThreshold = Math.max(0.004, this.noiseFloor * 1.8);
+    const speechHoldThreshold = Math.max(0.003, this.noiseFloor * 1.3);
 
-      // 平滑学习背景环境底噪
-      this.noiseFloor = this.noiseFloor * 0.94 + rms * 0.06;
-      const speechTriggerThreshold = Math.max(0.015, this.noiseFloor * 2.8);
-
-      // 人声触发判定
-      if (rms > speechTriggerThreshold) {
+    if (rms > speechTriggerThreshold) {
+      if (!this.speechStarted) {
         this.speechStarted = true;
-        this.speechStartTime = now;
-        this.lastSpeechTime = now;
-
-        // 释放前置环形缓冲，拼入主录音队列
-        while (this.preBuffer.length > 0) {
-          this.recordedChunks.push(this.preBuffer.shift());
-        }
-        this.recordedChunks.push(new Float32Array(frame16k));
+        // 记录人声开始帧，向前预留 250ms 前置环形缓冲
+        this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames);
       }
-    } else {
-      // 已经进入说话阶段：持续追加音频帧
-      this.recordedChunks.push(new Float32Array(frame16k));
+      this.lastSpeechTime = now;
+      this.lastSpeechIndex = currentIndex;
+    } else if (this.speechStarted && rms > speechHoldThreshold) {
+      this.lastSpeechTime = now;
+      this.lastSpeechIndex = currentIndex;
+    }
 
-      // 人声维持门限（略低于触发门限，具备滞后效应）
-      const speechHoldThreshold = Math.max(0.010, this.noiseFloor * 1.8);
+    // 4. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
+    if (this.speechStarted && (now - this.lastSpeechTime >= this.options.hangoverMs)) {
+      this.stop();
+      return;
+    }
 
-      if (rms > speechHoldThreshold) {
-        this.lastSpeechTime = now;
-      } else {
-        // 静音检测：若持续静音超过 hangoverMs (默认 800ms)，触发自动完结
-        if (now - this.lastSpeechTime >= this.options.hangoverMs) {
-          this.stop();
-          return;
-        }
-      }
-
-      // 超时安全上限保护（超过 60 秒自动收口）
-      if (now - this.speechStartTime >= this.options.maxSpeechDurationMs) {
-        this.stop();
-      }
+    // 超时安全上限（默认 60 秒自动收口）
+    if (now - this.startTime >= this.options.maxSpeechDurationMs) {
+      this.stop();
     }
   }
 
@@ -309,20 +304,28 @@ export class AudioRecorder {
   async stop() {
     if (this.state !== 'listening') return;
 
-    const chunksToProcess = this.recordedChunks;
-    const wasSpeechStarted = this.speechStarted;
-    const durationMs = wasSpeechStarted ? Date.now() - this.speechStartTime : 0;
+    let chunksToProcess = this.recordedChunks;
+    const durationMs = Date.now() - this.startTime;
+
+    // VAD 智能静音裁剪：切除头部长时间未说话的静音与尾部冗余静音
+    if (this.speechStarted && this.speechStartIndex >= 0 && this.lastSpeechIndex >= this.speechStartIndex) {
+      // 尾部向后预留约 350-400ms 保护末尾字词音素
+      const tailFrames = Math.max(8, Math.ceil(this.maxPreBufferFrames * 1.5));
+      const endIndex = Math.min(chunksToProcess.length, this.lastSpeechIndex + tailFrames);
+      chunksToProcess = chunksToProcess.slice(this.speechStartIndex, endIndex);
+    }
 
     this.cleanup();
 
-    // 误触丢弃判定：若未检测到任何有效人声，或说话总时长过短 (< 300ms)
-    if (!wasSpeechStarted || chunksToProcess.length === 0 || durationMs < this.options.minSpeechDurationMs) {
+    // 录音过短判定（小于 300ms 视为误触）
+    if (!chunksToProcess || chunksToProcess.length === 0 || durationMs < 300) {
       this.setState('idle');
       this.onVolume(0);
       return;
     }
 
     this.setState('transcribing');
+    this.onVolume(0);
 
     try {
       // 1. 合并所有 16k Float32 分块
