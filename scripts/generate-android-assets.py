@@ -3,6 +3,7 @@
 scripts/generate-android-assets.py
 Generates high-fidelity Android launcher icons, adaptive icons,
 and splash screens from the master icon.png asset.
+Uses pure white background (#FFFFFF) and centered artwork with ample negative space.
 """
 
 import os
@@ -12,7 +13,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ICON_SRC = os.path.join(ROOT_DIR, "icon.png")
 RES_DIR = os.path.join(ROOT_DIR, "android", "app", "src", "main", "res")
 
-BG_COLOR = (28, 28, 30, 255)  # #1C1C1E
+BG_COLOR = (255, 255, 255, 255)  # Pure White #FFFFFF
 
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
@@ -20,8 +21,16 @@ def ensure_dir(path):
 def generate_assets():
     print(f"Loading master icon from: {ICON_SRC}")
     master_icon = Image.open(ICON_SRC).convert("RGBA")
+    bbox = master_icon.getbbox()
+    artwork = master_icon.crop(bbox)
+    art_w, art_h = artwork.size
+    aspect = art_w / art_h
+    print(f"Artwork bounding box: {bbox}, dimensions: {art_w}x{art_h}, aspect: {aspect:.3f}")
 
-    # 1. Generate Adaptive Icon Foreground (Transparent background, safe area ~60%)
+    # 1. Generate Adaptive Icon Foreground (Transparent background)
+    # Android adaptive icon: Total canvas 108dp, inner mask 72dp.
+    # We calibrate the artwork to occupy ~56% of the 72dp visible circle/squircle.
+    # 72 / 108 * 0.56 = ~0.3733 of total canvas size.
     foreground_densities = {
         "mipmap-mdpi": 108,
         "mipmap-hdpi": 162,
@@ -30,23 +39,23 @@ def generate_assets():
         "mipmap-xxxhdpi": 432,
     }
 
-    print("Generating adaptive icon foregrounds...")
+    print("Generating adaptive icon foregrounds (centered with ample whitespace)...")
     for folder, size in foreground_densities.items():
         out_dir = os.path.join(RES_DIR, folder)
         ensure_dir(out_dir)
 
         fg_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        # safe area is 60% of canvas
-        logo_size = int(size * 0.60)
-        resized_logo = master_icon.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-        offset = ((size - logo_size) // 2, (size - logo_size) // 2)
+        target_h = int(size * (72.0 / 108.0) * 0.56)
+        target_w = int(target_h * aspect)
+        resized_logo = artwork.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        offset = ((size - target_w) // 2, (size - target_h) // 2)
         fg_img.paste(resized_logo, offset, mask=resized_logo)
 
         out_path = os.path.join(out_dir, "ic_launcher_foreground.png")
         fg_img.save(out_path, "PNG")
         print(f"  Saved {out_path} ({size}x{size})")
 
-    # 2. Generate Legacy Square & Round Launcher Icons
+    # 2. Generate Legacy Square & Round Launcher Icons (on pure white background)
     launcher_densities = {
         "mipmap-mdpi": 48,
         "mipmap-hdpi": 72,
@@ -55,20 +64,21 @@ def generate_assets():
         "mipmap-xxxhdpi": 192,
     }
 
-    print("Generating legacy launcher icons (square & round)...")
+    print("Generating legacy launcher icons (square & round on #FFFFFF)...")
     for folder, size in launcher_densities.items():
         out_dir = os.path.join(RES_DIR, folder)
         ensure_dir(out_dir)
 
-        # -- Square with squircle/rounded mask
+        # -- Square with squircle / rounded mask (22% radius)
         square_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         draw_sq = ImageDraw.Draw(square_img)
         radius = int(size * 0.22)
         draw_sq.rounded_rectangle([(0, 0), (size - 1, size - 1)], radius=radius, fill=BG_COLOR)
 
-        logo_sq_size = int(size * 0.72)
-        resized_sq = master_icon.resize((logo_sq_size, logo_sq_size), Image.Resampling.LANCZOS)
-        offset_sq = ((size - logo_sq_size) // 2, (size - logo_sq_size) // 2)
+        target_sq_h = int(size * 0.56)
+        target_sq_w = int(target_sq_h * aspect)
+        resized_sq = artwork.resize((target_sq_w, target_sq_h), Image.Resampling.LANCZOS)
+        offset_sq = ((size - target_sq_w) // 2, (size - target_sq_h) // 2)
         square_img.paste(resized_sq, offset_sq, mask=resized_sq)
 
         sq_path = os.path.join(out_dir, "ic_launcher.png")
@@ -79,22 +89,24 @@ def generate_assets():
         draw_rd = ImageDraw.Draw(round_img)
         draw_rd.ellipse([(0, 0), (size - 1, size - 1)], fill=BG_COLOR)
 
-        logo_rd_size = int(size * 0.68)
-        resized_rd = master_icon.resize((logo_rd_size, logo_rd_size), Image.Resampling.LANCZOS)
-        offset_rd = ((size - logo_rd_size) // 2, (size - logo_rd_size) // 2)
+        target_rd_h = int(size * 0.52)
+        target_rd_w = int(target_rd_h * aspect)
+        resized_rd = artwork.resize((target_rd_w, target_rd_h), Image.Resampling.LANCZOS)
+        offset_rd = ((size - target_rd_w) // 2, (size - target_rd_h) // 2)
         round_img.paste(resized_rd, offset_rd, mask=resized_rd)
 
         rd_path = os.path.join(out_dir, "ic_launcher_round.png")
         round_img.save(rd_path, "PNG")
         print(f"  Saved {sq_path} & {rd_path} ({size}x{size})")
 
-    # 3. Generate Android 12+ Splash Icon (288x288, logo centered in 192x192)
+    # 3. Generate Android 12+ Splash Icon (288x288, logo centered in 160x160 safe zone)
     print("Generating Android 12+ splash icon...")
     splash_icon_size = 288
-    splash_logo_size = 192
+    splash_logo_h = 160
+    splash_logo_w = int(splash_logo_h * aspect)
     splash_icon_img = Image.new("RGBA", (splash_icon_size, splash_icon_size), (0, 0, 0, 0))
-    resized_splash_logo = master_icon.resize((splash_logo_size, splash_logo_size), Image.Resampling.LANCZOS)
-    offset_splash = ((splash_icon_size - splash_logo_size) // 2, (splash_icon_size - splash_logo_size) // 2)
+    resized_splash_logo = artwork.resize((splash_logo_w, splash_logo_h), Image.Resampling.LANCZOS)
+    offset_splash = ((splash_icon_size - splash_logo_w) // 2, (splash_icon_size - splash_logo_h) // 2)
     splash_icon_img.paste(resized_splash_logo, offset_splash, mask=resized_splash_logo)
 
     drawable_dir = os.path.join(RES_DIR, "drawable")
@@ -103,7 +115,7 @@ def generate_assets():
     splash_icon_img.save(splash_icon_path, "PNG")
     print(f"  Saved {splash_icon_path}")
 
-    # 4. Generate Fullscreen Splash Screens (Portrait & Landscape)
+    # 4. Generate Fullscreen Splash Screens (Portrait & Landscape on pure white #FFFFFF)
     splash_screens = {
         "drawable": (480, 800),
         "drawable-port-mdpi": (320, 480),
@@ -118,17 +130,21 @@ def generate_assets():
         "drawable-land-xxxhdpi": (1920, 1280),
     }
 
-    print("Generating full splash screens...")
+    print("Generating full splash screens on pure white (#FFFFFF)...")
     for folder, (w, h) in splash_screens.items():
         out_dir = os.path.join(RES_DIR, folder)
         ensure_dir(out_dir)
 
         splash_canvas = Image.new("RGBA", (w, h), BG_COLOR)
-        # Scale logo relative to min dimension (35% of min dimension)
-        logo_dim = int(min(w, h) * 0.35)
-        logo_dim = max(logo_dim, 64)
-        scaled_logo = master_icon.resize((logo_dim, logo_dim), Image.Resampling.LANCZOS)
-        offset = ((w - logo_dim) // 2, (h - logo_dim) // 2)
+        if h >= w:  # Portrait
+            target_w = int(w * 0.22)
+            target_h = int(target_w / aspect)
+        else:  # Landscape
+            target_h = int(h * 0.26)
+            target_w = int(target_h * aspect)
+
+        scaled_logo = artwork.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        offset = ((w - target_w) // 2, (h - target_h) // 2)
         splash_canvas.paste(scaled_logo, offset, mask=scaled_logo)
 
         out_path = os.path.join(out_dir, "splash.png")
