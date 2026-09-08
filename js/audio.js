@@ -135,7 +135,7 @@ export class AudioRecorder {
       sampleRate: 16000,
       frameSize: 2048,           // 脚本处理器缓冲区大小
       preBufferMs: 250,          // 前置语音回溯环形缓冲（防止开头爆破音/清辅音被裁切）
-      hangoverMs: 1200,          // 尾部静音悬挂窗口（1.2秒，兼顾自然语流停顿与敏捷收口）
+      hangoverMs: 3000,          // 尾部静音悬挂窗口（3.0秒，充足容忍语流自然换气与思考停顿）
       minSpeechDurationMs: 300,  // 最短有效语音时长（低于此值视为误触取消）
       maxSpeechDurationMs: 60000 // 单次录音物理上限（60秒自动截断）
     }, options);
@@ -212,14 +212,61 @@ export class AudioRecorder {
       this.lastSpeechIndex = -1;
       this.noiseFloor = 0.002;
 
-      // 创建处理节点
-      this.processorNode = this.audioCtx.createScriptProcessor(this.options.frameSize, 1, 1);
+      // 2. 创建音频处理节点（优先采用现代化 AudioWorkletNode 独立线程处理，规避 ScriptProcessor 废弃警告）
+      let workletReady = false;
+      if (this.audioCtx.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+        try {
+          const workletCode = `
+            class ZenAudioCaptureProcessor extends AudioWorkletProcessor {
+              constructor() {
+                super();
+                this.bufferSize = 2048;
+                this.buffer = new Float32Array(this.bufferSize);
+                this.bufferIndex = 0;
+              }
+              process(inputs) {
+                const input = inputs[0];
+                if (input && input[0]) {
+                  const channel = input[0];
+                  for (let i = 0; i < channel.length; i++) {
+                    this.buffer[this.bufferIndex++] = channel[i];
+                    if (this.bufferIndex >= this.bufferSize) {
+                      this.port.postMessage(this.buffer);
+                      this.buffer = new Float32Array(this.bufferSize);
+                      this.bufferIndex = 0;
+                    }
+                  }
+                }
+                return true;
+              }
+            }
+            registerProcessor('zen-audio-capture', ZenAudioCaptureProcessor);
+          `;
+          const blob = new Blob([workletCode], { type: 'application/javascript' });
+          const workletUrl = URL.createObjectURL(blob);
+          await this.audioCtx.audioWorklet.addModule(workletUrl);
+          URL.revokeObjectURL(workletUrl);
+
+          this.processorNode = new AudioWorkletNode(this.audioCtx, 'zen-audio-capture');
+          this.processorNode.port.onmessage = (e) => {
+            this.processAudioFrame(e.data, inputSampleRate);
+          };
+          workletReady = true;
+        } catch (workletErr) {
+          console.warn('[AudioEngine] AudioWorklet init failed, falling back to ScriptProcessor:', workletErr);
+          workletReady = false;
+        }
+      }
+
+      if (!workletReady) {
+        this.processorNode = this.audioCtx.createScriptProcessor(this.options.frameSize, 1, 1);
+        this.processorNode.onaudioprocess = (e) => {
+          this.processAudioFrame(e.inputBuffer.getChannelData(0), inputSampleRate);
+        };
+      }
+
       this.gainNode = this.audioCtx.createGain();
       this.gainNode.gain.value = 0; // 静音本地监听，避免啸叫
-
-      this.processorNode.onaudioprocess = (e) => {
-        this.processAudioFrame(e.inputBuffer.getChannelData(0), inputSampleRate);
-      };
 
       this.sourceNode.connect(this.processorNode);
       this.processorNode.connect(this.gainNode);
@@ -269,9 +316,14 @@ export class AudioRecorder {
     const currentIndex = this.recordedChunks.length - 1;
 
     // 3. 动态自适应底噪学习与 VAD 人声检测
-    this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
+    // 关键防误裁机制：底噪仅在未发声时缓慢学习，严禁让讲话语音能量推高底噪门限导致中途误切断
+    if (!this.speechStarted && rms < 0.012) {
+      this.noiseFloor = this.noiseFloor * 0.98 + rms * 0.02;
+    } else if (rms < this.noiseFloor) {
+      this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
+    }
     const speechTriggerThreshold = Math.max(0.004, this.noiseFloor * 1.8);
-    const speechHoldThreshold = Math.max(0.003, this.noiseFloor * 1.3);
+    const speechHoldThreshold = Math.max(0.0025, this.noiseFloor * 1.2);
 
     if (rms > speechTriggerThreshold) {
       if (!this.speechStarted) {
@@ -381,6 +433,12 @@ export class AudioRecorder {
   cleanup() {
     if (this.processorNode) {
       try {
+        if (this.processorNode.port) {
+          this.processorNode.port.onmessage = null;
+          if (typeof this.processorNode.port.close === 'function') {
+            this.processorNode.port.close();
+          }
+        }
         this.processorNode.onaudioprocess = null;
         this.processorNode.disconnect();
       } catch (_) {}
