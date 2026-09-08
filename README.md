@@ -70,15 +70,31 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 5. Click **Deploy**.
 6. Visit `https://<your-domain>/admin.html`, log in with your `ADMIN_TOKEN`, and issue access tokens for your users.
 
-### 3. Mobile PWA & Standalone Android APK
+### 3. Mobile PWA & Native Android APK
 
-* **iOS (Safari)**: Open your ZenChat URL, tap the **Share** icon, and select **Add to Home Screen**. Launches as a standalone app with safe-area bottom sheet ergonomics and never expires.
-* **Android (Chrome)**: Open the URL, tap the browser menu, and select **Install App** or **Add to Home Screen**.
-* **Compile Standalone Android APK**:
+* **Download Official Signed APK**: Download the latest production release binary (`ZenChat-vX.Y.Z.apk`) directly from [GitHub Releases](https://github.com/xinasuka/zenmux-chat/releases).
+* **Progressive Web App (PWA)**:
+  - **iOS (Safari)**: Open your ZenChat URL, tap the **Share** icon, and select **Add to Home Screen**. Launches as a standalone app with safe-area bottom sheet ergonomics and never expires.
+  - **Android (Chrome)**: Open the URL, tap the browser menu, and select **Install App** or **Add to Home Screen**.
+* **Local Android Development & ADB Testing**:
   ```bash
+  # Compile local debug APK with web asset synchronization
   npm run build:apk
+
+  # Stream install debug APK to connected USB/Wi-Fi device
+  npm run install:apk
+
+  # Combined one-step compile, install, and launch on device
+  npm run run:android
   ```
-  The compiled APK is emitted at `android/app/build/outputs/apk/debug/app-debug.apk`.
+  Local debug builds are generated at `android/app/build/outputs/apk/debug/ZenChat-vX.Y.Z-debug.apk`.
+* **Automated CI/CD Release Pipeline**:
+  Pushing a semantic release tag (e.g. `git tag v2.19.9 && git push origin v2.19.9`) automatically triggers GitHub Actions to compile, cryptographically sign, and publish `ZenChat-vX.Y.Z.apk` to GitHub Releases using repository secrets (`ANDROID_KEYSTORE_*`).
+* **Signature Compatibility Note**:
+  When switching on a physical device between a development `debug` APK and an official `release` APK, uninstall the existing package first to prevent Android's `INSTALL_FAILED_UPDATE_INCOMPATIBLE` signature mismatch error:
+  ```bash
+  adb uninstall cc.cd.zenchat
+  ```
 
 ---
 
@@ -135,15 +151,31 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 5. **一键部署**：点击部署，完成首次构建。
 6. **分配访问口令**：在浏览器中打开 `https://<你的域名>/admin.html`，输入 `ADMIN_TOKEN` 登录管理后台，为使用者生成访问口令，用户凭口令即可进入主站畅快使用。
 
-### 移动端 PWA 与 Android APK 编译
+### 移动端 PWA 与 Android 原生 APK
 
-* **iOS (Safari 浏览器)**：访问站点，点击分享按钮并选择「添加到主屏幕」即可作为全屏独立应用使用，无需苹果开发者证书，永不过期。
-* **Android (Chrome 浏览器)**：访问站点，点击菜单选择「添加到主屏幕」或「安装应用」。
-* **本地编译独立 Android APK**：
+* **官方签名 APK 下载**：直接从 [GitHub Releases](https://github.com/xinasuka/zenmux-chat/releases) 下载最新正式版安装包（`ZenChat-vX.Y.Z.apk`）。
+* **渐进式 Web 应用 (PWA)**：
+  - **iOS (Safari 浏览器)**：访问站点，点击分享按钮并选择「添加到主屏幕」即可作为全屏独立应用使用，适配安全区底部抽屉交互，永不过期。
+  - **Android (Chrome 浏览器)**：访问站点，点击浏览器菜单选择「添加到主屏幕」或「安装应用」。
+* **本地开发构建与 ADB 设备调试**：
   ```bash
+  # 同步 Web 前端静态资产并编译本地调试版 APK
   npm run build:apk
+
+  # 流式推送到连接的 USB 或无线 Wi-Fi 设备并安装
+  npm run install:apk
+
+  # 单指令完成编译、推流安装并唤起手机端运行
+  npm run run:android
   ```
-  编译完成的 APK 安装包生成于 `android/app/build/outputs/apk/debug/app-debug.apk`。
+  本地调试版生成路径为 `android/app/build/outputs/apk/debug/ZenChat-vX.Y.Z-debug.apk`。
+* **CI/CD 自动化构建与发布流水线**：
+  推送语义化版本标签（例如 `git tag v2.19.9 && git push origin v2.19.9`）将自动触发 GitHub Actions 工作流，通过仓库安全凭据（`ANDROID_KEYSTORE_*`）进行签名加固，并自动发布 `ZenChat-vX.Y.Z.apk` 至 GitHub Releases。
+* **签名兼容性排错说明**：
+  在实体设备上从本地开发 `debug` 版本切换到官方正式 `release` 版本时，由于签名证书不一致，Android 系统会拦截安装并报错 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`。请先卸载旧版本后再执行安装：
+  ```bash
+  adb uninstall cc.cd.zenchat
+  ```
 
 ---
 
