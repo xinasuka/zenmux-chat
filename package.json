@@ -12,7 +12,9 @@
     "bump": "node scripts/bump.js",
     "cap:sync": "npm run build && npx cap sync android",
     "build:android": "npm run build && npx cap sync android",
-    "build:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "build:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "install:apk": "adb install -r android/app/build/outputs/apk/debug/*.apk",
+    "run:android": "npm run build:apk && npm run install:apk && adb shell am start -n cc.cd.zenchat/.MainActivity"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.1",

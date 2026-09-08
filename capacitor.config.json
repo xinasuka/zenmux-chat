@@ -3,6 +3,7 @@
   "appName": "ZenChat",
   "webDir": "dist",
   "server": {
+    "url": "https://zenchat.cc.cd",
     "androidScheme": "https"
   }
 }
