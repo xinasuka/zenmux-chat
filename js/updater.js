@@ -109,7 +109,7 @@ export function flushPendingUpdate() {
 /**
  * Perform a zero-cache fetch for version.json and evaluate if a newer release exists.
  */
-export async function checkVersionForUpdate(force = false) {
+export async function checkVersionForUpdate(force = false, silentBanner = false) {
   const now = Date.now();
   if (!force && (now - lastCheckTime) < THROTTLE_MS) return { throttled: true };
   lastCheckTime = now;
@@ -139,7 +139,7 @@ export async function checkVersionForUpdate(force = false) {
       }
       if (state.busy) {
         pendingNewVersion = remoteVer;
-      } else {
+      } else if (!silentBanner) {
         showUpdateBanner(remoteVer);
       }
       return { hasUpdate: true, remoteVersion: remoteVer, currentVersion: APP_VERSION };
@@ -205,7 +205,8 @@ export function initVersionChecker(onToast) {
       }
 
       try {
-        const res = await checkVersionForUpdate(true);
+        // Pass silentBanner = true to avoid duplicate floating banner over settings modal
+        const res = await checkVersionForUpdate(true, true);
         btn.disabled = false;
         if (icon) icon.classList.remove('spinning');
 
