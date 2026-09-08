@@ -620,13 +620,20 @@ export function renderPluginsModalList() {
   syncPluginsUI();
 }
 
+export function syncModalOpenState() {
+  const isOpen = !!document.querySelector('.modal-backdrop:not(.hide)');
+  document.body.classList.toggle('has-modal-open', isOpen);
+}
+
 export function openPluginsModal() {
   renderPluginsModalList();
   if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.remove('hide');
+  syncModalOpenState();
 }
 
 export function closePluginsModal() {
   if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.add('hide');
+  syncModalOpenState();
 }
 
 export function updateSettingsCharCount() {
@@ -757,10 +764,12 @@ export function renderSettingsState() {
 export function openSettingsModal() {
   renderSettingsState();
   if (el.settingsModalBackdrop) el.settingsModalBackdrop.classList.remove('hide');
+  syncModalOpenState();
 }
 
 export function closeSettingsModal() {
   if (el.settingsModalBackdrop) el.settingsModalBackdrop.classList.add('hide');
+  syncModalOpenState();
 }
 
 export function saveSettings() {

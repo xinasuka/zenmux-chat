@@ -57,14 +57,14 @@ export function snoozeUpdate() {
 export function showUpdateBanner(newVersion) {
   isPromptVisible = true;
   if (el.updateText) {
-    el.updateText.innerHTML = `发现新版本 <strong>v${newVersion}</strong>（当前 v${APP_VERSION}）`;
+    el.updateText.innerHTML = `发现新版本 <strong>v${newVersion}</strong><span class="update-current-ver">（当前 v${APP_VERSION}）</span>`;
   }
   if (el.updateBanner) {
     el.updateBanner.classList.remove('hide');
   }
   // Synchronize settings modal version card if rendered
   if (el.settingsUpdateStatus) {
-    el.settingsUpdateStatus.innerHTML = `发现新版本 <strong>v${newVersion}</strong>（当前 v${APP_VERSION}）`;
+    el.settingsUpdateStatus.innerHTML = `发现新版本 <strong>v${newVersion}</strong><span class="update-current-ver">（当前 v${APP_VERSION}）</span>`;
     el.settingsUpdateStatus.classList.add('has-update');
   }
   if (el.settingsCheckUpdateBtn) {
@@ -212,7 +212,7 @@ export function initVersionChecker(onToast) {
 
         if (res.hasUpdate) {
           if (statusEl) {
-            statusEl.innerHTML = `发现新版本 <strong>v${res.remoteVersion}</strong>（当前 v${APP_VERSION}）`;
+            statusEl.innerHTML = `发现新版本 <strong>v${res.remoteVersion}</strong><span class="update-current-ver">（当前 v${APP_VERSION}）</span>`;
             statusEl.classList.add('has-update');
           }
           btn.classList.add('has-update');
