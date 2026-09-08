@@ -6,4 +6,7 @@ scratch/
 .vscode/
 dist/
 previews/
+*.keystore
+*.jks
+release.keystore
 

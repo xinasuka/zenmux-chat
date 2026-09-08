@@ -28,15 +28,35 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("ANDROID_KEYSTORE_FILE") ?: "release.keystore"
+            def keystoreFile = file(keystorePath)
+            if (keystoreFile.exists() && System.getenv("ANDROID_KEYSTORE_PASSWORD")) {
+                storeFile keystoreFile
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "zenchat"
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD") ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            outputFileName = "ZenChat-v${variant.versionName}-${variant.buildType.name}.apk"
+            if (variant.buildType.name == "release") {
+                outputFileName = "ZenChat-v${variant.versionName}.apk"
+            } else {
+                outputFileName = "ZenChat-v${variant.versionName}-${variant.buildType.name}.apk"
+            }
         }
     }
 }
