@@ -386,6 +386,9 @@
 
 <script type="module" src="js/app.js"></script>
 <script>
+  // Register Progressive Web App Service Worker with zero HTTP cache overhead on checks.
+  // updateViaCache: 'none' commands the browser engine to bypass all intermediate HTTP caches
+  // when querying sw.js, ensuring newly deployed releases are discovered promptly.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(function(err) {

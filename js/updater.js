@@ -119,6 +119,9 @@ export async function checkVersionForUpdate(force = false) {
     const remoteVer = data && data.version;
 
     if (remoteVer && isNewerVersion(remoteVer, APP_VERSION)) {
+      // Proactively signal Service Worker registration to check for updated sw.js over the network.
+      // In SPAs, navigations do not naturally occur during long-lived tabs; calling reg.update()
+      // imperatively kicks off the SW update cycle and pre-caches the new shell ahead of reload.
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistration().then(reg => {
           if (reg) reg.update().catch(() => {});

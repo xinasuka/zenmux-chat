@@ -1,5 +1,12 @@
 // sw.js - ZenChat Progressive Web App Service Worker
+// Governs offline application shell caching, stale-while-revalidate delivery,
+// and atomic cache bucket invalidation across production semver increments.
+
+// CACHE_NAME acts as the primary invalidation catalyst.
+// Synchronized atomically with package.json via scripts/bump.js on every release.
 const CACHE_NAME = 'zenchat-shell-v2.18.1';
+
+// Static application shell assets pre-cached during worker installation
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -12,16 +19,26 @@ const PRECACHE_ASSETS = [
   '/manifest.webmanifest'
 ];
 
+/**
+ * Installation Lifecycle Event
+ * Fetches fresh application shell assets from the network and stores them
+ * directly into the new CACHE_NAME bucket (bypassing active worker's cache).
+ */
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
         console.warn('[SW] Pre-cache partial failure:', err);
       });
-    }).then(() => self.skipWaiting())
+    }).then(() => self.skipWaiting()) // Instantly transition worker to activate phase
   );
 });
 
+/**
+ * Activation Lifecycle Event
+ * Performs deterministic garbage collection: purges all legacy cache buckets
+ * that do not match the active CACHE_NAME, then claims control of all open tabs.
+ */
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -30,23 +47,29 @@ self.addEventListener('activate', (event) => {
           .filter((name) => name !== CACHE_NAME)
           .map((name) => caches.delete(name))
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()) // Immediately take control of all active clients
   );
 });
 
+/**
+ * Fetch Interception Pipeline
+ * Enforces strict network-only bypass for streaming AI APIs and release polling,
+ * while applying Stale-While-Revalidate (SWR) caching to static shell resources.
+ */
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Strict Network-Only for dynamic APIs and real-time release polling
+  // 1. Strict Network-Only: Dynamic LLM APIs, SSE streams, and version polling
+  // Never cache chunked AI responses or metadata checks to prevent stream rupture or stale loops.
   if (
     event.request.method !== 'GET' ||
     url.pathname.startsWith('/api/') ||
     url.pathname === '/version.json'
   ) {
-    return; // Allow standard network pass-through
+    return; // Allow standard unmediated network pass-through
   }
 
-  // 2. Stale-While-Revalidate for static app shell assets
+  // 2. Stale-While-Revalidate: Serve cached shell asset instantly while updating cache in background
   event.respondWith(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.match(event.request).then((cachedResponse) => {

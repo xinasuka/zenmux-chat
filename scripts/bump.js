@@ -94,7 +94,7 @@ Usage:
     process.exit(1);
   }
 
-  // 4. Update sw.js CACHE_NAME
+  // 4. Update sw.js CACHE_NAME (SSOT invalidation key: precipitates PWA worker upgrade and cache eviction)
   if (fs.existsSync(swPath)) {
     let swContent = fs.readFileSync(swPath, 'utf8');
     const cacheRegex = /(const\s+CACHE_NAME\s*=\s*['"]zenchat-shell-v)[^'"]*(['"];)/;
