@@ -13,6 +13,7 @@ const rootDir = path.resolve(__dirname, '..');
 
 const pkgPath = path.join(rootDir, 'package.json');
 const statePath = path.join(rootDir, 'js', 'state.js');
+const swPath = path.join(rootDir, 'sw.js');
 const htmlPath = path.join(rootDir, 'index.html');
 const versionJsonPath = path.join(rootDir, 'version.json');
 
@@ -93,7 +94,19 @@ Usage:
     process.exit(1);
   }
 
-  // 4. Ensure index.html version badge is neutralized for dynamic runtime hydration
+  // 4. Update sw.js CACHE_NAME
+  if (fs.existsSync(swPath)) {
+    let swContent = fs.readFileSync(swPath, 'utf8');
+    const cacheRegex = /(const\s+CACHE_NAME\s*=\s*['"]zenchat-shell-v)[^'"]*(['"];)/;
+    if (cacheRegex.test(swContent)) {
+      swContent = swContent.replace(cacheRegex, `$1${newVersion}$2`);
+      fs.writeFileSync(swPath, swContent, 'utf8');
+    } else {
+      console.warn(`Warning: CACHE_NAME constant pattern not found in ${swPath}`);
+    }
+  }
+
+  // 5. Ensure index.html version badge is neutralized for dynamic runtime hydration
   if (fs.existsSync(htmlPath)) {
     let htmlContent = fs.readFileSync(htmlPath, 'utf8');
     const badgeRegex = /<span\s+class="app-version-badge">[^<]*<\/span>/g;
@@ -103,7 +116,7 @@ Usage:
     }
   }
 
-  // 5. Generate version.json for client-side stale detection
+  // 6. Generate version.json for client-side stale detection
   const versionPayload = {
     version: newVersion,
     buildTime: new Date().toISOString()
@@ -113,6 +126,7 @@ Usage:
   console.log(`ZenMux Chat version synchronized: v${newVersion}`);
   console.log(`- package.json : ${currentVersion} -> ${newVersion}`);
   console.log(`- js/state.js  : APP_VERSION = '${newVersion}'`);
+  console.log(`- sw.js        : CACHE_NAME = 'zenchat-shell-v${newVersion}'`);
   console.log(`- version.json : v${newVersion} (${versionPayload.buildTime})`);
   console.log(`- index.html   : dynamic runtime hydration active (no manual edits needed)`);
 }

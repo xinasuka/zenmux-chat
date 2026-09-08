@@ -89,7 +89,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
   <p><b>轻量、优雅、零成本的个人 AI 聊天工作站</b></p>
 </div>
 
-**ZenChat** 专为个人日常使用打造，基于 **腾讯云 EdgeOne Pages** 无服务器架构托管。无需代理工具，即可高速直连 ZenMux 聚合的全球顶尖 AI 模型（DeepSeek-V3/R1、Claude 3.7/3.5、GPT-4o/o1/o3、通义千问等）。
+**ZenMuxChat** 专为个人日常使用打造，基于 **腾讯云 EdgeOne Pages** 无服务器架构托管。无需代理工具，即可高速直连 ZenMux 聚合的全球顶尖 AI 模型（DeepSeek-V3/R1、Claude 3.7/3.5、GPT-4o/o1/o3、通义千问等）。
 
 ### 核心亮点
 

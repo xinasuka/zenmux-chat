@@ -83,7 +83,7 @@ export function dismissUpdateBanner() {
  * Immediately reload the application to ingest the latest bundle.
  */
 export function triggerAppReload() {
-  window.location.reload(true);
+  window.location.reload();
 }
 
 /**
@@ -119,6 +119,11 @@ export async function checkVersionForUpdate(force = false) {
     const remoteVer = data && data.version;
 
     if (remoteVer && isNewerVersion(remoteVer, APP_VERSION)) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          if (reg) reg.update().catch(() => {});
+        }).catch(() => {});
+      }
       if (state.busy) {
         pendingNewVersion = remoteVer;
       } else {

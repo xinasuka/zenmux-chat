@@ -1,5 +1,5 @@
 // sw.js - ZenChat Progressive Web App Service Worker
-const CACHE_NAME = 'zenchat-shell-v1';
+const CACHE_NAME = 'zenchat-shell-v2.18.1';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

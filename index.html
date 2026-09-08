@@ -388,7 +388,7 @@
 <script>
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/sw.js').catch(function(err) {
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(function(err) {
         console.warn('[SW] Registration failed:', err);
       });
     });
