@@ -1,6 +1,6 @@
 {
   "name": "zenmux-chat",
-  "version": "2.17.18",
+  "version": "2.18.0",
   "private": true,
   "description": "A high-performance, serverless personal AI chat workstation powered by ZenMux and Tencent Cloud EdgeOne Pages.",
   "license": "Apache-2.0",
@@ -9,9 +9,17 @@
     "dev": "python3 -m http.server 8088",
     "build": "node scripts/build.js",
     "preview": "python3 -m http.server 8088 -d dist",
-    "bump": "node scripts/bump.js"
+    "bump": "node scripts/bump.js",
+    "cap:sync": "npm run build && npx cap sync android",
+    "build:android": "npm run build && npx cap sync android",
+    "build:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
     "esbuild": "^0.25.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.1"
   }
 }

@@ -1,0 +1,25 @@
+{
+  "name": "ZenChat",
+  "short_name": "ZenChat",
+  "description": "A fast, elegant, and private AI chat workstation powered by ZenMux & Tencent Cloud EdgeOne",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1C1C1E",
+  "theme_color": "#1C1C1E",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

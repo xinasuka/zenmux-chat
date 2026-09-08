@@ -71,6 +71,10 @@ async function build() {
     'admin.html',
     'favicon.ico',
     'icon.png',
+    'icon-192.png',
+    'icon-512.png',
+    'manifest.webmanifest',
+    'sw.js',
     'version.json'
   ];
 

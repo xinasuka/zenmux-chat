@@ -3,10 +3,16 @@
 <head data-page-node-id="pZVM8Lkp8xUknu4z3F1ABf">
 <meta charset="UTF-8" data-page-node-id="gYGX4hkJcdPzFwHoJGIceR">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" data-page-node-id="ZSVNH930tEFY16YeAjSGoO">
-<title>ZenMux Chat</title>
+<title>ZenChat</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZenChat">
+<meta name="theme-color" content="#1C1C1E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FAF9F5" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script>
   (function() {
     try {
@@ -379,5 +385,14 @@
 <div id="toast" data-page-node-id="5VskJCHKPeLP2lhSEW3wIo"></div>
 
 <script type="module" src="js/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js').catch(function(err) {
+        console.warn('[SW] Registration failed:', err);
+      });
+    });
+  }
+</script>
 </body>
 </html>
