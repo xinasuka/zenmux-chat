@@ -151,7 +151,20 @@ def generate_assets():
         splash_canvas.save(out_path, "PNG")
         print(f"  Saved {out_path} ({w}x{h})")
 
-    print("Android assets generation complete!")
+    # 5. Generate PWA / Web App Icons (icon-192.png & icon-512.png on pure white #FFFFFF)
+    print("Generating PWA icons (icon-192.png & icon-512.png)...")
+    for pwa_size in [192, 512]:
+        pwa_canvas = Image.new("RGBA", (pwa_size, pwa_size), BG_COLOR)
+        pwa_h = int(pwa_size * 0.56)
+        pwa_w = int(pwa_h * aspect)
+        scaled_pwa = artwork.resize((pwa_w, pwa_h), Image.Resampling.LANCZOS)
+        offset_pwa = ((pwa_size - pwa_w) // 2, (pwa_size - pwa_h) // 2)
+        pwa_canvas.paste(scaled_pwa, offset_pwa, mask=scaled_pwa)
+        pwa_path = os.path.join(ROOT_DIR, f"icon-{pwa_size}.png")
+        pwa_canvas.save(pwa_path, "PNG")
+        print(f"  Saved {pwa_path} ({pwa_size}x{pwa_size})")
+
+    print("Android and PWA assets generation complete!")
 
 if __name__ == "__main__":
     generate_assets()
