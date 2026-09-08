@@ -349,6 +349,33 @@
         </div>
       </div>
 
+      <!-- Section: Speech-to-Text ASR -->
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <label for="settings-asr-model" class="settings-section-title">语音识别与录音模型 (Speech-to-Text)</label>
+          <span class="settings-section-hint">点击输入框麦克风时，强制启用端侧 VAD 智能降噪并调度高精度云端 ASR。</span>
+        </div>
+        <div class="settings-asr-container">
+          <select id="settings-asr-model" class="settings-select">
+            <optgroup label="⭐ 推荐中文大模型 (高精度 · 强抗噪 · 极致性价比)">
+              <option value="bytedance/doubao-seed-asr-2.0">火山引擎 豆包大模型 ASR (Doubao-Seed-ASR-2.0) · 推荐</option>
+              <option value="xiaomi/mimo-v2.5-asr">小米 MiMo-V2.5-ASR (中英双语 · 方言抗噪)</option>
+              <option value="qwen/qwen3-asr-flash">阿里 Qwen3 ASR Flash (非自回归毫秒级秒出)</option>
+            </optgroup>
+            <optgroup label="🌐 国际通用多语言大模型">
+              <option value="openai/gpt-4o-transcribe">OpenAI GPT-4o Transcribe (多语种标点纠错)</option>
+              <option value="openai/whisper-1">OpenAI Whisper-1 (多语言通用)</option>
+            </optgroup>
+          </select>
+          <div class="settings-vad-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>端侧 VAD 智能静音切除已强制启用（自动滤除环境杂音与死寂停顿，大幅降低调用时长并根除幻觉）</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Section 4: System & Version Updates -->
       <div class="settings-section">
         <div class="settings-section-header">

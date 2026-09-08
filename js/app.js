@@ -10,6 +10,7 @@ import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
 import { initVersionChecker, flushPendingUpdate } from './updater.js';
+import { AudioRecorder } from './audio.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -756,6 +757,9 @@ export function renderSettingsState() {
   if (el.settingsInstructionsToggle) {
     el.settingsInstructionsToggle.checked = !!state.instructionsEnabled;
   }
+  if (el.settingsAsrModel) {
+    el.settingsAsrModel.value = state.asrModel || 'bytedance/doubao-seed-asr-2.0';
+  }
   updateSettingsCharCount();
   syncThemePillsUI(state.themeMode);
   renderMemoryManagerUI();
@@ -776,17 +780,20 @@ export function saveSettings() {
   const text = (el.settingsInstructions ? el.settingsInstructions.value : '').trim();
   const enabled = el.settingsInstructionsToggle ? el.settingsInstructionsToggle.checked : true;
   const memoryEnabled = el.settingsMemoryToggle ? el.settingsMemoryToggle.checked : true;
+  const asrModel = (el.settingsAsrModel ? el.settingsAsrModel.value : '') || 'bytedance/doubao-seed-asr-2.0';
 
   state.instructions = text;
   state.instructionsEnabled = enabled;
   state.memoryEnabled = memoryEnabled;
+  state.asrModel = asrModel;
 
   localStorage.setItem(LS.instructions, text);
   localStorage.setItem(LS.instructionsEnabled, String(enabled));
   localStorage.setItem(LS.memoryEnabled, String(memoryEnabled));
+  localStorage.setItem(LS.asrModel, asrModel);
 
   closeSettingsModal();
-  toast('偏好与自定义指令已保存并应用', 'info');
+  toast('偏好设置已保存并应用', 'info');
 }
 
 export function renderAttachments() {
@@ -1214,98 +1221,54 @@ export async function submitGate() {
 }
 
 function initVoiceInput() {
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-  let isRecording = false;
+  let recorder = null;
 
-  function stopRecording() {
-    if (recognition) {
-      try { recognition.stop(); } catch (e) { }
-    }
-    isRecording = false;
-    if (el.voiceBtn) {
-      el.voiceBtn.classList.remove('recording');
-      el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
+  function updateVoiceBtnUI(status) {
+    if (!el.voiceBtn) return;
+    el.voiceBtn.classList.remove('recording', 'transcribing');
+    if (status === 'listening') {
+      el.voiceBtn.classList.add('recording');
+      el.voiceBtn.title = '正在聆听 (端侧 VAD 智能降噪生效中)… 点击直接结束并识别';
+    } else if (status === 'transcribing') {
+      el.voiceBtn.classList.add('transcribing');
+      el.voiceBtn.title = '正在云端高精度 ASR 识别中…';
+    } else {
+      el.voiceBtn.title = '语音输入（VAD 智能切除静音，云端大模型高精度识别）';
     }
   }
 
-  function startRecording() {
-    if (!SpeechRec) {
-      toast('当前浏览器不支持内置语音识别，建议使用手机输入法自带的语音输入功能 🎙️', 'info');
-      return;
-    }
-    try {
-      recognition = new SpeechRec();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'zh-CN';
-
-      let initialText = el.input ? el.input.value : '';
-
-      recognition.onstart = () => {
-        isRecording = true;
-        if (el.voiceBtn) {
-          el.voiceBtn.classList.add('recording');
-          el.voiceBtn.title = '正在聆听… 再次点击结束语音输入';
-        }
-        toast('正在聆听中，请说话…', 'info');
-      };
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
+  function ensureRecorder() {
+    if (!recorder) {
+      recorder = new AudioRecorder({
+        onStateChange: (recState) => {
+          updateVoiceBtnUI(recState);
+        },
+        onTranscript: (text) => {
+          if (el.input && text) {
+            const cur = el.input.value.trim();
+            el.input.value = (cur ? cur + ' ' : '') + text;
+            autoGrow();
+            syncSend();
           }
+          toast('语音识别完成', 'info');
+        },
+        onError: (err) => {
+          toast(err, 'error');
         }
-
-        const currentSpoken = (finalTranscript + interimTranscript).trim();
-        if (el.input) {
-          const prefix = initialText.trim();
-          el.input.value = (prefix ? prefix + ' ' : '') + currentSpoken;
-          autoGrow();
-          syncSend();
-        }
-      };
-
-      recognition.onerror = (event) => {
-        const err = event && event.error ? event.error : '';
-        if (err === 'not-allowed' || err === 'permission-denied') {
-          toast('麦克风权限未开启，请在手机浏览器或系统设置中允许使用麦克风', 'error');
-        } else if (err === 'network' || err === 'service-not-allowed') {
-          toast('当前手机浏览器语音引擎不可用，建议直接使用手机输入法自带的语音输入 🎙️', 'info');
-        } else if (err === 'no-speech') {
-          toast('未检测到说话声音，已自动结束', 'info');
-        } else if (err && err !== 'aborted') {
-          toast(`语音输入提示: ${err}，建议使用手机键盘自带语音`, 'info');
-        }
-        stopRecording();
-      };
-
-      recognition.onend = () => {
-        isRecording = false;
-        if (el.voiceBtn) {
-          el.voiceBtn.classList.remove('recording');
-          el.voiceBtn.title = '语音输入（点击说话，实时转为文字）';
-        }
-        recognition = null;
-      };
-
-      recognition.start();
-    } catch (err) {
-      stopRecording();
-      toast(`启动麦克风失败: ${err.message || '请检查权限'}`, 'error');
+      });
     }
+    return recorder;
   }
 
   if (el.voiceBtn) {
-    el.voiceBtn.addEventListener('click', () => {
-      if (isRecording) stopRecording();
-      else startRecording();
+    el.voiceBtn.addEventListener('click', async () => {
+      const rec = ensureRecorder();
+      if (rec.state === 'listening') {
+        rec.stop();
+      } else if (rec.state === 'idle') {
+        toast('正在启动麦克风 (VAD 智能降噪已生效)…', 'info');
+        await rec.start();
+      }
     });
   }
 }

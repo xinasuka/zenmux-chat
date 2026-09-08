@@ -1183,10 +1183,18 @@
     color:#ff5c5c;background:rgba(255,92,92,.18);border:1px solid rgba(255,92,92,.45);
     animation:voicePulse 1.2s infinite ease-in-out;
   }
+  .composer-icon-btn.transcribing{
+    color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent);
+    animation:transcribePulse 1s infinite ease-in-out;
+  }
   @keyframes voicePulse{
     0%{box-shadow:0 0 0 0 rgba(255,92,92,.4);transform:scale(1)}
     50%{box-shadow:0 0 0 6px rgba(255,92,92,0);transform:scale(1.05)}
     100%{box-shadow:0 0 0 0 rgba(255,92,92,0);transform:scale(1)}
+  }
+  @keyframes transcribePulse{
+    0%,100%{opacity:1;transform:scale(1)}
+    50%{opacity:.6;transform:scale(.95)}
   }
   .composer-icon-btn:disabled,.composer-icon-btn.disabled{
     opacity:.28;cursor:not-allowed;pointer-events:auto;
@@ -2109,6 +2117,33 @@
   .memory-clear-btn:hover{
     color:var(--danger);text-decoration:underline;
   }
+
+  /* Speech-to-Text ASR Settings Container */
+  .settings-asr-container{
+    display:flex;flex-direction:column;gap:8px;margin-top:2px;
+  }
+  .settings-select{
+    width:100%;padding:9px 12px;background:var(--bg-elev);border:1px solid var(--line);
+    border-radius:9px;color:var(--fg);font:inherit;font-size:13px;outline:none;
+    cursor:pointer;transition:border-color .15s,background .15s;box-sizing:border-box;
+  }
+  .settings-select:hover{border-color:var(--fg-faint);background:var(--card-bg)}
+  .settings-select:focus{border-color:var(--accent)}
+  .settings-select optgroup{
+    font-weight:600;color:var(--fg-dim);background:var(--card-bg);padding:4px 0;
+  }
+  .settings-select option{
+    font-weight:normal;color:var(--fg);background:var(--bg-elev);padding:6px;
+  }
+  .settings-vad-badge{
+    display:inline-flex;align-items:center;gap:6px;padding:6px 10px;
+    border-radius:6px;background:rgba(52,199,89,.09);border:1px solid rgba(52,199,89,.25);
+    color:rgba(52,199,89,.95);font-size:11.5px;line-height:1.45;
+  }
+  [data-theme="light"] .settings-vad-badge{
+    background:rgba(40,167,69,.08);border-color:rgba(40,167,69,.22);color:#218838;
+  }
+  .settings-vad-badge svg{flex-shrink:0}
 
   /* Settings Version Card & Manual Update Controller */
   .settings-version-card{

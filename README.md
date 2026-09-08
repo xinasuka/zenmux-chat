@@ -36,7 +36,7 @@
 * **Personalized Custom Instructions**: Tell the AI your background, favorite writing style, or preferred format so it automatically follows your preferences in every conversation.
 * **Smart Long-Term Memory**: The AI remembers your enduring habits, ongoing projects, and background across conversations. You can easily review, click to modify, or clear your memories at any time in Settings.
 * **Unified Thinking Process**: Collapsible timeline for reasoning models, presenting thoughts, tool calls, and final answers in a structured sequence.
-* **Voice Read-Aloud & Dictation**: Listen to responses with natural neural voices or speak your prompt directly via speech-to-text.
+* **Voice Read-Aloud & Cloud ASR Dictation**: Listen to responses with natural neural voices or dictate prompts directly via high-fidelity Cloud ASR (Doubao, MiMo, Qwen, Whisper) with mandatory client-side VAD silence pruning.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
 * **Real-Time Token Usage Metrics**: Transparent tracking of prompt, completion, and reasoning token consumption per conversational turn.
 * **Progressive Web App (PWA) & Mobile APK**: Install directly to your home screen on iOS and Android with full-screen standalone experience, offline shell caching, or compile into a native Android APK via Capacitor.
@@ -111,7 +111,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 4. **个性化设定 (Custom Instructions)**：告诉 AI 你的身份背景、常用偏好或期望的回答风格，AI 在每次对话中都会自动遵循。
 5. **智能长期记忆 (Long-Term Memory)**：AI 会在聊天中自动记住关于你的重要习惯和背景，跨会话持续生效。你可以在设置中随时查看、点击直接修改或清空所有记忆。
 6. **完整思考过程**：完整保留深度思考模型（如 DeepSeek-R1）在工具调用前后的完整思路与动作轨迹。
-7. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及麦克风语音实时转文字。
+7. **双向语音交互**：支持自然语音朗读（可调节倍速与进度）以及基于大模型云端 ASR（豆包、MiMo、Qwen、Whisper）与端侧 VAD 智能降噪静音切除的高精度语音输入。
 8. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
 9. **Token 用量与消耗透明追踪**：每轮对话均支持直观查看 Prompt 输入、Completion 输出及深度推理的精确 Token 消耗指标。
 10. **PWA 与 Android APK 原生编译**：支持一键添加到 iOS 与 Android 桌面作为独立全屏应用使用；同时内置 Capacitor 工具链，支持一行命令编译生成独立的 Android APK 安装包。

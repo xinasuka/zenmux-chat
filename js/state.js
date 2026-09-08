@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.19.9';
+export const APP_VERSION = '2.20.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -24,6 +24,7 @@ export const LS = {
   imageQuality: 'zm.image.quality',
   imageBackground: 'zm.image.background',
   updateSnoozedUntil: 'zm.update.snoozed_until',
+  asrModel: 'zm.asr.model',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -106,6 +107,7 @@ export const el = {
   settingsMemoryCount: $('settings-memory-count'),
   settingsCheckUpdateBtn: $('settings-check-update-btn'),
   settingsUpdateStatus: $('settings-update-status'),
+  settingsAsrModel: $('settings-asr-model'),
   themePillDark: $('theme-pill-dark'),
   themePillLight: $('theme-pill-light'),
   themePillAuto: $('theme-pill-auto'),
@@ -144,6 +146,7 @@ export const state = {
   ctxN: parseInt(getStorageItem(LS.ctx), 10),
   toolMaxTurns: parseInt(getStorageItem(LS.toolTurns), 10),
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
+  asrModel: getStorageItem(LS.asrModel) || 'bytedance/doubao-seed-asr-2.0',
   imageSize: getStorageItem(LS.imageSize) || 'auto',
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',
