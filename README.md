@@ -81,7 +81,6 @@ git clone https://github.com/xinasuka/zenmux-chat.git
   npm run build:apk
   ```
   The compiled APK will be generated in `android/app/build/outputs/apk/debug/`.
-  *(For in-depth ADB device testing, wireless debugging, and CI/CD signing workflows, see the [Architecture & Engineering Guide](design/design.md#16-android-native-app-architecture--release-pipeline).)*
 
 ---
 
@@ -149,7 +148,6 @@ git clone https://github.com/xinasuka/zenmux-chat.git
   npm run build:apk
   ```
   编译完成的安装包生成于 `android/app/build/outputs/apk/debug/`。
-  *(更多关于 ADB 调试、真机推流及自动化签名发布等开发者细节，请参阅 [架构与工程设计文档](design/design.md#16-android-native-app-architecture--release-pipeline)。)*
 
 ---
 
