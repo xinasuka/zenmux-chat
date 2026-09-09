@@ -444,11 +444,9 @@
                 <option value="openai/gpt-transcribe">OpenAI GPT Transcribe (高精度多语种转写 · 标点纠错)</option>
               </optgroup>
             </select>
-            <div class="settings-vad-engine-row" style="margin-top: 10px;">
-              <div class="settings-section-header" style="margin-bottom: 4px;">
-                <label for="settings-vad-engine" class="settings-section-title" style="font-size: 12px; opacity: 0.85;">人声活动检测引擎 (VAD)</label>
-              </div>
-              <select id="settings-vad-engine" class="settings-select">
+            <div class="settings-subrow">
+              <label for="settings-vad-engine" class="settings-sublabel">端侧切音 (VAD):</label>
+              <select id="settings-vad-engine" class="settings-select settings-subselect">
                 <option value="energy">端侧能量自适应引擎 (内置 · 零消耗 · 秒开) · 默认</option>
                 <option value="silero-onnx">Silero 深度神经网络引擎 (ONNX · 极致抗噪 · 深度学习)</option>
               </select>
@@ -480,9 +478,9 @@
                 <option value="browser" selected>浏览器本地原生语音 (Web Speech API)</option>
               </optgroup>
             </select>
-            <div id="settings-tts-voice-row" class="settings-tts-subrow" style="display: none;">
-              <label for="settings-tts-voice" class="settings-tts-sublabel">音色人设 (Timbre):</label>
-              <select id="settings-tts-voice" class="settings-select settings-tts-voiceselect">
+            <div id="settings-tts-voice-row" class="settings-subrow" style="display: none;">
+              <label for="settings-tts-voice" class="settings-sublabel">发音音色 (Voice):</label>
+              <select id="settings-tts-voice" class="settings-select settings-subselect">
                 <optgroup label="Google 拟真音色 (Gemini)">
                   <option value="Kore" selected>Kore (知性自然女声 · 推荐)</option>
                   <option value="Puck">Puck (活力生动男声)</option>
