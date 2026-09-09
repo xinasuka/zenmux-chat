@@ -2173,7 +2173,7 @@
     color:var(--danger);text-decoration:underline;
   }
 
-  /* Speech-to-Text ASR & TTS Settings Container */
+  /* ASR & TTS Settings Container */
   .settings-asr-container,
   .settings-tts-container{
     display:flex;flex-direction:column;gap:8px;margin-top:2px;
