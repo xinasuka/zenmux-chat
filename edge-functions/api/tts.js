@@ -42,7 +42,7 @@ export async function onRequestPost(context) {
 
     // 文本规格化与防御性截断（单次朗读上限 4096 字符）
     const textInput = payload.input.trim().slice(0, 4096);
-    const model = (payload.model && String(payload.model).trim()) || 'openai/tts-1';
+    const model = (payload.model && String(payload.model).trim()) || 'google/gemini-3.1-flash-tts-preview';
     const voice = (payload.voice && String(payload.voice).trim()) || 'nova';
     const responseFormat = (payload.response_format && String(payload.response_format).trim().toLowerCase()) || 'mp3';
     const speed = typeof payload.speed === 'number' ? Math.max(0.25, Math.min(4.0, payload.speed)) : 1.0;

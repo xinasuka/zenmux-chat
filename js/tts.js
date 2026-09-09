@@ -10,11 +10,9 @@ export const CLOUD_TTS_MODELS = [
   {
     group: '推荐云端大模型 (超自然音色 · 细腻拟真)',
     models: [
-      { id: 'openai/tts-1', name: 'OpenAI TTS-1 (低延迟 · 高拟真自然人声) · 推荐', provider: 'OpenAI' },
-      { id: 'openai/tts-1-hd', name: 'OpenAI TTS-1-HD (母带级高清音频)', provider: 'OpenAI' },
-      { id: 'google/gemini-3.1-flash-tts-preview', name: 'Google Gemini 3.1 Flash TTS (多语言拟真)', provider: 'Google' },
-      { id: 'alibaba/qwen-audio-3.0-tts-plus', name: '阿里通义千问 Qwen-Audio TTS Plus', provider: 'Alibaba' },
-      { id: 'x-ai/grok-voice-tts-1.0', name: 'xAI Grok Voice TTS 1.0', provider: 'xAI' }
+      { id: 'google/gemini-3.1-flash-tts-preview', name: 'Google Gemini 3.1 Flash TTS Preview (70+ 多语言 · 细腻情感) · 推荐', provider: 'Google' },
+      { id: 'qwen/qwen-audio-3.0-tts-plus', name: '阿里通义千问 Qwen-Audio-3.0-TTS-Plus (顶级中文与方言)', provider: 'Qwen' },
+      { id: 'x-ai/grok-voice-tts-1.0', name: 'xAI Grok Voice TTS 1.0 (拟真语调 · 动态表达)', provider: 'xAI' }
     ]
   },
   {
