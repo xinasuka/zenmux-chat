@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.20.9';
+export const APP_VERSION = '2.20.10';
 
 export const LS = {
   cur: 'zm.current',
@@ -25,6 +25,8 @@ export const LS = {
   imageBackground: 'zm.image.background',
   updateSnoozedUntil: 'zm.update.snoozed_until',
   asrModel: 'zm.asr.model',
+  ttsModel: 'zm.tts.model',
+  ttsVoice: 'zm.tts.voice',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -112,6 +114,9 @@ export const el = {
   settingsCheckUpdateBtn: $('settings-check-update-btn'),
   settingsUpdateStatus: $('settings-update-status'),
   settingsAsrModel: $('settings-asr-model'),
+  settingsTtsModel: $('settings-tts-model'),
+  settingsTtsVoice: $('settings-tts-voice'),
+  settingsTtsVoiceRow: $('settings-tts-voice-row'),
   themePillDark: $('theme-pill-dark'),
   themePillLight: $('theme-pill-light'),
   themePillAuto: $('theme-pill-auto'),
@@ -151,6 +156,8 @@ export const state = {
   toolMaxTurns: parseInt(getStorageItem(LS.toolTurns), 10),
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
   asrModel: getStorageItem(LS.asrModel) || 'bytedance/doubao-seed-asr-2.0',
+  ttsModel: getStorageItem(LS.ttsModel) || 'browser',
+  ttsVoice: getStorageItem(LS.ttsVoice) || 'nova',
   imageSize: getStorageItem(LS.imageSize) || 'auto',
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',

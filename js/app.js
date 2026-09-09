@@ -760,6 +760,15 @@ export function renderSettingsState() {
   if (el.settingsAsrModel) {
     el.settingsAsrModel.value = state.asrModel || 'bytedance/doubao-seed-asr-2.0';
   }
+  if (el.settingsTtsModel) {
+    el.settingsTtsModel.value = state.ttsModel || 'browser';
+  }
+  if (el.settingsTtsVoice) {
+    el.settingsTtsVoice.value = state.ttsVoice || 'nova';
+  }
+  if (el.settingsTtsVoiceRow) {
+    el.settingsTtsVoiceRow.style.display = (state.ttsModel === 'browser') ? 'none' : 'flex';
+  }
   updateSettingsCharCount();
   syncThemePillsUI(state.themeMode);
   renderMemoryManagerUI();
@@ -781,16 +790,22 @@ export function saveSettings() {
   const enabled = el.settingsInstructionsToggle ? el.settingsInstructionsToggle.checked : true;
   const memoryEnabled = el.settingsMemoryToggle ? el.settingsMemoryToggle.checked : true;
   const asrModel = (el.settingsAsrModel ? el.settingsAsrModel.value : '') || 'bytedance/doubao-seed-asr-2.0';
+  const ttsModel = (el.settingsTtsModel ? el.settingsTtsModel.value : '') || 'browser';
+  const ttsVoice = (el.settingsTtsVoice ? el.settingsTtsVoice.value : '') || 'nova';
 
   state.instructions = text;
   state.instructionsEnabled = enabled;
   state.memoryEnabled = memoryEnabled;
   state.asrModel = asrModel;
+  state.ttsModel = ttsModel;
+  state.ttsVoice = ttsVoice;
 
   localStorage.setItem(LS.instructions, text);
   localStorage.setItem(LS.instructionsEnabled, String(enabled));
   localStorage.setItem(LS.memoryEnabled, String(memoryEnabled));
   localStorage.setItem(LS.asrModel, asrModel);
+  localStorage.setItem(LS.ttsModel, ttsModel);
+  localStorage.setItem(LS.ttsVoice, ttsVoice);
 
   closeSettingsModal();
   toast('偏好设置已保存并应用', 'info');
@@ -1434,6 +1449,14 @@ function initEventListeners() {
   }
   if (el.settingsInstructions) {
     el.settingsInstructions.addEventListener('input', updateSettingsCharCount);
+  }
+  if (el.settingsTtsModel) {
+    el.settingsTtsModel.addEventListener('change', (e) => {
+      const isBrowser = e.target.value === 'browser';
+      if (el.settingsTtsVoiceRow) {
+        el.settingsTtsVoiceRow.style.display = isBrowser ? 'none' : 'flex';
+      }
+    });
   }
 
   // Memory Manager triggers & actions

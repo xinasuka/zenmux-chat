@@ -635,7 +635,7 @@
   }
   .sidebar-backdrop.active{opacity:1;pointer-events:auto}
 
-  /* 窄屏/移动端两行布局：第1行[☰][模型(撑满)][⚙️][☀️/🌙][退出]，第2行[推理][搜索][上下文](三等分) */
+  /* 窄屏/移动端两行布局：第1行[侧边栏][模型(撑满)][设置][主题][退出]，第2行[推理][搜索][上下文](三等分) */
   @media (max-width:768px){
     body.sidebar-collapsed #sidebar{margin-left:0}
     #sidebar{
@@ -2173,9 +2173,19 @@
     color:var(--danger);text-decoration:underline;
   }
 
-  /* Speech-to-Text ASR Settings Container */
-  .settings-asr-container{
+  /* Speech-to-Text ASR & TTS Settings Container */
+  .settings-asr-container,
+  .settings-tts-container{
     display:flex;flex-direction:column;gap:8px;margin-top:2px;
+  }
+  .settings-tts-subrow{
+    display:flex;align-items:center;gap:10px;padding:2px 0;
+  }
+  .settings-tts-sublabel{
+    font-size:12px;color:var(--fg-dim);font-weight:500;white-space:nowrap;
+  }
+  .settings-tts-voiceselect{
+    flex:1;
   }
   .settings-select{
     width:100%;padding:9px 12px;background:var(--bg-elev);border:1px solid var(--line);
@@ -2197,6 +2207,12 @@
   }
   [data-theme="light"] .settings-vad-badge{
     background:rgba(40,167,69,.08);border-color:rgba(40,167,69,.22);color:#218838;
+  }
+  .settings-vad-badge.tts-engine-badge{
+    background:rgba(127,119,221,.09);border-color:rgba(127,119,221,.25);color:var(--accent);
+  }
+  [data-theme="light"] .settings-vad-badge.tts-engine-badge{
+    background:rgba(100,90,200,.08);border-color:rgba(100,90,200,.22);color:#5848c2;
   }
   .settings-vad-badge svg{flex-shrink:0}
 
