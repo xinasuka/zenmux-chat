@@ -82,8 +82,17 @@ export async function onRequestPost(context) {
 
     if (!upstreamRes.ok) {
       const errText = await upstreamRes.text().catch(() => '');
+      let errMsg = `上游 ASR 服务返回异常: HTTP ${upstreamRes.status}`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.error) {
+          errMsg = typeof parsed.error === 'string' ? parsed.error : (parsed.error.message || errMsg);
+        } else if (parsed.message) {
+          errMsg = parsed.message;
+        }
+      } catch (_) {}
       return json({
-        error: `上游 ASR 服务返回异常: HTTP ${upstreamRes.status}`,
+        error: errMsg,
         detail: errText
       }, upstreamRes.status);
     }

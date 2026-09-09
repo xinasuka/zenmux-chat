@@ -137,7 +137,8 @@ export class AudioRecorder {
       preBufferMs: 250,          // 前置语音回溯环形缓冲（防止开头爆破音/清辅音被裁切）
       hangoverMs: 3000,          // 尾部静音悬挂窗口（3.0秒，充足容忍语流自然换气与思考停顿）
       minSpeechDurationMs: 300,  // 最短有效语音时长（低于此值视为误触取消）
-      maxSpeechDurationMs: 60000 // 单次录音物理上限（60秒自动截断）
+      maxSpeechDurationMs: 60000,// 单次录音物理上限（60秒自动截断）
+      noSpeechTimeoutMs: 15000   // 无声超时门限（15秒未开口自动取消释放）
     }, options);
 
     this.state = 'idle'; // 'idle' | 'listening' | 'transcribing'
@@ -161,6 +162,7 @@ export class AudioRecorder {
     this.onVolume = options.onVolume || (() => {});
     this.onTranscript = options.onTranscript || (() => {});
     this.onError = options.onError || (() => {});
+    this.onNotice = options.onNotice || ((msg) => this.onError(msg));
   }
 
   setState(newState) {
@@ -344,7 +346,13 @@ export class AudioRecorder {
       return;
     }
 
-    // 超时安全上限（默认 60 秒自动收口）
+    // 5. 无声超时自愈：若开启录音后持续 15 秒完全未开口，自动停止并释放麦克风硬件
+    if (!this.speechStarted && (now - this.startTime >= this.options.noSpeechTimeoutMs)) {
+      this.stop();
+      return;
+    }
+
+    // 6. 超时物理上限（默认 60 秒自动收口）
     if (now - this.startTime >= this.options.maxSpeechDurationMs) {
       this.stop();
     }
@@ -358,33 +366,45 @@ export class AudioRecorder {
 
     let chunksToProcess = this.recordedChunks;
     const durationMs = Date.now() - this.startTime;
-
-    // VAD 智能静音裁剪：切除头部长时间未说话的静音与尾部冗余静音
-    if (this.speechStarted && this.speechStartIndex >= 0 && this.lastSpeechIndex >= this.speechStartIndex) {
-      // 尾部向后预留约 350-400ms 保护末尾字词音素
-      const tailFrames = Math.max(8, Math.ceil(this.maxPreBufferFrames * 1.5));
-      const endIndex = Math.min(chunksToProcess.length, this.lastSpeechIndex + tailFrames);
-      chunksToProcess = chunksToProcess.slice(this.speechStartIndex, endIndex);
-    }
+    const hadSpeech = this.speechStarted && this.speechStartIndex >= 0 && this.lastSpeechIndex >= this.speechStartIndex;
 
     this.cleanup();
 
-    // 录音过短判定（小于 300ms 视为误触）
-    if (!chunksToProcess || chunksToProcess.length === 0 || durationMs < 300) {
+    // 1. 全程无声判定：如果 VAD 未捕获人声活动 (speechStarted === false) 或无录音数据，
+    // 说明用户未曾开口，直接优雅收口，绝对不向云端 ASR 发送全静音垃圾载荷（规避 upstream HTTP 500 且省流省费用）
+    if (!hadSpeech || !chunksToProcess || chunksToProcess.length === 0) {
       this.setState('idle');
       this.onVolume(0);
+      this.onNotice('未检测到有效声音输入');
       return;
     }
 
+    // 2. VAD 智能静音裁剪：切除头部长时间未说话的静音与尾部冗余静音
+    const tailFrames = Math.max(8, Math.ceil(this.maxPreBufferFrames * 1.5));
+    const endIndex = Math.min(chunksToProcess.length, this.lastSpeechIndex + tailFrames);
+    chunksToProcess = chunksToProcess.slice(this.speechStartIndex, endIndex);
+
+    // 3. 计算切除静音后的纯人声有效样本总量与持续时间
+    let totalLength = 0;
+    for (let i = 0; i < chunksToProcess.length; i++) {
+      totalLength += chunksToProcess[i].length;
+    }
+    const effectiveSpeechDurationMs = (totalLength / 16000) * 1000;
+
+    // 4. 录音过短判定（有效人声低于 300ms 视为轻微按键碰撞或环境杂音误触）
+    if (effectiveSpeechDurationMs < this.options.minSpeechDurationMs) {
+      this.setState('idle');
+      this.onVolume(0);
+      this.onNotice('声音过短，未识别到有效内容');
+      return;
+    }
+
+    // 5. 唯有确认存在有效人声切片时，才进入 'transcribing' 转录状态并锁定 UI
     this.setState('transcribing');
     this.onVolume(0);
 
     try {
-      // 1. 合并所有 16k Float32 分块
-      let totalLength = 0;
-      for (let i = 0; i < chunksToProcess.length; i++) {
-        totalLength += chunksToProcess[i].length;
-      }
+      // 合并 16k Float32 分块
       const fullBuffer = new Float32Array(totalLength);
       let offset = 0;
       for (let i = 0; i < chunksToProcess.length; i++) {
@@ -392,14 +412,14 @@ export class AudioRecorder {
         offset += chunksToProcess[i].length;
       }
 
-      // 2. 编码为 16-Bit Linear PCM WAV 格式
+      // 编码为 16-Bit Linear PCM WAV 格式
       const wavArrayBuffer = encodeWAV(fullBuffer, 16000);
       const base64Audio = bufferToBase64(wavArrayBuffer);
 
-      // 3. 读取用户在设置中设定的 ASR 模型（默认为豆包大模型 ASR）
+      // 读取设置中的 ASR 模型
       const asrModel = state.asrModel || localStorage.getItem('zm.asr.model') || 'bytedance/doubao-seed-asr-2.0';
 
-      // 4. 调用边缘网关完成语音转文字
+      // 调用边缘网关完成语音转文字
       const transcript = await transcribeAudio(base64Audio, asrModel);
 
       this.setState('idle');
@@ -408,7 +428,7 @@ export class AudioRecorder {
       if (transcript && transcript.trim()) {
         this.onTranscript(transcript.trim());
       } else {
-        this.onError('未能识别到有效文字内容，请重试');
+        this.onNotice('未能识别到文字内容');
       }
 
     } catch (err) {
@@ -722,6 +742,10 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             syncSend();
           }
           toast('语音识别完成', 'info');
+        },
+        onNotice: (msg) => {
+          updateVoiceUI('idle');
+          toast(msg, 'info');
         },
         onError: (err) => {
           updateVoiceUI('idle');
