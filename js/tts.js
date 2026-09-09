@@ -741,6 +741,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
 
   // 播放 / 暂停按钮
   playBtn.addEventListener('click', () => {
+    if (playBtn) playBtn.blur();
     if (isBuffering) return;
 
     if (isCloudTTS) {

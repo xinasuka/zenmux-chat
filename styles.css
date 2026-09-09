@@ -910,11 +910,28 @@
     transition:transform .12s cubic-bezier(.16,1,.3,1),background .15s,box-shadow .15s;
     outline:none;-webkit-tap-highlight-color:transparent;
   }
-  @media (hover: hover){
+  .tts-play-btn:focus,
+  .tts-play-btn:focus-visible{
+    outline:none;
+    background:var(--accent);
+    color:#ffffff;
+  }
+  @media (hover: hover) and (pointer: fine){
     .tts-play-btn:not(.loading):hover{
       background:var(--accent-hover);
       box-shadow:0 3px 10px var(--accent-glow);
       transform:scale(1.05);
+    }
+  }
+  @media (pointer: coarse){
+    .tts-play-btn:hover{
+      background:var(--accent);
+      transform:none;
+      box-shadow:0 2px 6px var(--accent-glow);
+    }
+    .tts-play-btn.playing:hover{
+      background:var(--accent);
+      box-shadow:0 0 10px var(--accent-glow);
     }
   }
   .tts-play-btn:active{transform:scale(.92)}
