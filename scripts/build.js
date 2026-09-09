@@ -110,7 +110,9 @@ async function build() {
     { path: 'dist/admin.css', desc: 'Minified Admin CSS' },
     { path: 'dist/version.json', desc: 'Release Metadata' },
     { path: 'dist/assets/onnx/silero_vad.onnx', desc: 'Silero Neural VAD v5 Model' },
-    { path: 'dist/assets/onnx/ort.min.js', desc: 'ONNX Runtime Web Loader' }
+    { path: 'dist/assets/onnx/ort.min.js', desc: 'ONNX Runtime Web Loader' },
+    { path: 'dist/assets/onnx/ort-wasm-simd.wasm', desc: 'ONNX SIMD WebAssembly Engine' },
+    { path: 'dist/assets/onnx/ort-wasm.wasm', desc: 'ONNX Standard WASM Fallback' }
   ];
 
   console.log('Artifact Manifest:');
