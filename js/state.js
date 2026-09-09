@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.20.2';
+export const APP_VERSION = '2.20.3';
 
 export const LS = {
   cur: 'zm.current',
@@ -80,6 +80,10 @@ export const el = {
   pluginsBtn: $('plugins-btn'),
   pluginsBadge: $('plugins-badge'),
   voiceBtn: $('voice-btn'),
+  voiceOverlay: $('composer-voice-overlay'),
+  voiceStatus: $('voice-overlay-status'),
+  voiceTimer: $('voice-overlay-timer'),
+  voiceWave: $('voice-wave-visualizer'),
   fileInput: $('file-input'),
   attachmentsTray: $('composer-attachments'),
   dropOverlay: $('drop-overlay'),

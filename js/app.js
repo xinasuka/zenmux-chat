@@ -1222,18 +1222,113 @@ export async function submitGate() {
 
 function initVoiceInput() {
   let recorder = null;
+  let voiceTimerInterval = null;
+  let secondsElapsed = 0;
 
-  function updateVoiceBtnUI(status) {
+  const MIC_ICON_SVG = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+      <line x1="12" y1="19" x2="12" y2="23"></line>
+      <line x1="8" y1="23" x2="16" y2="23"></line>
+    </svg>
+  `;
+  const STOP_ICON_SVG = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2.5"></rect>
+    </svg>
+  `;
+  const SPINNER_ICON_SVG = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin">
+      <circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle>
+      <path d="M12 3a9 9 0 0 1 9 9"></path>
+    </svg>
+  `;
+
+  function updateWaveform(vol) {
+    if (!el.voiceWave) return;
+    const bars = el.voiceWave.querySelectorAll('.wave-bar');
+    if (!bars || bars.length === 0) return;
+    bars.forEach((bar, idx) => {
+      const distFromCenter = Math.abs(idx - 3.5) / 3.5;
+      const factor = Math.max(0.25, 1 - distFromCenter * 0.45);
+      const jitter = 0.85 + Math.random() * 0.3;
+      const scale = Math.max(0.18, Math.min(1.0, (vol * 1.5 * factor * jitter) + 0.18));
+      bar.style.transform = `scaleY(${scale.toFixed(2)})`;
+    });
+  }
+
+  function resetWaveform() {
+    if (!el.voiceWave) return;
+    const bars = el.voiceWave.querySelectorAll('.wave-bar');
+    bars.forEach((bar) => {
+      bar.style.transform = 'scaleY(0.2)';
+    });
+  }
+
+  function updateVoiceUI(status) {
     if (!el.voiceBtn) return;
-    el.voiceBtn.classList.remove('recording', 'transcribing');
+    el.voiceBtn.classList.remove('recording', 'voice-on', 'transcribing');
+
     if (status === 'listening') {
-      el.voiceBtn.classList.add('recording');
-      el.voiceBtn.title = '正在聆听 (端侧 VAD 智能降噪生效中)… 点击直接结束并识别';
+      // 1. Morph voice button to Voice On / Stop button
+      el.voiceBtn.classList.add('voice-on', 'recording');
+      el.voiceBtn.innerHTML = STOP_ICON_SVG;
+      el.voiceBtn.title = '正在录音 (VAD 智能切除静音)… 点击结束并转录';
+
+      // 2. Hide input textarea and show voice overlay in prompt area
+      if (el.input) el.input.style.display = 'none';
+      if (el.voiceOverlay) {
+        el.voiceOverlay.style.display = 'flex';
+        el.voiceOverlay.classList.remove('is-transcribing');
+      }
+      if (el.voiceStatus) el.voiceStatus.textContent = '正在聆听…';
+      if (el.send) el.send.disabled = true;
+
+      // 3. Start elapsed duration timer
+      secondsElapsed = 0;
+      if (el.voiceTimer) el.voiceTimer.textContent = '00:00';
+      clearInterval(voiceTimerInterval);
+      voiceTimerInterval = setInterval(() => {
+        secondsElapsed++;
+        const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+        const s = String(secondsElapsed % 60).padStart(2, '0');
+        if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
+      }, 1000);
+
     } else if (status === 'transcribing') {
+      // 1. Button indicates transcribing
       el.voiceBtn.classList.add('transcribing');
-      el.voiceBtn.title = '正在云端高精度 ASR 识别中…';
+      el.voiceBtn.innerHTML = SPINNER_ICON_SVG;
+      el.voiceBtn.title = '正在转录文本...';
+
+      // 2. Stop timer and update prompt area status
+      clearInterval(voiceTimerInterval);
+      if (el.voiceOverlay) {
+        el.voiceOverlay.style.display = 'flex';
+        el.voiceOverlay.classList.add('is-transcribing');
+      }
+      if (el.voiceStatus) el.voiceStatus.textContent = '正在转录文本...';
+      if (el.send) el.send.disabled = true;
+
     } else {
+      // Idle / Finished
+      clearInterval(voiceTimerInterval);
+      el.voiceBtn.innerHTML = MIC_ICON_SVG;
       el.voiceBtn.title = '语音输入（VAD 智能切除静音，云端大模型高精度识别）';
+
+      // Restore textarea prompt area
+      if (el.voiceOverlay) {
+        el.voiceOverlay.style.display = 'none';
+        el.voiceOverlay.classList.remove('is-transcribing');
+      }
+      resetWaveform();
+
+      if (el.input) {
+        el.input.style.display = '';
+        el.input.focus();
+      }
+      syncSend();
     }
   }
 
@@ -1241,7 +1336,10 @@ function initVoiceInput() {
     if (!recorder) {
       recorder = new AudioRecorder({
         onStateChange: (recState) => {
-          updateVoiceBtnUI(recState);
+          updateVoiceUI(recState);
+        },
+        onVolume: (vol) => {
+          updateWaveform(vol);
         },
         onTranscript: (text) => {
           if (el.input && text) {
@@ -1254,6 +1352,7 @@ function initVoiceInput() {
           toast('语音识别完成', 'info');
         },
         onError: (err) => {
+          updateVoiceUI('idle');
           toast(err, 'error');
         }
       });
@@ -1267,7 +1366,6 @@ function initVoiceInput() {
       if (rec.state === 'listening') {
         rec.stop();
       } else if (rec.state === 'idle') {
-        toast('正在启动麦克风 (VAD 智能降噪已生效)…', 'info');
         await rec.start();
       }
     });

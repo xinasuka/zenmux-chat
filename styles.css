@@ -1073,6 +1073,7 @@
     border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{animation:spin .8s linear infinite}
 
   #composer{
     max-width:760px;margin:0 auto;background:var(--bg-elev);
@@ -1179,23 +1180,77 @@
     margin:6px 12px 10px;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,.04);
     font-size:11.5px;color:var(--fg-dim);line-height:1.45;border-left:2px solid var(--accent);
   }
-  .composer-icon-btn.recording{
-    color:#ff5c5c;background:rgba(255,92,92,.18);border:1px solid rgba(255,92,92,.45);
-    animation:voicePulse 1.2s infinite ease-in-out;
+  .composer-icon-btn.recording,
+  .composer-icon-btn.voice-on{
+    color:#fff;background:#ff4a4a;border:1px solid rgba(255,74,74,.6);
+    box-shadow:0 0 12px rgba(255,74,74,.45);
+    animation:voiceOnPulse 1.3s infinite ease-in-out;
   }
   .composer-icon-btn.transcribing{
     color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent);
     animation:transcribePulse 1s infinite ease-in-out;
   }
-  @keyframes voicePulse{
-    0%{box-shadow:0 0 0 0 rgba(255,92,92,.4);transform:scale(1)}
-    50%{box-shadow:0 0 0 6px rgba(255,92,92,0);transform:scale(1.05)}
-    100%{box-shadow:0 0 0 0 rgba(255,92,92,0);transform:scale(1)}
+  @keyframes voiceOnPulse{
+    0%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,74,74,.55)}
+    50%{transform:scale(1.06);box-shadow:0 0 0 8px rgba(255,74,74,0)}
+    100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,74,74,0)}
   }
   @keyframes transcribePulse{
     0%,100%{opacity:1;transform:scale(1)}
     50%{opacity:.6;transform:scale(.95)}
   }
+
+  /* ---------- Composer Voice Dictation Overlay ---------- */
+  .composer-voice-overlay{
+    flex:1;min-height:34px;height:34px;display:flex;align-items:center;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,74,74,.35);
+    border-radius:8px;padding:0 12px;user-select:none;transition:all .2s ease;
+  }
+  .composer-voice-overlay.is-transcribing{
+    border-color:rgba(127,119,221,.4);background:rgba(127,119,221,.06);
+  }
+  .voice-overlay-content{
+    display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;
+  }
+  .voice-wave-visualizer{
+    display:flex;align-items:center;gap:3px;height:20px;padding:0 2px;
+  }
+  .voice-wave-visualizer .wave-bar{
+    width:3px;height:16px;background:#ff5c5c;border-radius:3px;
+    transform:scaleY(0.2);transform-origin:center;
+    transition:transform .08s ease,background .2s;
+  }
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar{
+    background:var(--accent);animation:waveShimmer 1s infinite ease-in-out;
+  }
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(1){animation-delay:0.0s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(2){animation-delay:0.1s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(3){animation-delay:0.2s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(4){animation-delay:0.3s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(5){animation-delay:0.4s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(6){animation-delay:0.5s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(7){animation-delay:0.6s}
+  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(8){animation-delay:0.7s}
+
+  @keyframes waveShimmer{
+    0%,100%{transform:scaleY(0.2);opacity:.4}
+    50%{transform:scaleY(1);opacity:1}
+  }
+
+  .voice-overlay-info{
+    display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim);
+  }
+  .voice-overlay-status{
+    font-size:12px;color:var(--fg-muted);font-weight:500;
+  }
+  .composer-voice-overlay.is-transcribing .voice-overlay-status{
+    color:var(--accent);
+  }
+  .voice-overlay-timer{
+    font-family:var(--font-mono,monospace);font-size:11px;color:var(--fg-faint);
+    background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px;
+  }
+
   .composer-icon-btn:disabled,.composer-icon-btn.disabled{
     opacity:.28;cursor:not-allowed;pointer-events:auto;
   }

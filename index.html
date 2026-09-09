@@ -197,6 +197,24 @@
       </div>
       <div id="composer-main-row" class="composer-main-row">
         <textarea id="input" rows="1" placeholder="发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行"></textarea>
+        <div id="composer-voice-overlay" class="composer-voice-overlay" style="display:none;" aria-live="polite">
+          <div class="voice-overlay-content">
+            <div id="voice-wave-visualizer" class="voice-wave-visualizer">
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+            </div>
+            <div class="voice-overlay-info">
+              <span id="voice-overlay-status" class="voice-overlay-status">正在聆听…</span>
+              <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
+            </div>
+          </div>
+        </div>
         <button id="stop" title="停止" data-page-node-id="mPg8sygomFKpxexZkzYZK0">■</button>
         <button id="send" title="发送" data-page-node-id="DiBFl6NPkhFZqRePnLQIVR">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" data-page-node-id="r2S07dnQvhJQtDH3XZ6DLR"><path d="M2 8l12-6-4.5 6L14 14 2 8z" data-page-node-id="xjSljhsLNoNpqJjfWF3BJV"/></svg>
