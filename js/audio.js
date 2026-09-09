@@ -123,7 +123,10 @@ export async function transcribeAudio(base64Audio, model = 'bytedance/doubao-see
   }
 
   const data = await response.json();
-  return data.text || '';
+  return {
+    text: (typeof data.text === 'string' ? data.text : '') || '',
+    notice: data.notice || ''
+  };
 }
 
 /**
@@ -145,6 +148,7 @@ export class AudioRecorder {
     this.audioCtx = null;
     this.stream = null;
     this.sourceNode = null;
+    this.filterNode = null;
     this.processorNode = null;
     this.gainNode = null;
 
@@ -158,6 +162,7 @@ export class AudioRecorder {
     this.maxPreBufferFrames = 0;
     this.noSpeechTimer = null;
     this.consecutiveSpeechFrames = 0;
+    this.validSpeechFramesCount = 0;
     this.frameCount = 0;
 
     // 回调事件
@@ -217,6 +222,7 @@ export class AudioRecorder {
       this.lastSpeechIndex = -1;
       this.noiseFloor = 0.004;
       this.consecutiveSpeechFrames = 0;
+      this.validSpeechFramesCount = 0;
       this.frameCount = 0;
 
       // 双重保险：首声 6 秒无声超时看门狗硬件定时器
@@ -283,7 +289,21 @@ export class AudioRecorder {
       this.gainNode = this.audioCtx.createGain();
       this.gainNode.gain.value = 0; // 静音本地监听，避免啸叫
 
-      this.sourceNode.connect(this.processorNode);
+      // 硬件级高通滤波器（85Hz Cutoff，Q=0.707 巴特沃斯响应）：
+      // 物理级滤除麦克风直流偏置 (DC offset)、桌面机械共振及 50Hz/60Hz 工频市电底噪
+      try {
+        this.filterNode = this.audioCtx.createBiquadFilter();
+        this.filterNode.type = 'highpass';
+        this.filterNode.frequency.setValueAtTime(85, this.audioCtx.currentTime);
+        this.filterNode.Q.setValueAtTime(0.707, this.audioCtx.currentTime);
+        this.sourceNode.connect(this.filterNode);
+        this.filterNode.connect(this.processorNode);
+      } catch (filterErr) {
+        console.warn('[AudioEngine] BiquadFilter highpass unavailable, bypassing:', filterErr);
+        this.filterNode = null;
+        this.sourceNode.connect(this.processorNode);
+      }
+
       this.processorNode.connect(this.gainNode);
       this.gainNode.connect(this.audioCtx.destination);
 
@@ -313,9 +333,19 @@ export class AudioRecorder {
     // 1. 统一重采样至 16kHz
     const frame16k = downsampleTo16k(inputData, inputSampleRate);
 
-    // 2. 计算当前帧的 RMS 能量
-    let sum = 0;
+    // 2. 软件级二次均值去直流偏置（DC Mean Detrending）：将残存的硬件恒定电平偏移归零
     const len = frame16k.length;
+    let frameSum = 0;
+    for (let i = 0; i < len; i++) {
+      frameSum += frame16k[i];
+    }
+    const frameMean = frameSum / len;
+    for (let i = 0; i < len; i++) {
+      frame16k[i] -= frameMean;
+    }
+
+    // 3. 计算当前去偏置帧的 RMS 能量
+    let sum = 0;
     for (let i = 0; i < len; i++) {
       sum += frame16k[i] * frame16k[i];
     }
@@ -331,28 +361,33 @@ export class AudioRecorder {
     this.recordedChunks.push(frameCopy);
     const currentIndex = this.recordedChunks.length - 1;
 
-    // 3. 动态自适应底噪学习与 VAD 人声检测
-    // 前置自适应校准期：开启录音的前 6 帧 (~250ms) 快速测量当前麦克风真实本底底噪
-    if (this.frameCount <= 6) {
-      this.noiseFloor = Math.max(this.noiseFloor, rms);
+    // 4. 前置防误触缓冲期（前 10 帧 / 约 420ms）：
+    // 彻底免疫用户点击麦克风按钮时的物理微动开关微震、触控屏幕震动及声卡通电瞬态电平冲击
+    const inWarmup = this.frameCount <= 10;
+
+    // 5. 动态自适应底噪学习
+    if (inWarmup) {
+      if (rms < 0.020) {
+        this.noiseFloor = Math.max(this.noiseFloor, rms);
+      }
     } else if (!this.speechStarted) {
       // 未发声时平滑跟踪环境底噪漂移（风扇、空调微弱波动）
-      if (rms < 0.015) {
-        this.noiseFloor = this.noiseFloor * 0.96 + rms * 0.04;
+      if (rms < 0.020) {
+        this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
       }
     } else if (rms < this.noiseFloor * 1.5) {
       this.noiseFloor = this.noiseFloor * 0.98 + rms * 0.02;
     }
 
     // 严密人声能量门限：
-    // 人类自然发音（即使低语）RMS 均在 0.018 - 0.150，环境底噪（风扇/空调/麦克风 AGC 增益）一般在 0.004 - 0.009
-    const speechTriggerThreshold = Math.max(0.016, this.noiseFloor * 2.2);
-    const speechHoldThreshold = Math.max(0.009, this.noiseFloor * 1.4);
+    // 人类自然发音（即使低语）RMS 均在 0.018 - 0.150，环境底噪经高通去偏置后稳定在 0.001 - 0.006
+    const speechTriggerThreshold = Math.max(0.018, this.noiseFloor * 2.5);
+    const speechHoldThreshold = Math.max(0.010, this.noiseFloor * 1.5);
 
-    if (rms > speechTriggerThreshold) {
+    if (!inWarmup && rms > speechTriggerThreshold) {
       this.consecutiveSpeechFrames++;
-      // 双帧连续防抖：需要至少连续 2 帧 (~80ms) 维持人声能量，防止偶发单帧按键声或爆破音误触发
-      if (this.consecutiveSpeechFrames >= 2) {
+      // 三帧连续防抖：需要至少连续 3 帧 (~130ms) 维持人声能量，防止偶发单双帧碰撞声或杂音误触发
+      if (this.consecutiveSpeechFrames >= 3) {
         if (!this.speechStarted) {
           this.speechStarted = true;
           if (this.noSpeechTimer) {
@@ -360,32 +395,34 @@ export class AudioRecorder {
             this.noSpeechTimer = null;
           }
           // 记录人声开始帧，向前预留 250ms 前置环形缓冲
-          this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 2);
+          this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 3);
         }
         this.lastSpeechTime = now;
         this.lastSpeechIndex = currentIndex;
+        this.validSpeechFramesCount++;
       }
     } else if (this.speechStarted && rms > speechHoldThreshold) {
       this.consecutiveSpeechFrames = 0;
       this.lastSpeechTime = now;
       this.lastSpeechIndex = currentIndex;
+      this.validSpeechFramesCount++;
     } else {
       this.consecutiveSpeechFrames = 0;
     }
 
-    // 4. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
+    // 6. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
     if (this.speechStarted && (now - this.lastSpeechTime >= this.options.hangoverMs)) {
       this.stop();
       return;
     }
 
-    // 5. 首声超时自愈：若开启录音后持续 6 秒完全未检测到发声，自动停止并释放麦克风硬件
+    // 7. 首声超时自愈：若开启录音后持续 6 秒完全未检测到发声，自动停止并释放麦克风硬件
     if (!this.speechStarted && (now - this.startTime >= this.options.noSpeechTimeoutMs)) {
       this.stop();
       return;
     }
 
-    // 6. 超时物理上限（默认 60 秒自动收口）
+    // 8. 超时物理上限（默认 60 秒自动收口）
     if (now - this.startTime >= this.options.maxSpeechDurationMs) {
       this.stop();
     }
@@ -398,13 +435,15 @@ export class AudioRecorder {
     if (this.state !== 'listening') return;
 
     let chunksToProcess = this.recordedChunks;
-    const durationMs = Date.now() - this.startTime;
-    const hadSpeech = this.speechStarted && this.speechStartIndex >= 0 && this.lastSpeechIndex >= this.speechStartIndex;
+    const hadSpeech = this.speechStarted &&
+      this.validSpeechFramesCount >= 6 &&
+      this.speechStartIndex >= 0 &&
+      this.lastSpeechIndex >= this.speechStartIndex;
 
     this.cleanup();
 
-    // 1. 全程无声判定：如果 VAD 未捕获人声活动 (speechStarted === false) 或无录音数据，
-    // 说明用户未曾开口，直接优雅收口，绝对不向云端 ASR 发送全静音垃圾载荷（规避 upstream HTTP 500 且省流省费用）
+    // 1. 全程无声判定：如果 VAD 未捕获人声活动 (speechStarted === false) 或有效人声不足 6 帧 (~250ms)，
+    // 说明用户未曾开口或仅为轻微杂音，直接优雅收口，绝对不向云端 ASR 发送无声垃圾载荷（规避 upstream HTTP 500 且省流省费用）
     if (!hadSpeech || !chunksToProcess || chunksToProcess.length === 0) {
       this.setState('idle');
       this.onVolume(0);
@@ -453,13 +492,18 @@ export class AudioRecorder {
       const asrModel = state.asrModel || localStorage.getItem('zm.asr.model') || 'bytedance/doubao-seed-asr-2.0';
 
       // 调用边缘网关完成语音转文字
-      const transcript = await transcribeAudio(base64Audio, asrModel);
+      const result = await transcribeAudio(base64Audio, asrModel);
 
       this.setState('idle');
       this.onVolume(0);
 
+      const transcript = typeof result === 'string' ? result : (result.text || '');
+      const serverNotice = result && result.notice ? result.notice : '';
+
       if (transcript && transcript.trim()) {
         this.onTranscript(transcript.trim());
+      } else if (serverNotice) {
+        this.onNotice(serverNotice);
       } else {
         this.onNotice('未能识别到文字内容');
       }
@@ -500,6 +544,10 @@ export class AudioRecorder {
         this.processorNode.disconnect();
       } catch (_) {}
       this.processorNode = null;
+    }
+    if (this.filterNode) {
+      try { this.filterNode.disconnect(); } catch (_) {}
+      this.filterNode = null;
     }
     if (this.sourceNode) {
       try { this.sourceNode.disconnect(); } catch (_) {}
@@ -738,6 +786,15 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
         const s = String(secondsElapsed % 60).padStart(2, '0');
         if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
+
+        // 关键防线：首声 6 秒无声绝对看门狗，兜底任何麦克风硬件静音或静音环境漏报
+        const rec = ensureRecorder();
+        if (secondsElapsed >= 6 && (!rec.speechStarted || rec.validSpeechFramesCount < 6)) {
+          clearInterval(voiceTimerInterval);
+          rec.cancel();
+          toast('未检测到有效声音输入', 'info');
+          return;
+        }
 
         // 临近 60 秒上限时（剩余 10 秒以内）给予视觉倒数预警
         if (remaining <= 10 && remaining > 0) {

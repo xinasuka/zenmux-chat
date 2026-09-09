@@ -80,7 +80,7 @@ export async function onRequestPost(context) {
       }, 502);
     }
 
-    if (!upstreamRes.ok) {
+      if (!upstreamRes.ok) {
       const errText = await upstreamRes.text().catch(() => '');
       let errMsg = `上游 ASR 服务返回异常: HTTP ${upstreamRes.status}`;
       try {
@@ -91,6 +91,17 @@ export async function onRequestPost(context) {
           errMsg = parsed.message;
         }
       } catch (_) {}
+
+      // 友好化异常诊断与优雅降级：
+      // 当上游返回 500 且包含 "Server encountered an unexpected error"（通常由音频无有效人声、过短或纯杂音导致模型解码异常），
+      // 优雅降级返回空文本结果，避免向前端抛出惊扰用户的原始服务端异常
+      if (upstreamRes.status === 500 && (errMsg.includes('unexpected error') || errMsg.includes('Server encountered an unexpected error'))) {
+        return json({
+          text: '',
+          notice: '未能识别到有效语音内容（音频过短或未检测到清晰人声）'
+        }, 200);
+      }
+
       return json({
         error: errMsg,
         detail: errText
