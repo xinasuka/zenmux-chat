@@ -177,9 +177,77 @@ export function stopGlobalAudio() {
 }
 
 /**
- * 调用 /api/tts 边缘网关获取高保真云端语音合成音频流
+ * 将 Base64 文本解码为浏览器原生 Uint8Array 二进制数组
  */
-export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-tts-preview', voice = 'Kore', speed = 1.0) {
+export function decodeBase64ToUint8Array(base64Str) {
+  const clean = base64Str.trim();
+  const binaryStr = atob(clean);
+  const len = binaryStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * 将裸 16-bit Linear PCM 二进制数据无缝封装为标准 44 字节 RIFF/WAVE 容器
+ */
+export function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+  const pcmBytes = new Uint8Array(pcmBuffer);
+  if (pcmBytes.length >= 4 && pcmBytes[0] === 0x52 && pcmBytes[1] === 0x49 && pcmBytes[2] === 0x46 && pcmBytes[3] === 0x46) {
+    return { buffer: pcmBuffer, contentType: 'audio/wav' };
+  }
+  if (pcmBytes.length >= 2 && pcmBytes[0] === 0xFF && (pcmBytes[1] & 0xE0) === 0xE0) {
+    return { buffer: pcmBuffer, contentType: 'audio/mpeg' };
+  }
+
+  const dataSize = pcmBytes.length;
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  // RIFF chunk descriptor
+  view.setUint8(0, 0x52); // 'R'
+  view.setUint8(1, 0x49); // 'I'
+  view.setUint8(2, 0x46); // 'F'
+  view.setUint8(3, 0x46); // 'F'
+  view.setUint32(4, 36 + dataSize, true);
+  view.setUint8(8, 0x57);  // 'W'
+  view.setUint8(9, 0x41);  // 'A'
+  view.setUint8(10, 0x56); // 'V'
+  view.setUint8(11, 0x45); // 'E'
+
+  // fmt sub-chunk
+  view.setUint8(12, 0x66); // 'f'
+  view.setUint8(13, 0x6D); // 'm'
+  view.setUint8(14, 0x74); // 't'
+  view.setUint8(15, 0x20); // ' '
+  view.setUint32(16, 16, true);                                // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true);                                 // AudioFormat (1 = Linear PCM)
+  view.setUint16(22, numChannels, true);                       // NumChannels (1 = Mono)
+  view.setUint32(24, sampleRate, true);                        // SampleRate
+  view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true); // ByteRate
+  view.setUint16(32, numChannels * (bitsPerSample / 8), true); // BlockAlign
+  view.setUint16(34, bitsPerSample, true);                     // BitsPerSample
+
+  // data sub-chunk
+  view.setUint8(36, 0x64); // 'd'
+  view.setUint8(37, 0x61); // 'a'
+  view.setUint8(38, 0x74); // 't'
+  view.setUint8(39, 0x61); // 'a'
+  view.setUint32(40, dataSize, true);
+
+  const combined = new Uint8Array(44 + dataSize);
+  combined.set(new Uint8Array(header), 0);
+  combined.set(pcmBytes, 44);
+
+  return { buffer: combined.buffer, contentType: 'audio/wav' };
+}
+
+/**
+ * 调用 /api/tts 边缘网关流式获取 Server-Sent Events (SSE) 音频分片并聚合成 WAV 容器
+ */
+export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-tts-preview', voice = 'Kore', onProgress = null) {
   const gateToken = state.token || localStorage.getItem(LS.token) || localStorage.getItem('zm.token') || '';
   const headers = {
     'Content-Type': 'application/json'
@@ -196,8 +264,8 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
       model,
       input: text,
       voice,
-      speed,
-      response_format: 'pcm'
+      response_format: 'pcm',
+      stream: true
     })
   });
 
@@ -212,7 +280,61 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
     throw new Error(errDetail);
   }
 
-  return await response.blob();
+  // 流式读取 SSE 事件分片
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let lineBuffer = '';
+  const pcmChunks = [];
+  let sampleRate = 24000;
+  let totalPcmBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    lineBuffer += decoder.decode(value, { stream: true });
+    const lines = lineBuffer.split('\n');
+    lineBuffer = lines.pop(); // 保留不完整行尾
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data:')) continue;
+      const dataStr = trimmed.slice(5).trim();
+      if (dataStr === '[DONE]') {
+        break;
+      }
+      try {
+        const event = JSON.parse(dataStr);
+        if (event.type === 'speech.audio.delta' && event.audio) {
+          if (event.mime_type) {
+            const match = event.mime_type.match(/rate=(\d+)/i);
+            if (match) sampleRate = parseInt(match[1], 10);
+          }
+          const chunkBytes = decodeBase64ToUint8Array(event.audio);
+          pcmChunks.push(chunkBytes);
+          totalPcmBytes += chunkBytes.length;
+          if (typeof onProgress === 'function') {
+            onProgress({ chunkCount: pcmChunks.length, totalBytes: totalPcmBytes });
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (totalPcmBytes === 0) {
+    throw new Error('未接收到有效的云端语音分片');
+  }
+
+  // 内存中线性装配全部分片，并加盖标准 RIFF/WAVE 容器头
+  const fullPcm = new Uint8Array(totalPcmBytes);
+  let offset = 0;
+  for (const chunk of pcmChunks) {
+    fullPcm.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  const { buffer: wavBuffer } = pcmToWav(fullPcm.buffer, sampleRate);
+  return new Blob([wavBuffer], { type: 'audio/wav' });
 }
 
 /**
@@ -304,6 +426,16 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   ------------------------------------------------------------- */
   let selectedCloudVoice = state.ttsVoice || localStorage.getItem(LS.ttsVoice) || 'Kore';
 
+  // 自适应音色状态校准：当使用 Google Gemini 时，若本地缓存残留非 Gemini 音色（如 nova），自动自愈为 Kore
+  if (activeModel.startsWith('google/') || activeModel.toLowerCase().includes('gemini')) {
+    const geminiVoices = ['Kore', 'Puck', 'Aoede', 'Fenrir', 'Charon'];
+    if (!geminiVoices.includes(selectedCloudVoice)) {
+      selectedCloudVoice = 'Kore';
+      state.ttsVoice = 'Kore';
+      localStorage.setItem(LS.ttsVoice, 'Kore');
+    }
+  }
+
   function populateCloudVoices() {
     voiceSelect.innerHTML = '';
     CLOUD_TTS_VOICES.forEach((v) => {
@@ -363,7 +495,11 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     try {
       let blob = audioBlobCache.get(cacheKey);
       if (!blob) {
-        blob = await fetchCloudTTSAudio(fullText, activeModel, selectedCloudVoice, 1.0);
+        blob = await fetchCloudTTSAudio(fullText, activeModel, selectedCloudVoice, ({ chunkCount }) => {
+          if (isBuffering && curTimeSpan) {
+            curTimeSpan.textContent = `${chunkCount}段`;
+          }
+        });
         audioBlobCache.set(cacheKey, blob);
       }
 

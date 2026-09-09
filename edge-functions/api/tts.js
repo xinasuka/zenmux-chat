@@ -69,13 +69,13 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 4. 构造统一 TTS 请求体：上游 ZenMux 规范要求 pcm 格式
+    // 4. 构造统一 TTS 请求体：上游 ZenMux 规范要求 pcm 格式，启用 stream: true 实现零等待流式输出
     const upstreamPayload = {
       model,
       input: textInput,
       voice,
       response_format: 'pcm',
-      speed
+      stream: true
     };
 
     // 5. 反向代理至上游 ZenMux 语音合成模型集群
@@ -109,57 +109,25 @@ export async function onRequestPost(context) {
         }
       } catch (_) {}
 
+      if (upstreamRes.status === 504) {
+        errMsg = '上游语音服务响应超时 (HTTP 504): 模型单次生成耗时过长或云端繁忙，请稍后重试';
+      }
+
       return json({
         error: errMsg,
         detail: errText
       }, upstreamRes.status);
     }
 
-    // 6. 解析上游响应与自适应 RIFF/WAVE 容器封装
-    // 依 ZenMux 官方规范，非流式响应默认返回 application/json，包含 base64 编码的 audio 字段与 mime_type
-    const ct = (upstreamRes.headers.get('Content-Type') || '').toLowerCase();
-    let rawPcmBuffer;
-    let sampleRate = 24000;
-
-    if (ct.includes('application/json')) {
-      const resJson = await upstreamRes.json().catch(() => ({}));
-      if (resJson.error) {
-        const errMsg = typeof resJson.error === 'string' ? resJson.error : (resJson.error.message || '上游 TTS 报错');
-        return json({ error: errMsg, detail: JSON.stringify(resJson) }, 502);
-      }
-      if (!resJson.audio || typeof resJson.audio !== 'string') {
-        return json({
-          error: '上游 TTS 返回异常：缺少 audio 字段',
-          detail: JSON.stringify(resJson)
-        }, 502);
-      }
-
-      if (resJson.mime_type) {
-        const rateMatch = resJson.mime_type.match(/rate=(\d+)/i);
-        if (rateMatch) {
-          sampleRate = parseInt(rateMatch[1], 10);
-        }
-      }
-
-      rawPcmBuffer = decodeBase64ToArrayBuffer(resJson.audio);
-    } else {
-      // 兼容可能直接以二进制流返回音频的场景
-      rawPcmBuffer = await upstreamRes.arrayBuffer();
-      const rateMatch = ct.match(/rate=(\d+)/i) || (upstreamRes.headers.get('x-audio-sample-rate') || '').match(/(\d+)/);
-      if (rateMatch) {
-        sampleRate = parseInt(rateMatch[1], 10);
-      }
-    }
-
-    const { buffer: finalWavBuffer } = pcmToWav(rawPcmBuffer, sampleRate);
-
-    return new Response(finalWavBuffer, {
+    // 6. 实时透传 Server-Sent Events (SSE) 音频流，彻底消除反向代理 Socket Idle Timeout
+    return new Response(upstreamRes.body, {
       status: 200,
       headers: {
         ...CORS,
-        'Content-Type': 'audio/wav',
-        'Content-Length': String(finalWavBuffer.byteLength),
-        'Cache-Control': 'public, max-age=86400'
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
       }
     });
 
