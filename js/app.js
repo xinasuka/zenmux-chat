@@ -1245,29 +1245,156 @@ function initVoiceInput() {
     </svg>
   `;
 
+  function ensureVoiceOverlayStyles() {
+    if (document.getElementById('zen-voice-overlay-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'zen-voice-overlay-styles';
+    style.textContent = `
+      .composer-voice-overlay {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 100%;
+        min-height: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 74, 74, 0.45);
+        border-radius: 9px;
+        padding: 0 12px;
+        user-select: none;
+        box-sizing: border-box;
+      }
+      .composer-voice-overlay.is-transcribing {
+        border-color: rgba(127, 119, 221, 0.45);
+        background: rgba(127, 119, 221, 0.08);
+      }
+      .voice-overlay-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 12px;
+      }
+      .voice-wave-visualizer {
+        display: flex;
+        align-items: center;
+        gap: 3.5px;
+        height: 22px;
+        padding: 0 2px;
+      }
+      .voice-wave-visualizer .wave-bar {
+        display: inline-block;
+        width: 3.5px;
+        height: 18px;
+        background: linear-gradient(to top, #ff4a4a, #ff8282);
+        border-radius: 3px;
+        transform: scaleY(0.35);
+        transform-origin: center;
+        transition: transform 0.06s ease, background 0.2s;
+      }
+      .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar {
+        background: linear-gradient(to top, var(--accent, #7f77dd), #a39df0);
+        animation: waveShimmer 1s infinite ease-in-out;
+      }
+      .voice-overlay-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .voice-overlay-status {
+        font-size: 12.5px;
+        color: var(--fg, #eee);
+        font-weight: 500;
+      }
+      .composer-voice-overlay.is-transcribing .voice-overlay-status {
+        color: var(--accent, #7f77dd);
+      }
+      .voice-overlay-timer {
+        font-family: monospace;
+        font-size: 11px;
+        color: var(--fg-dim, #888);
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureVoiceOverlay() {
+    ensureVoiceOverlayStyles();
+    let overlay = el.voiceOverlay || document.getElementById('composer-voice-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'composer-voice-overlay';
+      overlay.className = 'composer-voice-overlay';
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-live', 'polite');
+      overlay.innerHTML = `
+        <div class="voice-overlay-content">
+          <div id="voice-wave-visualizer" class="voice-wave-visualizer">
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+          </div>
+          <div class="voice-overlay-info">
+            <span id="voice-overlay-status" class="voice-overlay-status">正在聆听…</span>
+            <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
+          </div>
+        </div>
+      `;
+      const mainRow = document.getElementById('composer-main-row');
+      if (mainRow) {
+        const inputEl = document.getElementById('input');
+        if (inputEl && inputEl.nextSibling) {
+          mainRow.insertBefore(overlay, inputEl.nextSibling);
+        } else {
+          mainRow.appendChild(overlay);
+        }
+      }
+    }
+    el.voiceOverlay = overlay;
+    el.voiceStatus = overlay.querySelector('#voice-overlay-status') || document.getElementById('voice-overlay-status');
+    el.voiceTimer = overlay.querySelector('#voice-overlay-timer') || document.getElementById('voice-overlay-timer');
+    el.voiceWave = overlay.querySelector('#voice-wave-visualizer') || document.getElementById('voice-wave-visualizer');
+    return overlay;
+  }
+
   function updateWaveform(vol) {
-    if (!el.voiceWave) return;
-    const bars = el.voiceWave.querySelectorAll('.wave-bar');
+    const overlay = ensureVoiceOverlay();
+    const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
+    if (!waveEl) return;
+    const bars = waveEl.querySelectorAll('.wave-bar');
     if (!bars || bars.length === 0) return;
     bars.forEach((bar, idx) => {
       const distFromCenter = Math.abs(idx - 3.5) / 3.5;
-      const factor = Math.max(0.25, 1 - distFromCenter * 0.45);
-      const jitter = 0.85 + Math.random() * 0.3;
-      const scale = Math.max(0.18, Math.min(1.0, (vol * 1.5 * factor * jitter) + 0.18));
+      const factor = Math.max(0.35, 1 - distFromCenter * 0.45);
+      const jitter = 0.9 + Math.random() * 0.2;
+      const scale = Math.max(0.3, Math.min(1.0, (vol * 2.5 * factor * jitter) + 0.3));
       bar.style.transform = `scaleY(${scale.toFixed(2)})`;
     });
   }
 
   function resetWaveform() {
-    if (!el.voiceWave) return;
-    const bars = el.voiceWave.querySelectorAll('.wave-bar');
+    const overlay = ensureVoiceOverlay();
+    const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
+    if (!waveEl) return;
+    const bars = waveEl.querySelectorAll('.wave-bar');
     bars.forEach((bar) => {
-      bar.style.transform = 'scaleY(0.2)';
+      bar.style.transform = 'scaleY(0.3)';
     });
   }
 
   function updateVoiceUI(status) {
     if (!el.voiceBtn) return;
+    const overlay = ensureVoiceOverlay();
     el.voiceBtn.classList.remove('recording', 'voice-on', 'transcribing');
 
     if (status === 'listening') {
@@ -1278,14 +1405,15 @@ function initVoiceInput() {
 
       // 2. Hide input textarea and show voice overlay in prompt area
       if (el.input) el.input.style.display = 'none';
-      if (el.voiceOverlay) {
-        el.voiceOverlay.style.display = 'flex';
-        el.voiceOverlay.classList.remove('is-transcribing');
-      }
+      overlay.style.display = 'flex';
+      overlay.classList.remove('is-transcribing');
       if (el.voiceStatus) el.voiceStatus.textContent = '正在聆听…';
       if (el.send) el.send.disabled = true;
 
-      // 3. Start elapsed duration timer
+      // 3. Immediately prime wave bars
+      updateWaveform(0.12);
+
+      // 4. Start elapsed duration timer
       secondsElapsed = 0;
       if (el.voiceTimer) el.voiceTimer.textContent = '00:00';
       clearInterval(voiceTimerInterval);
@@ -1304,10 +1432,8 @@ function initVoiceInput() {
 
       // 2. Stop timer and update prompt area status
       clearInterval(voiceTimerInterval);
-      if (el.voiceOverlay) {
-        el.voiceOverlay.style.display = 'flex';
-        el.voiceOverlay.classList.add('is-transcribing');
-      }
+      overlay.style.display = 'flex';
+      overlay.classList.add('is-transcribing');
       if (el.voiceStatus) el.voiceStatus.textContent = '正在转录文本...';
       if (el.send) el.send.disabled = true;
 
@@ -1318,10 +1444,8 @@ function initVoiceInput() {
       el.voiceBtn.title = '语音输入（VAD 智能切除静音，云端大模型高精度识别）';
 
       // Restore textarea prompt area
-      if (el.voiceOverlay) {
-        el.voiceOverlay.style.display = 'none';
-        el.voiceOverlay.classList.remove('is-transcribing');
-      }
+      overlay.style.display = 'none';
+      overlay.classList.remove('is-transcribing');
       resetWaveform();
 
       if (el.input) {

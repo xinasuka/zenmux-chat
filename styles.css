@@ -1202,26 +1202,26 @@
 
   /* ---------- Composer Voice Dictation Overlay ---------- */
   .composer-voice-overlay{
-    flex:1;min-height:34px;height:34px;display:flex;align-items:center;
-    background:rgba(255,255,255,.03);border:1px solid rgba(255,74,74,.35);
-    border-radius:8px;padding:0 12px;user-select:none;transition:all .2s ease;
+    flex:1 1 auto;min-width:0;width:100%;min-height:34px;height:34px;display:flex;align-items:center;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,74,74,.4);
+    border-radius:9px;padding:0 12px;user-select:none;box-sizing:border-box;transition:all .2s ease;
   }
   .composer-voice-overlay.is-transcribing{
-    border-color:rgba(127,119,221,.4);background:rgba(127,119,221,.06);
+    border-color:rgba(127,119,221,.45);background:rgba(127,119,221,.08);
   }
   .voice-overlay-content{
     display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;
   }
   .voice-wave-visualizer{
-    display:flex;align-items:center;gap:3px;height:20px;padding:0 2px;
+    display:flex;align-items:center;gap:3.5px;height:22px;padding:0 2px;
   }
   .voice-wave-visualizer .wave-bar{
-    width:3px;height:16px;background:#ff5c5c;border-radius:3px;
-    transform:scaleY(0.2);transform-origin:center;
-    transition:transform .08s ease,background .2s;
+    display:inline-block;width:3.5px;height:18px;background:linear-gradient(to top,#ff4a4a,#ff8282);
+    border-radius:3px;transform:scaleY(0.3);transform-origin:center;
+    transition:transform .06s ease,background .2s;
   }
   .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar{
-    background:var(--accent);animation:waveShimmer 1s infinite ease-in-out;
+    background:linear-gradient(to top,var(--accent),#a39df0);animation:waveShimmer 1s infinite ease-in-out;
   }
   .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(1){animation-delay:0.0s}
   .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(2){animation-delay:0.1s}
