@@ -57,8 +57,8 @@ export function getVoicesForModel(modelId) {
 
 export const CLOUD_TTS_VOICES = MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
 
-const PLAY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
-const PAUSE_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+const PLAY_ICON_SVG = '<svg class="tts-icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+const PAUSE_ICON_SVG = '<svg class="tts-icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
 const SPINNER_ICON_SVG = '<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>';
 const CLOSE_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
@@ -441,14 +441,17 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
       playBtn.innerHTML = SPINNER_ICON_SVG;
       playBtn.title = '正在加载音频…';
       playBtn.classList.add('loading');
+      playBtn.classList.remove('playing');
     } else if (playing) {
       playBtn.innerHTML = PAUSE_ICON_SVG;
       playBtn.title = '暂停';
       playBtn.classList.remove('loading');
+      playBtn.classList.add('playing');
     } else {
       playBtn.innerHTML = PLAY_ICON_SVG;
       playBtn.title = '播放';
       playBtn.classList.remove('loading');
+      playBtn.classList.remove('playing');
     }
   }
 

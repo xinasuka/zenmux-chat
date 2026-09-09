@@ -904,15 +904,28 @@
     display:flex;align-items:center;gap:10px;
   }
   .tts-play-btn{
-    width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;
+    width:32px;height:32px;border-radius:50%;background:var(--accent);color:#ffffff;
     display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;
-    flex-shrink:0;transition:transform .1s,background .15s;
+    flex-shrink:0;box-shadow:0 2px 6px var(--accent-glow);
+    transition:transform .12s cubic-bezier(.16,1,.3,1),background .15s,box-shadow .15s;
+    outline:none;-webkit-tap-highlight-color:transparent;
   }
-  .tts-play-btn:hover{background:var(--accent-glow)}
+  @media (hover: hover){
+    .tts-play-btn:not(.loading):hover{
+      background:var(--accent-hover);
+      box-shadow:0 3px 10px var(--accent-glow);
+      transform:scale(1.05);
+    }
+  }
   .tts-play-btn:active{transform:scale(.92)}
   .tts-play-btn svg{display:block;pointer-events:none}
+  .tts-play-btn svg.tts-icon-play{margin-left:2px}
   .tts-play-btn.loading{
-    background:var(--card-item-bg);color:var(--accent);cursor:wait;
+    background:var(--card-item-bg);color:var(--accent);border:1px solid var(--line-soft);
+    cursor:wait;box-shadow:none;
+  }
+  .tts-play-btn.playing{
+    box-shadow:0 0 10px var(--accent-glow);
   }
   .tts-progress-wrap{
     flex:1;min-width:0;display:flex;align-items:center;gap:8px;
@@ -980,6 +993,66 @@
   .tts-voice-select{
     background:var(--card-item-bg);border:1px solid var(--line-soft);color:var(--fg);
     font-size:11px;padding:2px 6px;border-radius:6px;outline:none;cursor:pointer;
+  }
+
+  @media (max-width: 640px){
+    .msg-tts-player{
+      padding:10px 12px;gap:8px;
+    }
+    .tts-main-row{
+      display:grid;
+      grid-template-columns:36px 1fr auto;
+      grid-template-areas:
+        "play progress close"
+        "badge badge badge";
+      align-items:center;
+      gap:8px 10px;
+    }
+    .tts-play-btn{
+      grid-area:play;
+      width:36px;height:36px;
+    }
+    .tts-play-btn svg{
+      width:15px;height:15px;
+    }
+    .tts-play-btn svg.tts-icon-play{
+      margin-left:2px;
+    }
+    .tts-progress-wrap{
+      grid-area:progress;
+      min-width:0;gap:6px;
+    }
+    .tts-time{
+      font-size:10.5px;
+    }
+    .tts-slider{
+      height:5px;
+    }
+    .tts-slider::-webkit-slider-thumb{
+      width:14px;height:14px;
+    }
+    .tts-close-btn{
+      grid-area:close;
+      padding:6px;
+    }
+    .tts-main-row .tts-engine-badge{
+      grid-area:badge;
+      justify-self:start;
+      font-size:10px;
+      padding:2px 7px;
+    }
+    .tts-controls-row{
+      gap:8px;
+    }
+    .tts-ctrl-group{
+      font-size:10.5px;
+    }
+    .tts-voice-select{
+      max-width:180px;font-size:11px;padding:2px 5px;
+    }
+    .tts-speed-btn{
+      font-size:10px;padding:2px 5px;
+    }
   }
   
   .empty{
