@@ -340,7 +340,7 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
           pcmChunks.push(chunkBytes);
           totalPcmBytes += chunkBytes.length;
           if (typeof onProgress === 'function') {
-            onProgress({ chunkCount: pcmChunks.length, totalBytes: totalPcmBytes });
+            onProgress({ chunkCount: pcmChunks.length, totalBytes: totalPcmBytes, sampleRate });
           }
         }
       } catch (parseErr) {
@@ -414,6 +414,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   const slider = playerDrawer.querySelector('.tts-slider');
   const curTimeSpan = playerDrawer.querySelector('.tts-cur-time');
   const durTimeSpan = playerDrawer.querySelector('.tts-dur-time');
+  const engineBadge = playerDrawer.querySelector('.tts-engine-badge');
   const voiceSelect = playerDrawer.querySelector('.tts-voice-select');
   const speedBtns = playerDrawer.querySelectorAll('.tts-speed-btn');
 
@@ -498,6 +499,13 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     updatePlayIcon(false);
     slider.value = 0;
     curTimeSpan.textContent = '00:00';
+    if (engineBadge) {
+      engineBadge.classList.remove('streaming');
+      engineBadge.textContent = engineLabel;
+    }
+    if (slider) {
+      slider.classList.remove('buffering');
+    }
   }
 
   async function startCloudSpeech() {
@@ -521,18 +529,37 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
 
     isBuffering = true;
     updatePlayIcon(false);
+    if (engineBadge) {
+      engineBadge.classList.add('streaming');
+      engineBadge.innerHTML = '<span class="tts-pulse-dot"></span>正在生成…';
+    }
+    if (slider) {
+      slider.classList.add('buffering');
+    }
+    curTimeSpan.textContent = '00:00';
+    durTimeSpan.textContent = '00:00';
 
     const cacheKey = `${activeModel}:${selectedCloudVoice}:${fullText}`;
 
     try {
       let blob = audioBlobCache.get(cacheKey);
       if (!blob) {
-        blob = await fetchCloudTTSAudio(fullText, activeModel, selectedCloudVoice, ({ chunkCount }) => {
-          if (isBuffering && curTimeSpan) {
-            curTimeSpan.textContent = `${chunkCount}段`;
+        blob = await fetchCloudTTSAudio(fullText, activeModel, selectedCloudVoice, ({ totalBytes, sampleRate }) => {
+          if (isBuffering && durTimeSpan) {
+            const estSeconds = Math.max(0, Math.floor(totalBytes / ((sampleRate || 24000) * 2)));
+            durTimeSpan.textContent = formatAudioTime(estSeconds);
           }
         });
         audioBlobCache.set(cacheKey, blob);
+      }
+
+      isBuffering = false;
+      if (engineBadge) {
+        engineBadge.classList.remove('streaming');
+        engineBadge.textContent = engineLabel;
+      }
+      if (slider) {
+        slider.classList.remove('buffering');
       }
 
       if (currentAudioBlobUrl) {
