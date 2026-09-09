@@ -192,7 +192,7 @@ export async function fetchCloudTTSAudio(text, model = 'openai/tts-1', voice = '
       input: text,
       voice,
       speed,
-      response_format: 'mp3'
+      response_format: 'pcm'
     })
   });
 

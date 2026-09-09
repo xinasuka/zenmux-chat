@@ -47,12 +47,12 @@ export async function onRequestPost(context) {
     const responseFormat = (payload.response_format && String(payload.response_format).trim().toLowerCase()) || 'mp3';
     const speed = typeof payload.speed === 'number' ? Math.max(0.25, Math.min(4.0, payload.speed)) : 1.0;
 
-    // 4. 构造统一 TTS 请求体
+    // 4. 构造统一 TTS 请求体：上游 ZenMux 强制要求 pcm 格式
     const upstreamPayload = {
       model,
       input: textInput,
       voice,
-      response_format: responseFormat,
+      response_format: 'pcm',
       speed
     };
 
@@ -93,13 +93,25 @@ export async function onRequestPost(context) {
       }, upstreamRes.status);
     }
 
-    // 6. 二进制音频流透传返回
-    const contentType = upstreamRes.headers.get('Content-Type') || (responseFormat === 'wav' ? 'audio/wav' : 'audio/mpeg');
-    return new Response(upstreamRes.body, {
+    // 6. 二进制音频流解析与自适应容器封装
+    const rawAudioBuffer = await upstreamRes.arrayBuffer();
+
+    // 解析上游返回的采样率（默认为 24000 Hz 神经网络超清标准）
+    let sampleRate = 24000;
+    const ct = upstreamRes.headers.get('Content-Type') || '';
+    const rateMatch = ct.match(/rate=(\d+)/i) || (upstreamRes.headers.get('x-audio-sample-rate') || '').match(/(\d+)/);
+    if (rateMatch) {
+      sampleRate = parseInt(rateMatch[1], 10);
+    }
+
+    const { buffer: finalBuffer, contentType } = pcmToWav(rawAudioBuffer, sampleRate);
+
+    return new Response(finalBuffer, {
       status: 200,
       headers: {
         ...CORS,
         'Content-Type': contentType,
+        'Content-Length': String(finalBuffer.byteLength),
         'Cache-Control': 'public, max-age=86400'
       }
     });
@@ -111,4 +123,59 @@ export async function onRequestPost(context) {
       detail: String(fatalErr && fatalErr.message)
     }, 500);
   }
+}
+
+/**
+ * 将裸 16-bit Linear PCM 二进制数据无缝封装为标准 RIFF/WAVE 容器，使全平台原生 <audio> 均能无损解码播放
+ */
+export function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+  const pcmBytes = new Uint8Array(pcmBuffer);
+  // 若上游已携带标准 WAV 容器头 (RIFF...WAVE) 或 MP3 同步字，直接透传
+  if (pcmBytes.length >= 4 && pcmBytes[0] === 0x52 && pcmBytes[1] === 0x49 && pcmBytes[2] === 0x46 && pcmBytes[3] === 0x46) {
+    return { buffer: pcmBuffer, contentType: 'audio/wav' };
+  }
+  if (pcmBytes.length >= 2 && pcmBytes[0] === 0xFF && (pcmBytes[1] & 0xE0) === 0xE0) {
+    return { buffer: pcmBuffer, contentType: 'audio/mpeg' };
+  }
+
+  const dataSize = pcmBytes.length;
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  // RIFF chunk descriptor
+  view.setUint8(0, 0x52); // 'R'
+  view.setUint8(1, 0x49); // 'I'
+  view.setUint8(2, 0x46); // 'F'
+  view.setUint8(3, 0x46); // 'F'
+  view.setUint32(4, 36 + dataSize, true);
+  view.setUint8(8, 0x57);  // 'W'
+  view.setUint8(9, 0x41);  // 'A'
+  view.setUint8(10, 0x56); // 'V'
+  view.setUint8(11, 0x45); // 'E'
+
+  // fmt sub-chunk
+  view.setUint8(12, 0x66); // 'f'
+  view.setUint8(13, 0x6D); // 'm'
+  view.setUint8(14, 0x74); // 't'
+  view.setUint8(15, 0x20); // ' '
+  view.setUint32(16, 16, true);                                // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true);                                 // AudioFormat (1 = Linear PCM)
+  view.setUint16(22, numChannels, true);                       // NumChannels (1 = Mono)
+  view.setUint32(24, sampleRate, true);                        // SampleRate
+  view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true); // ByteRate
+  view.setUint16(32, numChannels * (bitsPerSample / 8), true); // BlockAlign
+  view.setUint16(34, bitsPerSample, true);                     // BitsPerSample
+
+  // data sub-chunk
+  view.setUint8(36, 0x64); // 'd'
+  view.setUint8(37, 0x61); // 'a'
+  view.setUint8(38, 0x74); // 't'
+  view.setUint8(39, 0x61); // 'a'
+  view.setUint32(40, dataSize, true);
+
+  const combined = new Uint8Array(44 + dataSize);
+  combined.set(new Uint8Array(header), 0);
+  combined.set(pcmBytes, 44);
+
+  return { buffer: combined.buffer, contentType: 'audio/wav' };
 }
