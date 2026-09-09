@@ -1,7 +1,8 @@
 .env
 .DS_Store
 node_modules/
-design/
+design/*
+!design/arch.md
 scratch/
 .vscode/
 dist/
