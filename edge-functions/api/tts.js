@@ -43,11 +43,33 @@ export async function onRequestPost(context) {
     // 文本规格化与防御性截断（单次朗读上限 4096 字符）
     const textInput = payload.input.trim().slice(0, 4096);
     const model = (payload.model && String(payload.model).trim()) || 'google/gemini-3.1-flash-tts-preview';
-    const voice = (payload.voice && String(payload.voice).trim()) || 'nova';
-    const responseFormat = (payload.response_format && String(payload.response_format).trim().toLowerCase()) || 'mp3';
+    let voice = (payload.voice && String(payload.voice).trim()) || 'Kore';
     const speed = typeof payload.speed === 'number' ? Math.max(0.25, Math.min(4.0, payload.speed)) : 1.0;
 
-    // 4. 构造统一 TTS 请求体：上游 ZenMux 强制要求 pcm 格式
+    // 智能音色自适应对齐：
+    // 若调用 Google Gemini TTS，确保 voice 映射至 Google 原生支持的 5 种权威音色 (Kore, Puck, Aoede, Fenrir, Charon)
+    if (model.toLowerCase().includes('gemini') || model.toLowerCase().startsWith('google/')) {
+      const geminiVoices = ['Kore', 'Puck', 'Aoede', 'Fenrir', 'Charon'];
+      const matched = geminiVoices.find((v) => v.toLowerCase() === voice.toLowerCase());
+      if (matched) {
+        voice = matched;
+      } else {
+        const lower = voice.toLowerCase();
+        if (['shimmer'].includes(lower)) {
+          voice = 'Aoede';
+        } else if (['echo', 'fable'].includes(lower)) {
+          voice = 'Fenrir';
+        } else if (['onyx'].includes(lower)) {
+          voice = 'Charon';
+        } else if (['alloy'].includes(lower)) {
+          voice = 'Puck';
+        } else {
+          voice = 'Kore';
+        }
+      }
+    }
+
+    // 4. 构造统一 TTS 请求体：上游 ZenMux 规范要求 pcm 格式
     const upstreamPayload = {
       model,
       input: textInput,
@@ -93,25 +115,50 @@ export async function onRequestPost(context) {
       }, upstreamRes.status);
     }
 
-    // 6. 二进制音频流解析与自适应容器封装
-    const rawAudioBuffer = await upstreamRes.arrayBuffer();
-
-    // 解析上游返回的采样率（默认为 24000 Hz 神经网络超清标准）
+    // 6. 解析上游响应与自适应 RIFF/WAVE 容器封装
+    // 依 ZenMux 官方规范，非流式响应默认返回 application/json，包含 base64 编码的 audio 字段与 mime_type
+    const ct = (upstreamRes.headers.get('Content-Type') || '').toLowerCase();
+    let rawPcmBuffer;
     let sampleRate = 24000;
-    const ct = upstreamRes.headers.get('Content-Type') || '';
-    const rateMatch = ct.match(/rate=(\d+)/i) || (upstreamRes.headers.get('x-audio-sample-rate') || '').match(/(\d+)/);
-    if (rateMatch) {
-      sampleRate = parseInt(rateMatch[1], 10);
+
+    if (ct.includes('application/json')) {
+      const resJson = await upstreamRes.json().catch(() => ({}));
+      if (resJson.error) {
+        const errMsg = typeof resJson.error === 'string' ? resJson.error : (resJson.error.message || '上游 TTS 报错');
+        return json({ error: errMsg, detail: JSON.stringify(resJson) }, 502);
+      }
+      if (!resJson.audio || typeof resJson.audio !== 'string') {
+        return json({
+          error: '上游 TTS 返回异常：缺少 audio 字段',
+          detail: JSON.stringify(resJson)
+        }, 502);
+      }
+
+      if (resJson.mime_type) {
+        const rateMatch = resJson.mime_type.match(/rate=(\d+)/i);
+        if (rateMatch) {
+          sampleRate = parseInt(rateMatch[1], 10);
+        }
+      }
+
+      rawPcmBuffer = decodeBase64ToArrayBuffer(resJson.audio);
+    } else {
+      // 兼容可能直接以二进制流返回音频的场景
+      rawPcmBuffer = await upstreamRes.arrayBuffer();
+      const rateMatch = ct.match(/rate=(\d+)/i) || (upstreamRes.headers.get('x-audio-sample-rate') || '').match(/(\d+)/);
+      if (rateMatch) {
+        sampleRate = parseInt(rateMatch[1], 10);
+      }
     }
 
-    const { buffer: finalBuffer, contentType } = pcmToWav(rawAudioBuffer, sampleRate);
+    const { buffer: finalWavBuffer } = pcmToWav(rawPcmBuffer, sampleRate);
 
-    return new Response(finalBuffer, {
+    return new Response(finalWavBuffer, {
       status: 200,
       headers: {
         ...CORS,
-        'Content-Type': contentType,
-        'Content-Length': String(finalBuffer.byteLength),
+        'Content-Type': 'audio/wav',
+        'Content-Length': String(finalWavBuffer.byteLength),
         'Cache-Control': 'public, max-age=86400'
       }
     });
@@ -123,6 +170,24 @@ export async function onRequestPost(context) {
       detail: String(fatalErr && fatalErr.message)
     }, 500);
   }
+}
+
+/**
+ * 将 Base64 文本解码为原始 ArrayBuffer（双环境兼容：EdgeOne Web API atob 与 Node.js Buffer）
+ */
+function decodeBase64ToArrayBuffer(base64Str) {
+  const clean = base64Str.trim();
+  if (typeof Buffer !== 'undefined') {
+    const buf = Buffer.from(clean, 'base64');
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  }
+  const binaryStr = atob(clean);
+  const len = binaryStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
 /**

@@ -24,12 +24,17 @@ export const CLOUD_TTS_MODELS = [
 ];
 
 export const CLOUD_TTS_VOICES = [
-  { id: 'nova', name: 'Nova (自然生动女声 · 中文对答推荐)', gender: 'female' },
-  { id: 'shimmer', name: 'Shimmer (清澈甜美女声 · 朗读推荐)', gender: 'female' },
-  { id: 'alloy', name: 'Alloy (通用平衡中性音色)', gender: 'neutral' },
-  { id: 'echo', name: 'Echo (温暖深沉男中音)', gender: 'male' },
-  { id: 'onyx', name: 'Onyx (低沉磁性男声 · 沉稳讲解)', gender: 'male' },
-  { id: 'fable', name: 'Fable (叙事感英伦男声)', gender: 'male' }
+  { id: 'Kore', name: 'Kore (知性自然女声 · Google 推荐)', gender: 'female' },
+  { id: 'Puck', name: 'Puck (活力生动男声 · Google)', gender: 'male' },
+  { id: 'Aoede', name: 'Aoede (温和优雅女声 · Google)', gender: 'female' },
+  { id: 'Fenrir', name: 'Fenrir (沉稳磁性男声 · Google)', gender: 'male' },
+  { id: 'Charon', name: 'Charon (深沉专业男声 · Google)', gender: 'male' },
+  { id: 'nova', name: 'Nova (自然生动女声 · 通用)', gender: 'female' },
+  { id: 'shimmer', name: 'Shimmer (清澈甜美女声 · 通用)', gender: 'female' },
+  { id: 'alloy', name: 'Alloy (通用平衡音色 · 通用)', gender: 'neutral' },
+  { id: 'echo', name: 'Echo (温暖深沉男中音 · 通用)', gender: 'male' },
+  { id: 'onyx', name: 'Onyx (低沉磁性男声 · 通用)', gender: 'male' },
+  { id: 'fable', name: 'Fable (叙事感英伦男声 · 通用)', gender: 'male' }
 ];
 
 const PLAY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
@@ -174,7 +179,7 @@ export function stopGlobalAudio() {
 /**
  * 调用 /api/tts 边缘网关获取高保真云端语音合成音频流
  */
-export async function fetchCloudTTSAudio(text, model = 'openai/tts-1', voice = 'nova', speed = 1.0) {
+export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-tts-preview', voice = 'Kore', speed = 1.0) {
   const gateToken = state.token || localStorage.getItem(LS.token) || localStorage.getItem('zm.token') || '';
   const headers = {
     'Content-Type': 'application/json'
@@ -297,7 +302,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   /* -------------------------------------------------------------
      A. 云端神经网络语音播放逻辑 (HTML5 Audio + 会话级 Blob 内存缓存)
   ------------------------------------------------------------- */
-  let selectedCloudVoice = state.ttsVoice || localStorage.getItem(LS.ttsVoice) || 'nova';
+  let selectedCloudVoice = state.ttsVoice || localStorage.getItem(LS.ttsVoice) || 'Kore';
 
   function populateCloudVoices() {
     voiceSelect.innerHTML = '';

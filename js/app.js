@@ -764,7 +764,7 @@ export function renderSettingsState() {
     el.settingsTtsModel.value = state.ttsModel || 'browser';
   }
   if (el.settingsTtsVoice) {
-    el.settingsTtsVoice.value = state.ttsVoice || 'nova';
+    el.settingsTtsVoice.value = state.ttsVoice || 'Kore';
   }
   if (el.settingsTtsVoiceRow) {
     el.settingsTtsVoiceRow.style.display = (state.ttsModel === 'browser') ? 'none' : 'flex';
@@ -791,7 +791,7 @@ export function saveSettings() {
   const memoryEnabled = el.settingsMemoryToggle ? el.settingsMemoryToggle.checked : true;
   const asrModel = (el.settingsAsrModel ? el.settingsAsrModel.value : '') || 'bytedance/doubao-seed-asr-2.0';
   const ttsModel = (el.settingsTtsModel ? el.settingsTtsModel.value : '') || 'browser';
-  const ttsVoice = (el.settingsTtsVoice ? el.settingsTtsVoice.value : '') || 'nova';
+  const ttsVoice = (el.settingsTtsVoice ? el.settingsTtsVoice.value : '') || 'Kore';
 
   state.instructions = text;
   state.instructionsEnabled = enabled;

@@ -474,12 +474,21 @@
             <div id="settings-tts-voice-row" class="settings-tts-subrow" style="display: none;">
               <label for="settings-tts-voice" class="settings-tts-sublabel">音色人设 (Timbre):</label>
               <select id="settings-tts-voice" class="settings-select settings-tts-voiceselect">
-                <option value="nova" selected>Nova (自然生动女声 · 中文对答推荐)</option>
-                <option value="shimmer">Shimmer (清澈甜美女声 · 朗读推荐)</option>
-                <option value="alloy">Alloy (通用平衡中性音色)</option>
-                <option value="echo">Echo (温暖深沉男中音)</option>
-                <option value="onyx">Onyx (低沉磁性男声 · 沉稳讲解)</option>
-                <option value="fable">Fable (叙事感英伦男声)</option>
+                <optgroup label="Google 拟真音色 (Gemini 推荐)">
+                  <option value="Kore" selected>Kore (知性自然女声 · 推荐)</option>
+                  <option value="Puck">Puck (活力生动男声)</option>
+                  <option value="Aoede">Aoede (温和优雅女声)</option>
+                  <option value="Fenrir">Fenrir (沉稳磁性男声)</option>
+                  <option value="Charon">Charon (深沉专业男声)</option>
+                </optgroup>
+                <optgroup label="通用 / 经典音色">
+                  <option value="nova">Nova (自然生动女声)</option>
+                  <option value="shimmer">Shimmer (清澈甜美女声)</option>
+                  <option value="alloy">Alloy (通用平衡音色)</option>
+                  <option value="echo">Echo (温暖深沉男中音)</option>
+                  <option value="onyx">Onyx (低沉磁性男声)</option>
+                  <option value="fable">Fable (叙事英伦男声)</option>
+                </optgroup>
               </select>
             </div>
             <div class="settings-vad-badge tts-engine-badge">

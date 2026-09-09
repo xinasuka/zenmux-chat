@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.20.14';
+export const APP_VERSION = '2.20.15';
 
 export const LS = {
   cur: 'zm.current',
@@ -157,7 +157,7 @@ export const state = {
   searchDepth: getStorageItem(LS.searchDepth) || 'standard',
   asrModel: getStorageItem(LS.asrModel) || 'bytedance/doubao-seed-asr-2.0',
   ttsModel: getStorageItem(LS.ttsModel) || 'browser',
-  ttsVoice: getStorageItem(LS.ttsVoice) || 'nova',
+  ttsVoice: getStorageItem(LS.ttsVoice) || 'Kore',
   imageSize: getStorageItem(LS.imageSize) || 'auto',
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',
