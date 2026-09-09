@@ -138,7 +138,7 @@ export class AudioRecorder {
       hangoverMs: 3000,          // 尾部静音悬挂窗口（3.0秒，充足容忍语流自然换气与思考停顿）
       minSpeechDurationMs: 300,  // 最短有效语音时长（低于此值视为误触取消）
       maxSpeechDurationMs: 60000,// 单次录音物理上限（60秒自动截断）
-      noSpeechTimeoutMs: 15000   // 无声超时门限（15秒未开口自动取消释放）
+      noSpeechTimeoutMs: 6000    // 首声无声超时门限（业界标准 6 秒未开口自动取消释放）
     }, options);
 
     this.state = 'idle'; // 'idle' | 'listening' | 'transcribing'
@@ -346,7 +346,7 @@ export class AudioRecorder {
       return;
     }
 
-    // 5. 无声超时自愈：若开启录音后持续 15 秒完全未开口，自动停止并释放麦克风硬件
+    // 5. 首声超时自愈：若开启录音后持续 6 秒完全未检测到发声，自动停止并释放麦克风硬件
     if (!this.speechStarted && (now - this.startTime >= this.options.noSpeechTimeoutMs)) {
       this.stop();
       return;
@@ -681,15 +681,45 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // 3. Immediately prime wave bars
       updateWaveform(0.12);
 
-      // 4. Start elapsed duration timer
+      // 4. Start elapsed duration timer with 10s remaining countdown alert
       secondsElapsed = 0;
-      if (el.voiceTimer) el.voiceTimer.textContent = '00:00';
+      if (el.voiceTimer) {
+        el.voiceTimer.textContent = '00:00';
+        el.voiceTimer.style.color = '';
+        el.voiceTimer.style.background = '';
+      }
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = '正在聆听…';
+        el.voiceStatus.style.color = '';
+      }
       clearInterval(voiceTimerInterval);
       voiceTimerInterval = setInterval(() => {
         secondsElapsed++;
+        const maxSec = 60;
+        const remaining = maxSec - secondsElapsed;
+
         const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
         const s = String(secondsElapsed % 60).padStart(2, '0');
         if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
+
+        // 临近 60 秒上限时（剩余 10 秒以内）给予视觉倒数预警
+        if (remaining <= 10 && remaining > 0) {
+          if (el.voiceStatus) {
+            el.voiceStatus.textContent = `即将达到上限 (还剩 ${remaining}秒)`;
+            el.voiceStatus.style.color = '#ff6b6b';
+          }
+          if (el.voiceTimer) {
+            el.voiceTimer.style.color = '#ff6b6b';
+            el.voiceTimer.style.background = 'rgba(255, 107, 107, 0.2)';
+          }
+        } else if (remaining <= 0) {
+          clearInterval(voiceTimerInterval);
+          if (el.voiceStatus) el.voiceStatus.textContent = '已达上限，正在转录…';
+          const rec = ensureRecorder();
+          if (rec.state === 'listening') {
+            rec.stop();
+          }
+        }
       }, 1000);
 
     } else if (status === 'transcribing') {
@@ -702,7 +732,14 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       clearInterval(voiceTimerInterval);
       overlay.style.display = 'flex';
       overlay.classList.add('is-transcribing');
-      if (el.voiceStatus) el.voiceStatus.textContent = '正在转录文本...';
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = '正在转录文本...';
+        el.voiceStatus.style.color = '';
+      }
+      if (el.voiceTimer) {
+        el.voiceTimer.style.color = '';
+        el.voiceTimer.style.background = '';
+      }
       if (el.send) el.send.disabled = true;
 
     } else {
@@ -714,6 +751,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // Restore textarea prompt area
       overlay.style.display = 'none';
       overlay.classList.remove('is-transcribing');
+      if (el.voiceStatus) el.voiceStatus.style.color = '';
+      if (el.voiceTimer) {
+        el.voiceTimer.style.color = '';
+        el.voiceTimer.style.background = '';
+      }
       resetWaveform();
 
       if (el.input) {
