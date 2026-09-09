@@ -46,27 +46,57 @@ export async function onRequestPost(context) {
     let voice = (payload.voice && String(payload.voice).trim()) || 'Kore';
     const speed = typeof payload.speed === 'number' ? Math.max(0.25, Math.min(4.0, payload.speed)) : 1.0;
 
-    // 智能音色自适应对齐：
-    // 若调用 Google Gemini TTS，确保 voice 映射至 Google 原生支持的 5 种权威音色 (Kore, Puck, Aoede, Fenrir, Charon)
-    if (model.toLowerCase().includes('gemini') || model.toLowerCase().startsWith('google/')) {
-      const geminiVoices = ['Kore', 'Puck', 'Aoede', 'Fenrir', 'Charon'];
-      const matched = geminiVoices.find((v) => v.toLowerCase() === voice.toLowerCase());
-      if (matched) {
-        voice = matched;
-      } else {
-        const lower = voice.toLowerCase();
-        if (['shimmer'].includes(lower)) {
-          voice = 'Aoede';
-        } else if (['echo', 'fable'].includes(lower)) {
-          voice = 'Fenrir';
-        } else if (['onyx'].includes(lower)) {
-          voice = 'Charon';
-        } else if (['alloy'].includes(lower)) {
-          voice = 'Puck';
-        } else {
-          voice = 'Kore';
+    // 智能多模型音色防御性自适应归一化：
+    // 支持 Google Gemini, xAI Grok Voice, Alibaba Qwen-Audio 各自的原生音色体系，
+    // 若客户端传来异构模型音色（例如 Grok 接收到 alloy 或 Gemini 接收到 nova），智能无缝对齐至该模型的最佳音色
+    const MODEL_VOICE_CATALOG = {
+      'google/gemini-3.1-flash-tts-preview': {
+        default: 'Kore',
+        valid: ['kore', 'puck', 'aoede', 'fenrir', 'charon'],
+        canonical: { 'kore': 'Kore', 'puck': 'Puck', 'aoede': 'Aoede', 'fenrir': 'Fenrir', 'charon': 'Charon' },
+        map: {
+          'nova': 'Kore', 'alloy': 'Puck', 'shimmer': 'Aoede', 'echo': 'Fenrir', 'onyx': 'Charon', 'fable': 'Fenrir',
+          'ara': 'Kore', 'eve': 'Aoede', 'leo': 'Charon', 'rex': 'Puck', 'sal': 'Fenrir'
+        }
+      },
+      'x-ai/grok-voice-tts-1.0': {
+        default: 'Ara',
+        valid: ['ara', 'eve', 'leo', 'rex', 'sal', 'celeste', 'atlas'],
+        canonical: { 'ara': 'Ara', 'eve': 'Eve', 'leo': 'Leo', 'rex': 'Rex', 'sal': 'Sal', 'celeste': 'Celeste', 'atlas': 'Atlas' },
+        map: {
+          'kore': 'Ara', 'aoede': 'Eve', 'charon': 'Leo', 'puck': 'Rex', 'fenrir': 'Sal',
+          'nova': 'Ara', 'alloy': 'Ara', 'shimmer': 'Eve', 'echo': 'Sal', 'onyx': 'Leo', 'fable': 'Rex'
+        }
+      },
+      'qwen/qwen-audio-3.0-tts-plus': {
+        default: 'longanlingxin',
+        valid: ['longanlingxin', 'longanlufeng', 'loongalexanderhubase', 'loongivyhubase'],
+        canonical: {
+          'longanlingxin': 'longanlingxin',
+          'longanlufeng': 'longanlufeng',
+          'loongalexanderhubase': 'loongalexanderhubase',
+          'loongivyhubase': 'loongivyhubase'
+        },
+        map: {
+          'kore': 'longanlingxin', 'aoede': 'loongivyhubase', 'charon': 'loongalexanderhubase', 'puck': 'longanlufeng', 'fenrir': 'loongalexanderhubase',
+          'nova': 'longanlingxin', 'alloy': 'longanlingxin', 'shimmer': 'loongivyhubase', 'echo': 'longanlufeng', 'onyx': 'loongalexanderhubase',
+          'ara': 'longanlingxin', 'eve': 'loongivyhubase', 'leo': 'loongalexanderhubase', 'rex': 'longanlufeng', 'sal': 'longanlufeng'
         }
       }
+    };
+
+    const modelKey = Object.keys(MODEL_VOICE_CATALOG).find((k) => k.toLowerCase() === model.toLowerCase()) ||
+      (model.toLowerCase().includes('grok') ? 'x-ai/grok-voice-tts-1.0' :
+       model.toLowerCase().includes('qwen') ? 'qwen/qwen-audio-3.0-tts-plus' : 'google/gemini-3.1-flash-tts-preview');
+
+    const voiceCfg = MODEL_VOICE_CATALOG[modelKey];
+    const rawVoice = voice.toLowerCase();
+    if (voiceCfg.valid.includes(rawVoice)) {
+      voice = voiceCfg.canonical[rawVoice] || voice;
+    } else if (voiceCfg.map && voiceCfg.map[rawVoice]) {
+      voice = voiceCfg.map[rawVoice];
+    } else {
+      voice = voiceCfg.default;
     }
 
     // 4. 构造统一 TTS 请求体：上游 ZenMux 规范要求 pcm 格式，启用 stream: true 实现零等待流式输出

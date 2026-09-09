@@ -23,19 +23,39 @@ export const CLOUD_TTS_MODELS = [
   }
 ];
 
-export const CLOUD_TTS_VOICES = [
-  { id: 'Kore', name: 'Kore (知性自然女声 · Google 推荐)', gender: 'female' },
-  { id: 'Puck', name: 'Puck (活力生动男声 · Google)', gender: 'male' },
-  { id: 'Aoede', name: 'Aoede (温和优雅女声 · Google)', gender: 'female' },
-  { id: 'Fenrir', name: 'Fenrir (沉稳磁性男声 · Google)', gender: 'male' },
-  { id: 'Charon', name: 'Charon (深沉专业男声 · Google)', gender: 'male' },
-  { id: 'nova', name: 'Nova (自然生动女声 · 通用)', gender: 'female' },
-  { id: 'shimmer', name: 'Shimmer (清澈甜美女声 · 通用)', gender: 'female' },
-  { id: 'alloy', name: 'Alloy (通用平衡音色 · 通用)', gender: 'neutral' },
-  { id: 'echo', name: 'Echo (温暖深沉男中音 · 通用)', gender: 'male' },
-  { id: 'onyx', name: 'Onyx (低沉磁性男声 · 通用)', gender: 'male' },
-  { id: 'fable', name: 'Fable (叙事感英伦男声 · 通用)', gender: 'male' }
-];
+export const MODEL_VOICES_MAP = {
+  'google/gemini-3.1-flash-tts-preview': [
+    { id: 'Kore', name: 'Kore (知性自然女声 · 推荐)', gender: 'female', default: true },
+    { id: 'Puck', name: 'Puck (活力生动男声)', gender: 'male' },
+    { id: 'Aoede', name: 'Aoede (温和优雅女声)', gender: 'female' },
+    { id: 'Fenrir', name: 'Fenrir (沉稳磁性男声)', gender: 'male' },
+    { id: 'Charon', name: 'Charon (深沉专业男声)', gender: 'male' }
+  ],
+  'x-ai/grok-voice-tts-1.0': [
+    { id: 'Ara', name: 'Ara (亲切温暖女声 · 推荐)', gender: 'female', default: true },
+    { id: 'Eve', name: 'Eve (活力明快女声)', gender: 'female' },
+    { id: 'Leo', name: 'Leo (沉稳权威男声)', gender: 'male' },
+    { id: 'Rex', name: 'Rex (自信清晰男声)', gender: 'male' },
+    { id: 'Sal', name: 'Sal (平衡自然男声)', gender: 'male' }
+  ],
+  'qwen/qwen-audio-3.0-tts-plus': [
+    { id: 'longanlingxin', name: '灵心 (温暖亲切女声 · 推荐)', gender: 'female', default: true },
+    { id: 'longanlufeng', name: '陆峰 (阳光明快男声)', gender: 'male' },
+    { id: 'loongalexanderhubase', name: 'Alexander (沉稳从容男声)', gender: 'male' },
+    { id: 'loongivyhubase', name: 'Ivy (知性干练女声)', gender: 'female' }
+  ]
+};
+
+export function getVoicesForModel(modelId) {
+  if (!modelId) return MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
+  if (MODEL_VOICES_MAP[modelId]) return MODEL_VOICES_MAP[modelId];
+  const lower = String(modelId).toLowerCase();
+  if (lower.includes('grok') || lower.startsWith('x-ai/')) return MODEL_VOICES_MAP['x-ai/grok-voice-tts-1.0'];
+  if (lower.includes('qwen')) return MODEL_VOICES_MAP['qwen/qwen-audio-3.0-tts-plus'];
+  return MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
+}
+
+export const CLOUD_TTS_VOICES = MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
 
 const PLAY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
 const PAUSE_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
@@ -303,8 +323,14 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
       if (dataStr === '[DONE]') {
         break;
       }
+      let lastErrorMsg = '';
       try {
         const event = JSON.parse(dataStr);
+        if (event.error) {
+          const errMsg = typeof event.error === 'string' ? event.error : (event.error.message || JSON.stringify(event.error));
+          lastErrorMsg = `上游语音服务报错: ${errMsg}`;
+          throw new Error(lastErrorMsg);
+        }
         if (event.type === 'speech.audio.delta' && event.audio) {
           if (event.mime_type) {
             const match = event.mime_type.match(/rate=(\d+)/i);
@@ -317,7 +343,11 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
             onProgress({ chunkCount: pcmChunks.length, totalBytes: totalPcmBytes });
           }
         }
-      } catch (_) {}
+      } catch (parseErr) {
+        if (parseErr.message && parseErr.message.startsWith('上游语音服务报错:')) {
+          throw parseErr;
+        }
+      }
     }
   }
 
@@ -424,21 +454,23 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   /* -------------------------------------------------------------
      A. 云端神经网络语音播放逻辑 (HTML5 Audio + 会话级 Blob 内存缓存)
   ------------------------------------------------------------- */
-  let selectedCloudVoice = state.ttsVoice || localStorage.getItem(LS.ttsVoice) || 'Kore';
+  const availableVoices = getVoicesForModel(activeModel);
+  let selectedCloudVoice = state.ttsVoice || localStorage.getItem(LS.ttsVoice) || '';
 
-  // 自适应音色状态校准：当使用 Google Gemini 时，若本地缓存残留非 Gemini 音色（如 nova），自动自愈为 Kore
-  if (activeModel.startsWith('google/') || activeModel.toLowerCase().includes('gemini')) {
-    const geminiVoices = ['Kore', 'Puck', 'Aoede', 'Fenrir', 'Charon'];
-    if (!geminiVoices.includes(selectedCloudVoice)) {
-      selectedCloudVoice = 'Kore';
-      state.ttsVoice = 'Kore';
-      localStorage.setItem(LS.ttsVoice, 'Kore');
-    }
+  // 自适应音色校准：当所选音色不在当前模型专属音色库中时，自愈重置为该模型的推荐默认音色
+  const matchedVoice = availableVoices.find((v) => v.id.toLowerCase() === String(selectedCloudVoice).toLowerCase());
+  if (matchedVoice) {
+    selectedCloudVoice = matchedVoice.id;
+  } else {
+    const defaultObj = availableVoices.find((v) => v.default) || availableVoices[0];
+    selectedCloudVoice = defaultObj ? defaultObj.id : 'Kore';
+    state.ttsVoice = selectedCloudVoice;
+    localStorage.setItem(LS.ttsVoice, selectedCloudVoice);
   }
 
   function populateCloudVoices() {
     voiceSelect.innerHTML = '';
-    CLOUD_TTS_VOICES.forEach((v) => {
+    availableVoices.forEach((v) => {
       const opt = document.createElement('option');
       opt.value = v.id;
       opt.textContent = v.name;
@@ -447,9 +479,9 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
       }
       voiceSelect.appendChild(opt);
     });
-    if (!voiceSelect.value && CLOUD_TTS_VOICES.length) {
-      voiceSelect.value = CLOUD_TTS_VOICES[0].id;
-      selectedCloudVoice = CLOUD_TTS_VOICES[0].id;
+    if (!voiceSelect.value && availableVoices.length) {
+      voiceSelect.value = availableVoices[0].id;
+      selectedCloudVoice = availableVoices[0].id;
     }
   }
 

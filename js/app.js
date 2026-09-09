@@ -11,6 +11,7 @@ import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
 import { initVersionChecker, flushPendingUpdate } from './updater.js';
 import { initVoiceDictation } from './audio.js';
+import { getVoicesForModel } from './tts.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -750,6 +751,31 @@ export function renderMemoryManagerUI() {
   });
 }
 
+export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
+  if (!el.settingsTtsVoice) return;
+  const voices = getVoicesForModel(modelId);
+  el.settingsTtsVoice.innerHTML = '';
+  voices.forEach((v) => {
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = v.name;
+    el.settingsTtsVoice.appendChild(opt);
+  });
+  const desired = targetVoiceId || state.ttsVoice || '';
+  const match = voices.find((v) => v.id.toLowerCase() === desired.toLowerCase());
+  if (match) {
+    el.settingsTtsVoice.value = match.id;
+    state.ttsVoice = match.id;
+  } else {
+    const def = voices.find((v) => v.default) || voices[0];
+    if (def) {
+      el.settingsTtsVoice.value = def.id;
+      state.ttsVoice = def.id;
+      localStorage.setItem(LS.ttsVoice, def.id);
+    }
+  }
+}
+
 export function renderSettingsState() {
   if (el.settingsInstructions) {
     el.settingsInstructions.value = state.instructions || '';
@@ -763,9 +789,7 @@ export function renderSettingsState() {
   if (el.settingsTtsModel) {
     el.settingsTtsModel.value = state.ttsModel || 'browser';
   }
-  if (el.settingsTtsVoice) {
-    el.settingsTtsVoice.value = state.ttsVoice || 'Kore';
-  }
+  syncSettingsTtsVoiceOptions(state.ttsModel || 'browser', state.ttsVoice);
   if (el.settingsTtsVoiceRow) {
     el.settingsTtsVoiceRow.style.display = (state.ttsModel === 'browser') ? 'none' : 'flex';
   }
@@ -1455,6 +1479,9 @@ function initEventListeners() {
       const isBrowser = e.target.value === 'browser';
       if (el.settingsTtsVoiceRow) {
         el.settingsTtsVoiceRow.style.display = isBrowser ? 'none' : 'flex';
+      }
+      if (!isBrowser) {
+        syncSettingsTtsVoiceOptions(e.target.value);
       }
     });
   }
