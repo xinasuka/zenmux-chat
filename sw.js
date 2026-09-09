@@ -44,7 +44,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => name !== CACHE_NAME && !name.startsWith('zenchat-onnx-'))
           .map((name) => caches.delete(name))
       );
     }).then(() => self.clients.claim()) // Immediately take control of all active clients
@@ -54,7 +54,8 @@ self.addEventListener('activate', (event) => {
 /**
  * Fetch Interception Pipeline
  * Enforces strict network-only bypass for streaming AI APIs and release polling,
- * while applying Stale-While-Revalidate (SWR) caching to static shell resources.
+ * dedicated cache-first persistence for heavy ONNX/WASM ML runtimes,
+ * and Stale-While-Revalidate (SWR) caching for static shell resources.
  */
 self.addEventListener('fetch', (event) => {
   // 1. Strict Network-Only: Dynamic LLM APIs, SSE streams, version polling, and non-HTTP schemes
@@ -72,7 +73,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Stale-While-Revalidate: Serve cached shell asset instantly while updating cache in background
+  // 2. Dedicated Cache-First for Heavy ONNX Neural Model & WebAssembly Runtimes
+  // Guarantees zero redundant downloads once fetched, persisting across application version updates
+  if (url.pathname.startsWith('/assets/onnx/')) {
+    event.respondWith(
+      caches.open('zenchat-onnx-vad-v1').then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        const res = await fetch(event.request);
+        if (res && res.status === 200) {
+          cache.put(event.request, res.clone()).catch(() => {});
+        }
+        return res;
+      }).catch(() => fetch(event.request))
+    );
+    return;
+  }
+
+  // 3. Stale-While-Revalidate: Serve cached shell asset instantly while updating cache in background
   event.respondWith(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.match(event.request).then((cachedResponse) => {
