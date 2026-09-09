@@ -1205,8 +1205,8 @@ export function showGate(err = '', isLoading = false) {
     el.gate.classList.remove('hide', 'dissolve');
   }
   if (el.gateErr) {
-    el.gateErr.textContent = err || '';
-    el.gateErr.className = isLoading ? 'gate-loading' : '';
+    el.gateErr.textContent = isLoading ? '' : (err || '');
+    el.gateErr.className = '';
   }
   if (el.gateGo) {
     el.gateGo.disabled = isLoading;
@@ -1273,7 +1273,7 @@ export async function submitGate() {
     showGate('请输入访问口令');
     return;
   }
-  showGate('正在验证身份凭据…', true);
+  showGate('', true);
 
   try {
     const res = await fetch('/api/models', { headers: { 'X-Access-Token': v } });
@@ -1712,7 +1712,7 @@ export async function initApp() {
   const savedToken = state.token || (typeof localStorage !== 'undefined' ? localStorage.getItem(LS.token) : '');
   if (savedToken) {
     // 门禁前置验证：在未确认凭据有效前，彻底隐藏工作台与历史对话，杜绝任何内容泄漏
-    showGate('正在验证身份凭据…', true);
+    showGate('', true);
     if (el.gateInput) el.gateInput.value = savedToken;
 
     try {
