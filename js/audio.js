@@ -151,11 +151,14 @@ export class AudioRecorder {
     // VAD 状态变量
     this.recordedChunks = [];
     this.speechStarted = false;
-    this.speechStartTime = 0;
+    this.speechStartIndex = -1;
     this.lastSpeechTime = 0;
-    this.noiseFloor = 0.008; // 动态底噪初值
+    this.noiseFloor = 0.004; // 动态底噪初值
     this.preBuffer = [];     // 存储最近 250ms 的 16k Float32 帧
     this.maxPreBufferFrames = 0;
+    this.noSpeechTimer = null;
+    this.consecutiveSpeechFrames = 0;
+    this.frameCount = 0;
 
     // 回调事件
     this.onStateChange = options.onStateChange || (() => {});
@@ -212,7 +215,17 @@ export class AudioRecorder {
       this.speechStartIndex = -1;
       this.lastSpeechTime = Date.now();
       this.lastSpeechIndex = -1;
-      this.noiseFloor = 0.002;
+      this.noiseFloor = 0.004;
+      this.consecutiveSpeechFrames = 0;
+      this.frameCount = 0;
+
+      // 双重保险：首声 6 秒无声超时看门狗硬件定时器
+      if (this.noSpeechTimer) clearTimeout(this.noSpeechTimer);
+      this.noSpeechTimer = setTimeout(() => {
+        if (this.state === 'listening' && !this.speechStarted) {
+          this.stop();
+        }
+      }, this.options.noSpeechTimeoutMs);
 
       // 2. 创建音频处理节点（优先采用现代化 AudioWorkletNode 独立线程处理，规避 ScriptProcessor 废弃警告）
       let workletReady = false;
@@ -312,32 +325,52 @@ export class AudioRecorder {
     const normalizedVol = Math.min(1, rms * 15);
     this.onVolume(normalizedVol);
 
+    this.frameCount++;
     const now = Date.now();
     const frameCopy = new Float32Array(frame16k);
     this.recordedChunks.push(frameCopy);
     const currentIndex = this.recordedChunks.length - 1;
 
     // 3. 动态自适应底噪学习与 VAD 人声检测
-    // 关键防误裁机制：底噪仅在未发声时缓慢学习，严禁让讲话语音能量推高底噪门限导致中途误切断
-    if (!this.speechStarted && rms < 0.012) {
+    // 前置自适应校准期：开启录音的前 6 帧 (~250ms) 快速测量当前麦克风真实本底底噪
+    if (this.frameCount <= 6) {
+      this.noiseFloor = Math.max(this.noiseFloor, rms);
+    } else if (!this.speechStarted) {
+      // 未发声时平滑跟踪环境底噪漂移（风扇、空调微弱波动）
+      if (rms < 0.015) {
+        this.noiseFloor = this.noiseFloor * 0.96 + rms * 0.04;
+      }
+    } else if (rms < this.noiseFloor * 1.5) {
       this.noiseFloor = this.noiseFloor * 0.98 + rms * 0.02;
-    } else if (rms < this.noiseFloor) {
-      this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
     }
-    const speechTriggerThreshold = Math.max(0.004, this.noiseFloor * 1.8);
-    const speechHoldThreshold = Math.max(0.0025, this.noiseFloor * 1.2);
+
+    // 严密人声能量门限：
+    // 人类自然发音（即使低语）RMS 均在 0.018 - 0.150，环境底噪（风扇/空调/麦克风 AGC 增益）一般在 0.004 - 0.009
+    const speechTriggerThreshold = Math.max(0.016, this.noiseFloor * 2.2);
+    const speechHoldThreshold = Math.max(0.009, this.noiseFloor * 1.4);
 
     if (rms > speechTriggerThreshold) {
-      if (!this.speechStarted) {
-        this.speechStarted = true;
-        // 记录人声开始帧，向前预留 250ms 前置环形缓冲
-        this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames);
+      this.consecutiveSpeechFrames++;
+      // 双帧连续防抖：需要至少连续 2 帧 (~80ms) 维持人声能量，防止偶发单帧按键声或爆破音误触发
+      if (this.consecutiveSpeechFrames >= 2) {
+        if (!this.speechStarted) {
+          this.speechStarted = true;
+          if (this.noSpeechTimer) {
+            clearTimeout(this.noSpeechTimer);
+            this.noSpeechTimer = null;
+          }
+          // 记录人声开始帧，向前预留 250ms 前置环形缓冲
+          this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 2);
+        }
+        this.lastSpeechTime = now;
+        this.lastSpeechIndex = currentIndex;
       }
-      this.lastSpeechTime = now;
-      this.lastSpeechIndex = currentIndex;
     } else if (this.speechStarted && rms > speechHoldThreshold) {
+      this.consecutiveSpeechFrames = 0;
       this.lastSpeechTime = now;
       this.lastSpeechIndex = currentIndex;
+    } else {
+      this.consecutiveSpeechFrames = 0;
     }
 
     // 4. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
@@ -451,6 +484,10 @@ export class AudioRecorder {
    * 彻底释放 Web Audio 硬件资源与麦克风流
    */
   cleanup() {
+    if (this.noSpeechTimer) {
+      clearTimeout(this.noSpeechTimer);
+      this.noSpeechTimer = null;
+    }
     if (this.processorNode) {
       try {
         if (this.processorNode.port) {
