@@ -2325,11 +2325,19 @@
   [data-theme="light"] .settings-vad-badge{
     background:rgba(40,167,69,.08);border-color:rgba(40,167,69,.22);color:#218838;
   }
-  .settings-vad-badge.tts-engine-badge{
+  .settings-vad-badge.tts-engine-badge,
+  .settings-vad-badge.vad-onnx-badge{
     background:rgba(127,119,221,.09);border-color:rgba(127,119,221,.25);color:var(--accent);
   }
-  [data-theme="light"] .settings-vad-badge.tts-engine-badge{
+  [data-theme="light"] .settings-vad-badge.tts-engine-badge,
+  [data-theme="light"] .settings-vad-badge.vad-onnx-badge{
     background:rgba(100,90,200,.08);border-color:rgba(100,90,200,.22);color:#5848c2;
+  }
+  .settings-vad-badge.vad-loading-badge{
+    background:rgba(255,149,0,.09);border-color:rgba(255,149,0,.25);color:#ff9500;
+  }
+  .settings-vad-badge.vad-error-badge{
+    background:rgba(255,59,48,.09);border-color:rgba(255,59,48,.25);color:#ff3b30;
   }
   .settings-vad-badge svg{flex-shrink:0}
 

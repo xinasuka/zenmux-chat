@@ -444,12 +444,21 @@
                 <option value="openai/gpt-transcribe">OpenAI GPT Transcribe (高精度多语种转写 · 标点纠错)</option>
               </optgroup>
             </select>
-            <div class="settings-vad-badge">
+            <div class="settings-vad-engine-row" style="margin-top: 10px;">
+              <div class="settings-section-header" style="margin-bottom: 4px;">
+                <label for="settings-vad-engine" class="settings-section-title" style="font-size: 12px; opacity: 0.85;">人声活动检测引擎 (VAD)</label>
+              </div>
+              <select id="settings-vad-engine" class="settings-select">
+                <option value="energy">端侧能量自适应引擎 (内置 · 零消耗 · 秒开) · 默认</option>
+                <option value="silero-onnx">Silero 深度神经网络引擎 (ONNX · 极致抗噪 · 深度学习)</option>
+              </select>
+            </div>
+            <div id="settings-vad-badge" class="settings-vad-badge">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span>端侧 VAD 智能静音切除已强制启用（自动滤除环境杂音与死寂停顿，大幅降低调用时长并根除幻觉）</span>
+              <span id="settings-vad-status-text">端侧 VAD 智能静音切除已强制启用（自动滤除环境杂音与死寂停顿，大幅降低调用时长并根除幻觉）</span>
             </div>
           </div>
         </div>

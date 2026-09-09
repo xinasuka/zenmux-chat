@@ -12,6 +12,7 @@ import { PluginRegistry } from './plugins.js';
 import { initVersionChecker, flushPendingUpdate } from './updater.js';
 import { initVoiceDictation } from './audio.js';
 import { getVoicesForModel } from './tts.js';
+import { sileroVAD } from './vad-onnx.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -776,6 +777,31 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
   }
 }
 
+export function syncVadSettingsUI(vadEngine) {
+  if (!el.settingsVadBadge || !el.settingsVadStatusText) return;
+
+  el.settingsVadBadge.classList.remove('vad-onnx-badge', 'vad-loading-badge', 'vad-error-badge');
+
+  if (vadEngine === 'silero-onnx') {
+    if (sileroVAD.isReady()) {
+      el.settingsVadBadge.classList.add('vad-onnx-badge');
+      el.settingsVadStatusText.textContent = 'Silero 深度神经网络已就绪（ONNX WebAssembly · 极致抗噪 · 离线可用）';
+    } else if (sileroVAD.status === 'loading') {
+      el.settingsVadBadge.classList.add('vad-loading-badge');
+      el.settingsVadStatusText.textContent = '正在下载并编译 Silero ONNX 模型权重 (约 2.2MB)...';
+    } else if (sileroVAD.status === 'error') {
+      el.settingsVadBadge.classList.add('vad-error-badge');
+      el.settingsVadStatusText.textContent = `ONNX 模型加载异常: ${sileroVAD.errorMessage || '网络受限'}，已自动降级为能量 VAD`;
+    } else {
+      el.settingsVadBadge.classList.add('vad-onnx-badge');
+      el.settingsVadStatusText.textContent = 'Silero 深度神经网络引擎（选择后将自动下载 2.2MB 模型并永久离线缓存）';
+    }
+  } else {
+    // energy
+    el.settingsVadStatusText.textContent = '端侧能量自适应 VAD 已启用（零网络消耗 · 0ms 启动 · 智能静音切除）';
+  }
+}
+
 export function renderSettingsState() {
   if (el.settingsInstructions) {
     el.settingsInstructions.value = state.instructions || '';
@@ -786,6 +812,10 @@ export function renderSettingsState() {
   if (el.settingsAsrModel) {
     el.settingsAsrModel.value = state.asrModel || 'bytedance/doubao-seed-asr-2.0';
   }
+  if (el.settingsVadEngine) {
+    el.settingsVadEngine.value = state.vadEngine || 'energy';
+  }
+  syncVadSettingsUI(state.vadEngine || 'energy');
   if (el.settingsTtsModel) {
     el.settingsTtsModel.value = state.ttsModel || 'browser';
   }
@@ -814,6 +844,7 @@ export function saveSettings() {
   const enabled = el.settingsInstructionsToggle ? el.settingsInstructionsToggle.checked : true;
   const memoryEnabled = el.settingsMemoryToggle ? el.settingsMemoryToggle.checked : true;
   const asrModel = (el.settingsAsrModel ? el.settingsAsrModel.value : '') || 'bytedance/doubao-seed-asr-2.0';
+  const vadEngine = (el.settingsVadEngine ? el.settingsVadEngine.value : '') || 'energy';
   const ttsModel = (el.settingsTtsModel ? el.settingsTtsModel.value : '') || 'browser';
   const ttsVoice = (el.settingsTtsVoice ? el.settingsTtsVoice.value : '') || 'Kore';
 
@@ -821,6 +852,7 @@ export function saveSettings() {
   state.instructionsEnabled = enabled;
   state.memoryEnabled = memoryEnabled;
   state.asrModel = asrModel;
+  state.vadEngine = vadEngine;
   state.ttsModel = ttsModel;
   state.ttsVoice = ttsVoice;
 
@@ -828,6 +860,7 @@ export function saveSettings() {
   localStorage.setItem(LS.instructionsEnabled, String(enabled));
   localStorage.setItem(LS.memoryEnabled, String(memoryEnabled));
   localStorage.setItem(LS.asrModel, asrModel);
+  localStorage.setItem(LS.vadEngine, vadEngine);
   localStorage.setItem(LS.ttsModel, ttsModel);
   localStorage.setItem(LS.ttsVoice, ttsVoice);
 
@@ -1482,6 +1515,36 @@ function initEventListeners() {
       }
       if (!isBrowser) {
         syncSettingsTtsVoiceOptions(e.target.value);
+      }
+    });
+  }
+
+  // VAD Engine Controller & On-Demand Model Loader
+  if (el.settingsVadEngine) {
+    el.settingsVadEngine.addEventListener('change', (e) => {
+      const selected = e.target.value;
+      state.vadEngine = selected;
+      localStorage.setItem(LS.vadEngine, selected);
+      syncVadSettingsUI(selected);
+
+      // Trigger on-demand loading when user selects the ONNX engine
+      if (selected === 'silero-onnx' && !sileroVAD.isReady()) {
+        syncVadSettingsUI(selected);
+        sileroVAD.loadModel((prog) => {
+          if (state.vadEngine === 'silero-onnx') {
+            syncVadSettingsUI('silero-onnx');
+          }
+        }).then(() => {
+          if (state.vadEngine === 'silero-onnx') {
+            syncVadSettingsUI('silero-onnx');
+            toast('Silero ONNX 深度学习 VAD 模型已就绪', 'info');
+          }
+        }).catch((err) => {
+          if (state.vadEngine === 'silero-onnx') {
+            syncVadSettingsUI('silero-onnx');
+            toast(`Silero ONNX 加载失败: ${err.message || err}`, 'error');
+          }
+        });
       }
     });
   }

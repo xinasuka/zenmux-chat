@@ -88,6 +88,14 @@ async function build() {
     }
   }
 
+  // 4.1 Transfer optional assets directory (ONNX models, WASM runtimes)
+  const assetsSrc = path.join(rootDir, 'assets');
+  const assetsDest = path.join(distDir, 'assets');
+  if (fs.existsSync(assetsSrc)) {
+    console.log('Synchronizing assets directory to ./dist/assets/...');
+    fs.cpSync(assetsSrc, assetsDest, { recursive: true });
+  }
+
   const duration = (performance.now() - startTime).toFixed(1);
   console.log(`\nCompilation completed successfully in ${duration}ms.\n`);
 
@@ -100,7 +108,9 @@ async function build() {
     { path: 'dist/js/admin.js', desc: 'Admin Controller Bundle' },
     { path: 'dist/styles.css', desc: 'Minified Application CSS' },
     { path: 'dist/admin.css', desc: 'Minified Admin CSS' },
-    { path: 'dist/version.json', desc: 'Release Metadata' }
+    { path: 'dist/version.json', desc: 'Release Metadata' },
+    { path: 'dist/assets/onnx/silero_vad.onnx', desc: 'Silero Neural VAD v5 Model' },
+    { path: 'dist/assets/onnx/ort.min.js', desc: 'ONNX Runtime Web Loader' }
   ];
 
   console.log('Artifact Manifest:');

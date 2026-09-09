@@ -6,6 +6,7 @@
 // 4. 将切除静音后的有效语音载荷分发至 /api/audio 边缘网关完成云端 ASR 识别。
 
 import { state, el, LS } from './state.js';
+import { sileroVAD } from './vad-onnx.js';
 
 /**
  * 将任意输入采样率的高精度 Float32Array 缓冲区线性下采样至 16,000 Hz 单声道
@@ -233,6 +234,16 @@ export class AudioRecorder {
         }
       }, this.options.noSpeechTimeoutMs);
 
+      // 准备神经网络 VAD 状态（若用户启用了 Silero ONNX 引擎）
+      if (state.vadEngine === 'silero-onnx') {
+        sileroVAD.resetState();
+        if (!sileroVAD.isReady()) {
+          sileroVAD.loadModel().catch((err) => {
+            console.warn('[AudioRecorder] Silero ONNX 暂未就绪，降级调度端侧能量 VAD:', err);
+          });
+        }
+      }
+
       // 2. 创建音频处理节点（优先采用现代化 AudioWorkletNode 独立线程处理，规避 ScriptProcessor 废弃警告）
       let workletReady = false;
       if (this.audioCtx.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
@@ -361,53 +372,70 @@ export class AudioRecorder {
     this.recordedChunks.push(frameCopy);
     const currentIndex = this.recordedChunks.length - 1;
 
-    // 4. 前置防误触缓冲期（前 10 帧 / 约 420ms）：
-    // 彻底免疫用户点击麦克风按钮时的物理微动开关微震、触控屏幕震动及声卡通电瞬态电平冲击
-    const inWarmup = this.frameCount <= 10;
+    // 4. VAD 人声检测决策
+    const useOnnx = state.vadEngine === 'silero-onnx' && sileroVAD.isReady();
 
-    // 5. 动态自适应底噪学习
-    if (inWarmup) {
-      if (rms < 0.020) {
-        this.noiseFloor = Math.max(this.noiseFloor, rms);
-      }
-    } else if (!this.speechStarted) {
-      // 未发声时平滑跟踪环境底噪漂移（风扇、空调微弱波动）
-      if (rms < 0.020) {
-        this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
-      }
-    } else if (rms < this.noiseFloor * 1.5) {
-      this.noiseFloor = this.noiseFloor * 0.98 + rms * 0.02;
-    }
-
-    // 严密人声能量门限：
-    // 人类自然发音（即使低语）RMS 均在 0.018 - 0.150，环境底噪经高通去偏置后稳定在 0.001 - 0.006
-    const speechTriggerThreshold = Math.max(0.018, this.noiseFloor * 2.5);
-    const speechHoldThreshold = Math.max(0.010, this.noiseFloor * 1.5);
-
-    if (!inWarmup && rms > speechTriggerThreshold) {
-      this.consecutiveSpeechFrames++;
-      // 三帧连续防抖：需要至少连续 3 帧 (~130ms) 维持人声能量，防止偶发单双帧碰撞声或杂音误触发
-      if (this.consecutiveSpeechFrames >= 3) {
-        if (!this.speechStarted) {
-          this.speechStarted = true;
-          if (this.noSpeechTimer) {
-            clearTimeout(this.noSpeechTimer);
-            this.noSpeechTimer = null;
+    if (useOnnx) {
+      // 4A. Silero 深度神经网络引擎（异步推流至 ONNX Runtime WASM）
+      sileroVAD.process(frame16k).then((vadRes) => {
+        if (this.state !== 'listening') return;
+        if (vadRes && vadRes.isSpeech) {
+          if (!this.speechStarted) {
+            this.speechStarted = true;
+            if (this.noSpeechTimer) {
+              clearTimeout(this.noSpeechTimer);
+              this.noSpeechTimer = null;
+            }
+            this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 3);
           }
-          // 记录人声开始帧，向前预留 250ms 前置环形缓冲
-          this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 3);
+          this.lastSpeechTime = now;
+          this.lastSpeechIndex = currentIndex;
+          this.validSpeechFramesCount++;
         }
+      }).catch((onnxErr) => {
+        console.warn('[AudioRecorder] Silero ONNX 帧推流异常:', onnxErr);
+      });
+    } else {
+      // 4B. 内置自适应能量 VAD（零外部依赖秒开兜底）
+      const inWarmup = this.frameCount <= 10;
+      if (inWarmup) {
+        if (rms < 0.020) {
+          this.noiseFloor = Math.max(this.noiseFloor, rms);
+        }
+      } else if (!this.speechStarted) {
+        if (rms < 0.020) {
+          this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
+        }
+      } else if (rms < this.noiseFloor * 1.5) {
+        this.noiseFloor = this.noiseFloor * 0.98 + rms * 0.02;
+      }
+
+      const speechTriggerThreshold = Math.max(0.018, this.noiseFloor * 2.5);
+      const speechHoldThreshold = Math.max(0.010, this.noiseFloor * 1.5);
+
+      if (!inWarmup && rms > speechTriggerThreshold) {
+        this.consecutiveSpeechFrames++;
+        if (this.consecutiveSpeechFrames >= 3) {
+          if (!this.speechStarted) {
+            this.speechStarted = true;
+            if (this.noSpeechTimer) {
+              clearTimeout(this.noSpeechTimer);
+              this.noSpeechTimer = null;
+            }
+            this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 3);
+          }
+          this.lastSpeechTime = now;
+          this.lastSpeechIndex = currentIndex;
+          this.validSpeechFramesCount++;
+        }
+      } else if (this.speechStarted && rms > speechHoldThreshold) {
+        this.consecutiveSpeechFrames = 0;
         this.lastSpeechTime = now;
         this.lastSpeechIndex = currentIndex;
         this.validSpeechFramesCount++;
+      } else {
+        this.consecutiveSpeechFrames = 0;
       }
-    } else if (this.speechStarted && rms > speechHoldThreshold) {
-      this.consecutiveSpeechFrames = 0;
-      this.lastSpeechTime = now;
-      this.lastSpeechIndex = currentIndex;
-      this.validSpeechFramesCount++;
-    } else {
-      this.consecutiveSpeechFrames = 0;
     }
 
     // 6. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
