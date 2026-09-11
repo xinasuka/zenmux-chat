@@ -716,64 +716,52 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       .composer-voice-overlay:hover .voice-bar-mic-icon {
         transform: scale(1.12);
       }
-      .voice-overlay-content {
-        display: none;
+      .voice-overlay-resting,
+      .voice-overlay-active {
+        display: flex;
         align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        gap: 12px;
+        justify-content: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fg, #eee);
         pointer-events: none;
+        letter-spacing: 0.3px;
+        width: 100%;
+        text-align: center;
+      }
+      .voice-bar-mic-icon {
+        color: var(--accent, #7f77dd);
+        transition: transform 0.15s;
+        flex-shrink: 0;
+      }
+      .composer-voice-overlay:hover .voice-bar-mic-icon {
+        transform: scale(1.12);
+      }
+      .voice-overlay-active {
+        display: none;
       }
       .composer-voice-overlay.is-pressing .voice-overlay-resting,
       .composer-voice-overlay.is-transcribing .voice-overlay-resting {
         display: none;
       }
-      .composer-voice-overlay.is-pressing .voice-overlay-content,
-      .composer-voice-overlay.is-transcribing .voice-overlay-content {
+      .composer-voice-overlay.is-pressing .voice-overlay-active,
+      .composer-voice-overlay.is-transcribing .voice-overlay-active {
         display: flex;
-      }
-      .voice-wave-visualizer {
-        display: flex;
-        align-items: center;
-        gap: 3.5px;
-        height: 22px;
-        padding: 0 2px;
-      }
-      .voice-wave-visualizer .wave-bar {
-        display: inline-block;
-        width: 3.5px;
-        height: 18px;
-        background: linear-gradient(to top, #ff4a4a, #ff8282);
-        border-radius: 3px;
-        transform: scaleY(0.35);
-        transform-origin: center;
-        transition: transform 0.06s ease, background 0.2s;
-      }
-      .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar {
-        background: linear-gradient(to top, var(--accent, #7f77dd), #a39df0);
-        animation: waveShimmer 1s infinite ease-in-out;
-      }
-      .voice-overlay-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
       }
       .voice-overlay-status {
-        font-size: 12.5px;
+        font-size: 13px;
         color: var(--fg, #eee);
         font-weight: 500;
+        letter-spacing: 0.3px;
+        text-align: center;
+      }
+      .composer-voice-overlay.is-cancelling .voice-overlay-status {
+        color: #ff4a4a;
+        font-weight: 600;
       }
       .composer-voice-overlay.is-transcribing .voice-overlay-status {
         color: var(--accent, #7f77dd);
-      }
-      .voice-overlay-timer {
-        font-family: monospace;
-        font-size: 11px;
-        color: var(--fg-dim, #888);
-        background: rgba(255, 255, 255, 0.08);
-        padding: 2px 6px;
-        border-radius: 4px;
       }
       .composer-icon-btn.mode-voice {
         color: var(--accent, #7f77dd);
@@ -806,21 +794,8 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
           </svg>
           <span id="voice-bar-prompt" class="voice-bar-prompt">${t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话')}</span>
         </div>
-        <div class="voice-overlay-content">
-          <div id="voice-wave-visualizer" class="voice-wave-visualizer">
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-          </div>
-          <div class="voice-overlay-info">
-            <span id="voice-overlay-status" class="voice-overlay-status">${t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束')}</span>
-            <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
-          </div>
+        <div class="voice-overlay-active">
+          <span id="voice-overlay-status" class="voice-overlay-status">${t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束')}</span>
         </div>
       `;
       const mainRow = document.getElementById('composer-main-row');
@@ -835,8 +810,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     }
     el.voiceOverlay = overlay;
     el.voiceStatus = overlay.querySelector('#voice-overlay-status') || document.getElementById('voice-overlay-status');
-    el.voiceTimer = overlay.querySelector('#voice-overlay-timer') || document.getElementById('voice-overlay-timer');
-    el.voiceWave = overlay.querySelector('#voice-wave-visualizer') || document.getElementById('voice-wave-visualizer');
     el.voiceBarPrompt = overlay.querySelector('#voice-bar-prompt') || document.getElementById('voice-bar-prompt');
     return overlay;
   }
@@ -866,20 +839,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
   }
 
   function updateWaveform(vol) {
-    const overlay = ensureVoiceOverlay();
-    const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
-    if (waveEl) {
-      const bars = waveEl.querySelectorAll('.wave-bar');
-      if (bars && bars.length > 0) {
-        bars.forEach((bar, idx) => {
-          const factor = 1 - Math.abs(idx - 3.5) / 4;
-          const jitter = 0.75 + Math.random() * 0.5;
-          const scale = Math.max(0.3, Math.min(1.0, (vol * 2.5 * factor * jitter) + 0.3));
-          bar.style.transform = `scaleY(${scale.toFixed(2)})`;
-        });
-      }
-    }
-
     // Drive Floating HUD Island 16-bar wave
     ensureVoiceHud();
     if (hudBars && hudBars.length > 0) {
@@ -894,15 +853,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
   }
 
   function resetWaveform() {
-    const overlay = ensureVoiceOverlay();
-    const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
-    if (waveEl) {
-      const bars = waveEl.querySelectorAll('.wave-bar');
-      bars.forEach((bar) => {
-        bar.style.transform = 'scaleY(0.3)';
-      });
-    }
-
     // Reset Floating HUD Island bars
     ensureVoiceHud();
     if (hudBars && hudBars.length > 0) {
@@ -994,16 +944,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
       if (el.send) el.send.disabled = true;
 
-      // Prime wave bars
+      // Prime wave bars on HUD island
       updateWaveform(0.12);
 
       // Start elapsed duration timer with 10s countdown alert
       secondsElapsed = 0;
-      if (el.voiceTimer) {
-        el.voiceTimer.textContent = '00:00';
-        el.voiceTimer.style.color = '';
-        el.voiceTimer.style.background = '';
-      }
       clearInterval(voiceTimerInterval);
       voiceTimerInterval = setInterval(() => {
         secondsElapsed++;
@@ -1013,19 +958,10 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
         const s = String(secondsElapsed % 60).padStart(2, '0');
         const timeStr = `${m}:${s}`;
-        if (el.voiceTimer) el.voiceTimer.textContent = timeStr;
         if (hudTimerEl) hudTimerEl.textContent = timeStr;
 
         // Approaching 60s limit (remaining <= 10s)
         if (remaining <= 10 && remaining > 0) {
-          if (el.voiceStatus && !overlay.classList.contains('is-cancelling')) {
-            el.voiceStatus.textContent = t('composer.voiceApproachingLimit', { remaining });
-            el.voiceStatus.style.color = '#ff6b6b';
-          }
-          if (el.voiceTimer) {
-            el.voiceTimer.style.color = '#ff6b6b';
-            el.voiceTimer.style.background = 'rgba(255, 107, 107, 0.2)';
-          }
           if (hudStatusEl && (!hudCapsuleEl || !hudCapsuleEl.classList.contains('cancelling'))) {
             hudStatusEl.textContent = t('composer.voiceApproachingLimit', { remaining });
           }
@@ -1035,7 +971,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
           }
         } else if (remaining <= 0) {
           clearInterval(voiceTimerInterval);
-          if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceLimitReached') || (state.lang === 'en' ? 'Time limit reached, transcribing...' : '已达上限，正在转录…');
           if (hudStatusEl) hudStatusEl.textContent = t('composer.voiceLimitReached') || (state.lang === 'en' ? 'Time limit reached, transcribing...' : '已达上限，正在转录…');
           if (hudCountdownEl) hudCountdownEl.style.display = 'none';
           const rec = ensureRecorder();
@@ -1052,10 +987,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       if (el.voiceStatus) {
         el.voiceStatus.textContent = t('composer.voiceTranscribing') || (state.lang === 'en' ? 'Transcribing speech...' : '正在转录文本...');
         el.voiceStatus.style.color = '';
-      }
-      if (el.voiceTimer) {
-        el.voiceTimer.style.color = '';
-        el.voiceTimer.style.background = '';
       }
       if (hudCapsuleEl) {
         hudCapsuleEl.classList.add('active', 'transcribing');
@@ -1085,10 +1016,9 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
         if (hudCountdownEl) hudCountdownEl.style.display = 'none';
       }
-      if (el.voiceStatus) el.voiceStatus.style.color = '';
-      if (el.voiceTimer) {
-        el.voiceTimer.style.color = '';
-        el.voiceTimer.style.background = '';
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束');
+        el.voiceStatus.style.color = '';
       }
       resetWaveform();
 

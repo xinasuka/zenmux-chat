@@ -1326,24 +1326,25 @@
     position:absolute;bottom:calc(100% + 14px);left:50%;
     transform:translate(-50%, 10px) scale(0.95);
     min-width:240px;max-width:320px;width:max-content;
-    background:rgba(22,24,35,0.92);
+    background:rgba(22,24,35,0.94);
     backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-    border:1px solid rgba(255,255,255,0.14);border-radius:18px;
+    border:1px solid rgba(255,255,255,0.16);border-radius:18px;
     padding:12px 18px;box-sizing:border-box;
     box-shadow:0 16px 40px rgba(0,0,0,0.5),0 0 20px rgba(127,119,221,0.15);
     display:flex;flex-direction:column;align-items:center;gap:10px;
     opacity:0;visibility:hidden;pointer-events:none;z-index:120;
     transition:opacity .2s cubic-bezier(0.16,1,0.3,1),transform .2s cubic-bezier(0.16,1,0.3,1),background .2s,border-color .2s,box-shadow .2s;
+    color:#f3f4f6;
   }
   .voice-hud-capsule.active{
     opacity:1;visibility:visible;transform:translate(-50%, 0) scale(1);
   }
   .voice-hud-capsule.cancelling{
-    background:rgba(255,74,74,0.22);border-color:#ff4a4a;
+    background:rgba(255,74,74,0.25);border-color:#ff4a4a;
     box-shadow:0 16px 40px rgba(255,74,74,0.35);
   }
   .voice-hud-capsule.transcribing{
-    border-color:rgba(127,119,221,0.5);background:rgba(127,119,221,0.15);
+    border-color:rgba(127,119,221,0.5);background:rgba(127,119,221,0.2);
   }
 
   .hud-top-row{
@@ -1367,25 +1368,26 @@
     background:var(--accent);animation:hudDotPulse 1s infinite ease-in-out;
   }
   .hud-status-text{
-    font-size:12.5px;font-weight:600;color:var(--fg);letter-spacing:.2px;
+    font-size:12.5px;font-weight:600;color:#f3f4f6;letter-spacing:.2px;
   }
   .voice-hud-capsule.cancelling .hud-status-text{
-    color:#ff6b6b;
+    color:#ff8585;
   }
   .voice-hud-capsule.transcribing .hud-status-text{
-    color:var(--accent);
+    color:#a39df0;
   }
   .hud-timer-group{
     display:flex;align-items:center;gap:6px;
   }
   .hud-timer{
-    font-family:var(--font-mono,monospace);font-size:12px;font-weight:600;color:var(--fg);
-    background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:6px;
+    font-family:var(--font-mono,monospace);font-size:12px;font-weight:600;color:#ffffff;
+    background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.12);
+    padding:2px 7px;border-radius:6px;
     font-variant-numeric:tabular-nums;
   }
   .hud-countdown{
-    font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;color:#ff6b6b;
-    background:rgba(255,107,107,0.18);border:1px solid rgba(255,107,107,0.4);
+    font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;color:#ff8585;
+    background:rgba(255,107,107,0.22);border:1px solid rgba(255,107,107,0.45);
     padding:1px 6px;border-radius:5px;animation:hudWarnPulse .9s infinite;
   }
   @keyframes hudWarnPulse{
@@ -1416,11 +1418,11 @@
     display:flex;align-items:center;justify-content:center;width:100%;
   }
   .hud-gesture-hint{
-    font-size:11px;font-weight:500;color:var(--fg-dim);letter-spacing:.2px;
+    font-size:11px;font-weight:500;color:rgba(240,242,245,0.72);letter-spacing:.2px;
     transition:color .15s;
   }
   .voice-hud-capsule.cancelling .hud-gesture-hint{
-    color:#ff6b6b;font-weight:600;
+    color:#ff8585;font-weight:600;
   }
 
   /* ---------- Composer Voice Dictation Bar (Push-to-Talk) ---------- */
@@ -1444,9 +1446,11 @@
   .composer-voice-overlay.is-transcribing{
     border-color:rgba(127,119,221,.5);background:rgba(127,119,221,.1);cursor:wait;
   }
-  .voice-overlay-resting{
+  .voice-overlay-resting,
+  .voice-overlay-active{
     display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;
     font-weight:500;color:var(--fg);pointer-events:none;letter-spacing:.3px;
+    width:100%;text-align:center;
   }
   .voice-bar-mic-icon{
     color:var(--accent);transition:transform .15s;flex-shrink:0;
@@ -1454,54 +1458,26 @@
   .composer-voice-overlay:hover .voice-bar-mic-icon{
     transform:scale(1.12);
   }
-  .voice-overlay-content{
-    display:none;align-items:center;justify-content:space-between;width:100%;gap:12px;pointer-events:none;
+  .voice-overlay-active{
+    display:none;
   }
   .composer-voice-overlay.is-pressing .voice-overlay-resting,
   .composer-voice-overlay.is-transcribing .voice-overlay-resting{
     display:none;
   }
-  .composer-voice-overlay.is-pressing .voice-overlay-content,
-  .composer-voice-overlay.is-transcribing .voice-overlay-content{
+  .composer-voice-overlay.is-pressing .voice-overlay-active,
+  .composer-voice-overlay.is-transcribing .voice-overlay-active{
     display:flex;
   }
-  .voice-wave-visualizer{
-    display:flex;align-items:center;gap:3.5px;height:22px;padding:0 2px;
-  }
-  .voice-wave-visualizer .wave-bar{
-    display:inline-block;width:3.5px;height:18px;background:linear-gradient(to top,#ff4a4a,#ff8282);
-    border-radius:3px;transform:scaleY(0.3);transform-origin:center;
-    transition:transform .06s ease,background .2s;
-  }
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar{
-    background:linear-gradient(to top,var(--accent),#a39df0);animation:waveShimmer 1s infinite ease-in-out;
-  }
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(1){animation-delay:0.0s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(2){animation-delay:0.1s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(3){animation-delay:0.2s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(4){animation-delay:0.3s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(5){animation-delay:0.4s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(6){animation-delay:0.5s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(7){animation-delay:0.6s}
-  .composer-voice-overlay.is-transcribing .voice-wave-visualizer .wave-bar:nth-child(8){animation-delay:0.7s}
-
-  @keyframes waveShimmer{
-    0%,100%{transform:scaleY(0.2);opacity:.4}
-    50%{transform:scaleY(1);opacity:1}
-  }
-
-  .voice-overlay-info{
-    display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim);
-  }
   .voice-overlay-status{
-    font-size:12px;color:var(--fg-muted);font-weight:500;
+    font-size:13px;color:var(--fg);font-weight:500;letter-spacing:.2px;text-align:center;
+    transition:color .15s;
+  }
+  .composer-voice-overlay.is-cancelling .voice-overlay-status{
+    color:#ff4a4a;font-weight:600;
   }
   .composer-voice-overlay.is-transcribing .voice-overlay-status{
     color:var(--accent);
-  }
-  .voice-overlay-timer{
-    font-family:var(--font-mono,monospace);font-size:11px;color:var(--fg-faint);
-    background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px;
   }
 
   .composer-icon-btn:disabled,.composer-icon-btn.disabled{
