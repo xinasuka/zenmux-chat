@@ -106,9 +106,11 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 - **Telemetry Parsing**: The client stream accumulator dynamically detects thinking tags (`<think>`, `reasoning_content`) and renders collapsible deliberation sections with real-time token tracking.
 - **Token Accounting**: Captures prompt, completion, and cumulative session token usage at the conclusion of every stream turn.
 
-### 4.2 Acoustic Speech Transcription (ASR & WebRTC VAD)
-- **Client Processing**: Employs an in-browser WebRTC Voice Activity Detection (`VAD`) pipeline that tracks input volume envelopes, automatically halting audio capture upon prolonged silence.
-- **Upstream Gateway**: Audio blobs (WAV/WebM) are forwarded via `edge-functions/api/audio.js` to ZenMux Whisper transcription (`/v1/audio/transcriptions`).
+### 4.2 Acoustic Speech Transcription & Dual Voice Paradigms (ASR & Silero ONNX VAD)
+- **Dual Voice Capture Paradigms**:
+  - **Mode A: Tactile Push-to-Talk (Default)**: Engineered for mobile touch ergonomics with unified Pointer Events (`pointerdown`, `pointermove`, `pointerup`). Elevates visual telemetry to an unobstructed Floating Glassmorphic HUD Island (`.voice-hud-capsule`) positioned 14px above the composer to eliminate thumb occlusion. Supports vertical slide-up gesture ($\ge 50\text{px}$) to cancel.
+  - **Mode B: Hands-Free Neural VAD**: Integrates Silero VAD v5 ONNX WebAssembly (`silero_vad.onnx`, 2.2MB) with WebAssembly SIMD acceleration, computing real-time speech probabilities across 512-sample Float32 frames with autonomous energy fallback.
+- **Upstream Gateway**: Encodes 16kHz mono WAV audio with 85Hz highpass filtering and DC detrending, forwarding payloads via `edge-functions/api/audio.js` to ZenMux Whisper transcription (`/v1/audio/transcriptions`).
 
 ### 4.3 Neural Speech Synthesis (TTS) Pipeline
 - **Streaming Audio Protocol**: Transmits text payloads with `stream: true` to `/v1/audio/speech`, receiving SSE chunks:
@@ -161,6 +163,12 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
   - Synchronize web assets into Android project: `npx cap sync android`
   - Compile native debug APK: `cd android && ./gradlew assembleDebug`
 - **Native Privileges**: Access to hardware audio microphones for ASR transcription and native background audio playback.
+
+### 5.4 Zero-Reload Bilingual Internationalization (`js/i18n.js`)
+- **Micro-Engine Architecture**: Zero-dependency, sub-10KB reactive localization engine supporting real-time runtime toggling between Simplified Chinese (`zh-CN`) and English (`en-US`).
+- **Declarative DOM Hydration**: Directives (`data-i18n`, `data-i18n-placeholder`, `data-i18n-title`, `data-i18n-aria`, `data-i18n-label`, `data-i18n-alt`) update in-place without page reload, preserving active conversational context and streaming tokens.
+- **Strict Tool Contract Invariance**: Programmatic LLM tool calling schemas (`PluginRegistry.getAll()`) remain strictly 100% English to preserve model reasoning reliability, while UI indicators and citations adapt dynamically via `languagechange` events.
+- **Symmetric Key Parity Gate**: Enforces 100% parity across all 293 keys validated by `scratch/test_i18n.js`.
 
 ---
 
