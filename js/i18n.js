@@ -436,7 +436,7 @@ export const TRANSLATIONS = {
       pluginsTitle: 'Extensions and Smart Tools',
       pluginsText: 'Plugins',
       voiceTitle: 'Voice input (click to speak, real-time speech-to-text)',
-      inputPlaceholder: 'Type a message or drag/paste files & images. Enter to send, Shift+Enter for new line',
+      inputPlaceholder: 'Type a message or drop files/images. Enter to send',
       voiceListening: 'Listening...',
       voiceApproachingLimit: 'Approaching time limit ({remaining}s remaining)',
       voiceLimitReached: 'Time limit reached, transcribing...',
@@ -701,7 +701,7 @@ export function setLanguage(lang) {
   state.lang = target;
   try {
     localStorage.setItem(LS.lang, target);
-  } catch (_) {}
+  } catch (_) { }
 
   // Synchronize HTML lang attribute
   if (typeof document !== 'undefined' && document.documentElement) {
@@ -800,7 +800,7 @@ export function initI18n() {
   let stored = null;
   try {
     stored = localStorage.getItem(LS.lang);
-  } catch (_) {}
+  } catch (_) { }
 
   let lang = stored;
   if (!lang || (lang !== 'zh' && lang !== 'en')) {
