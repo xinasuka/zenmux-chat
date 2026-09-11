@@ -34,6 +34,9 @@ export const TRANSLATIONS = {
       deleteConfirm: '确定要删除对话「{title}」吗？此操作不可撤销。',
       deleteFailed: '删除失败: {error}',
       newChatTitle: '新对话',
+      doubleClickToRename: '双击可修改标题',
+      rename: '重命名',
+      deleteTooltip: '删除对话',
     },
     topbar: {
       modelPickerTitle: '选择模型',
@@ -56,6 +59,9 @@ export const TRANSLATIONS = {
       otherGroup: '其他',
     },
     params: {
+      effortTitleSupported: '推理强度：ZenMux 不传此参数时默认 medium',
+      effortTitleLoading: '推理强度（模型信息载入中）',
+      effortTitleUnsupported: '当前模型不支持推理',
       effortTitle: '推理强度：仅对支持推理的模型生效',
       effortDefault: '推理 默认',
       effortMinimal: '推理 最低',
@@ -114,6 +120,8 @@ export const TRANSLATIONS = {
       voiceNoAudio: '未检测到有效声音输入',
       stopTitle: '停止',
       sendTitle: '发送',
+      startImageGen: '开始生图 (Enter)',
+      imageInputPlaceholder: '描述你想生成的画面 (Prompt)，Enter 开始绘制…',
       dropHint: '松开鼠标添加图片或文件',
     },
     chat: {
@@ -351,6 +359,9 @@ export const TRANSLATIONS = {
       deleteConfirm: 'Are you sure you want to delete chat "{title}"? This cannot be undone.',
       deleteFailed: 'Failed to delete: {error}',
       newChatTitle: 'New Chat',
+      doubleClickToRename: 'Double-click to rename',
+      rename: 'Rename',
+      deleteTooltip: 'Delete chat',
     },
     topbar: {
       modelPickerTitle: 'Select Model',
@@ -373,6 +384,9 @@ export const TRANSLATIONS = {
       otherGroup: 'Other',
     },
     params: {
+      effortTitleSupported: 'Reasoning Effort: ZenMux defaults to medium if omitted',
+      effortTitleLoading: 'Reasoning Effort (Loading model info)',
+      effortTitleUnsupported: 'Current model does not support reasoning',
       effortTitle: 'Reasoning Effort: Only applies to reasoning models',
       effortDefault: 'Reasoning Default',
       effortMinimal: 'Reasoning Minimal',
@@ -431,6 +445,8 @@ export const TRANSLATIONS = {
       voiceNoAudio: 'No speech detected',
       stopTitle: 'Stop',
       sendTitle: 'Send',
+      startImageGen: 'Generate Image (Enter)',
+      imageInputPlaceholder: 'Describe the image you want to generate (Prompt), Enter to start drawing...',
       dropHint: 'Drop files or images here',
     },
     chat: {

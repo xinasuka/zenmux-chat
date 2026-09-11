@@ -489,8 +489,8 @@ export function syncEffort() {
   const unknown = !m;
   el.effort.disabled = !can && !unknown;
   el.effort.title = can
-    ? '推理强度：ZenMux 不传此参数时默认 medium'
-    : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
+    ? t('params.effortTitleSupported')
+    : (unknown ? t('params.effortTitleLoading') : t('params.effortTitleUnsupported'));
   syncParamPicker(el.effort);
 }
 
@@ -518,12 +518,12 @@ export function syncWorkstationMode(isImgGen, meta) {
 
   if (el.input) {
     el.input.placeholder = isImgGen
-      ? '描述你想生成的画面 (Prompt)，Enter 开始绘制…'
-      : '发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行';
+      ? t('composer.imageInputPlaceholder')
+      : t('composer.inputPlaceholder');
   }
 
   if (el.send) {
-    el.send.title = isImgGen ? '开始生图 (Enter)' : '发送';
+    el.send.title = isImgGen ? t('composer.startImageGen') : t('composer.sendTitle');
   }
 }
 
@@ -928,20 +928,20 @@ export function renderConvList() {
 
     const txt = document.createElement('span');
     txt.className = 'txt';
-    txt.textContent = c.title || '新对话';
-    txt.title = '双击可修改标题';
+    txt.textContent = c.title || t('sidebar.newChatTitle');
+    txt.title = t('sidebar.doubleClickToRename');
 
     const actions = document.createElement('span');
     actions.className = 'actions';
 
     const editBtn = document.createElement('button');
     editBtn.className = 'conv-btn edit';
-    editBtn.title = '重命名';
+    editBtn.title = t('sidebar.rename');
     editBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
 
     const delBtn = document.createElement('button');
     delBtn.className = 'conv-btn del';
-    delBtn.title = '删除对话';
+    delBtn.title = t('sidebar.deleteTooltip');
     delBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     function startEdit() {
@@ -1663,6 +1663,7 @@ function initEventListeners() {
     } else {
       syncModelPickerUI();
     }
+    syncModelCapabilities();
   });
 
   // Lightbox close listeners
