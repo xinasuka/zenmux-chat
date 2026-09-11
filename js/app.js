@@ -11,7 +11,7 @@ import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
 import { initVersionChecker, flushPendingUpdate } from './updater.js';
 import { initVoiceDictation } from './audio.js';
-import { getVoicesForModel } from './tts.js';
+import { getVoicesForModel, getVoiceDisplayName } from './tts.js';
 import { sileroVAD } from './vad-onnx.js';
 import { initI18n, setLanguage, t } from './i18n.js';
 
@@ -770,10 +770,8 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
     opt.value = v.id;
     if (v.i18nKey) {
       opt.setAttribute('data-i18n', v.i18nKey);
-      opt.textContent = t(v.i18nKey) || v.name;
-    } else {
-      opt.textContent = v.name;
     }
+    opt.textContent = getVoiceDisplayName(v);
     el.settingsTtsVoice.appendChild(opt);
   });
   const desired = targetVoiceId || state.ttsVoice || '';
@@ -1672,6 +1670,7 @@ function initEventListeners() {
       syncModelPickerUI();
     }
     syncModelCapabilities();
+    syncSettingsTtsVoiceOptions(state.ttsModel || 'browser', state.ttsVoice);
   });
 
   // Lightbox close listeners

@@ -56,6 +56,15 @@ export function getVoicesForModel(modelId) {
   return MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
 }
 
+export function getVoiceDisplayName(v) {
+  if (!v) return '';
+  if (v.i18nKey) {
+    const translated = t(v.i18nKey);
+    if (translated && translated !== v.i18nKey) return translated;
+  }
+  return v.name || v.id || '';
+}
+
 export const CLOUD_TTS_VOICES = MODEL_VOICES_MAP['google/gemini-3.1-flash-tts-preview'];
 
 const PLAY_ICON_SVG = '<svg class="tts-icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
@@ -398,11 +407,11 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     </div>
     <div class="tts-controls-row">
       <div class="tts-ctrl-group">
-        <span>${state.lang === 'en' ? 'Voice:' : '音色:'}</span>
-        <select class="tts-voice-select"><option value="">${t('tts.loadingVoice') || '载入音色中…'}</option></select>
+        <span class="tts-voice-label" data-i18n="tts.voiceLabel">${t('tts.voiceLabel') || (state.lang === 'en' ? 'Voice:' : '音色:')}</span>
+        <select class="tts-voice-select"><option value="">${t('tts.loadingVoice') || (state.lang === 'en' ? 'Loading voices...' : '载入音色中…')}</option></select>
       </div>
       <div class="tts-ctrl-group">
-        <span>${t('tts.speed') || '倍速:'}</span>
+        <span class="tts-speed-label" data-i18n="tts.speed">${t('tts.speed') || (state.lang === 'en' ? 'Speed:' : '倍速:')}</span>
         <button class="tts-speed-btn" data-speed="0.75">0.75x</button>
         <button class="tts-speed-btn active" data-speed="1.0">1.0x</button>
         <button class="tts-speed-btn" data-speed="1.25">1.25x</button>
@@ -479,7 +488,10 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     availableVoices.forEach((v) => {
       const opt = document.createElement('option');
       opt.value = v.id;
-      opt.textContent = v.name;
+      if (v.i18nKey) {
+        opt.setAttribute('data-i18n', v.i18nKey);
+      }
+      opt.textContent = getVoiceDisplayName(v);
       if (v.id === selectedCloudVoice) {
         opt.selected = true;
       }
@@ -843,8 +855,31 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     }
   });
 
+  // 动态多语言响应与资源清理
+  const handleLanguageChange = () => {
+    const newEngineLabel = isCloudTTS ? (state.lang === 'en' ? 'Cloud AI' : '云端拟真') : (state.lang === 'en' ? 'Local' : '本地原生');
+    if (engineBadge && !engineBadge.classList.contains('streaming')) {
+      engineBadge.textContent = newEngineLabel;
+    }
+    const voiceLabel = playerDrawer.querySelector('.tts-voice-label');
+    if (voiceLabel) voiceLabel.textContent = t('tts.voiceLabel') || (state.lang === 'en' ? 'Voice:' : '音色:');
+    const speedLabel = playerDrawer.querySelector('.tts-speed-label');
+    if (speedLabel) speedLabel.textContent = t('tts.speed') || (state.lang === 'en' ? 'Speed:' : '倍速:');
+    if (isCloudTTS) {
+      populateCloudVoices();
+    } else {
+      populateLocalVoices();
+    }
+  };
+  window.addEventListener('languagechange', handleLanguageChange);
+
+  const cleanupTTS = () => {
+    window.removeEventListener('languagechange', handleLanguageChange);
+  };
+
   // 关闭播放器
   closeBtn.addEventListener('click', () => {
+    cleanupTTS();
     if (isCloudTTS) {
       stopCloudSpeech();
       if (currentAudioBlobUrl) {
@@ -862,6 +897,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   });
 
   currentGlobalStopHandler = () => {
+    cleanupTTS();
     if (isCloudTTS) {
       stopCloudSpeech();
     } else {

@@ -296,6 +296,7 @@ export const TRANSLATIONS = {
       closeTooltip: '关闭 (稍后提醒)',
     },
     tts: {
+      voiceLabel: '音色:',
       speed: '倍速:',
       loadingVoice: '载入音色中…',
       loadingAudio: '正在加载音频…',
@@ -632,6 +633,7 @@ export const TRANSLATIONS = {
       closeTooltip: 'Close (remind later)',
     },
     tts: {
+      voiceLabel: 'Voice:',
       speed: 'Speed:',
       loadingVoice: 'Loading voices...',
       loadingAudio: 'Loading audio...',
