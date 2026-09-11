@@ -424,14 +424,14 @@ export class AudioRecorder {
 
       if (!inWarmup && rms > speechTriggerThreshold) {
         this.consecutiveSpeechFrames++;
-        if (this.consecutiveSpeechFrames >= 3) {
+        if (this.consecutiveSpeechFrames >= 2) {
           if (!this.speechStarted) {
             this.speechStarted = true;
             if (this.noSpeechTimer) {
               clearTimeout(this.noSpeechTimer);
               this.noSpeechTimer = null;
             }
-            this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 3);
+            this.speechStartIndex = Math.max(0, currentIndex - this.maxPreBufferFrames - 2);
           }
           this.lastSpeechTime = now;
           this.lastSpeechIndex = currentIndex;
@@ -473,7 +473,7 @@ export class AudioRecorder {
 
     let chunksToProcess = this.recordedChunks;
     const hadSpeech = this.speechStarted &&
-      this.validSpeechFramesCount >= 6 &&
+      this.validSpeechFramesCount >= 2 &&
       this.speechStartIndex >= 0 &&
       this.lastSpeechIndex >= this.speechStartIndex;
 
@@ -825,11 +825,12 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
 
         // 关键防线：首声 6 秒无声绝对看门狗，兜底任何麦克风硬件静音或静音环境漏报
+        // 注意：一旦检测到人声活动 (speechStarted === true)，看门狗自动解除，后续由 VAD 尾部静音截断 (hangoverMs) 自主接管
         const rec = ensureRecorder();
-        if (secondsElapsed >= 6 && (!rec.speechStarted || rec.validSpeechFramesCount < 6)) {
+        if (secondsElapsed >= 6 && !rec.speechStarted) {
           clearInterval(voiceTimerInterval);
           rec.cancel();
-          toast(t('composer.voiceNoAudio') || '未检测到有效声音输入', 'info');
+          toast(t('composer.voiceNoAudio') || (state.lang === 'en' ? 'No valid speech detected' : '未检测到有效声音输入'), 'info');
           return;
         }
 
