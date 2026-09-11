@@ -211,10 +211,13 @@ const ALL_PLUGINS = [
       return `\n\n> ✦ **已检索学术文献**：\`${query}\` (获取到 ${count} 篇学术论文与引用)\n\n`;
     },
     getSources(data) {
+      const isEn = state && state.lang === 'en';
       return ((data && data.papers) || []).map((p) => ({
         title: `《${p.title}》 (${p.year})`,
         url: p.url,
-        snippet: `作者: ${p.authors} · 引用: ${p.citationCount} · ${p.abstract.slice(0, 150)}`
+        snippet: isEn
+          ? `Authors: ${p.authors} · Citations: ${p.citationCount} · ${p.abstract.slice(0, 150)}`
+          : `作者: ${p.authors} · 引用: ${p.citationCount} · ${p.abstract.slice(0, 150)}`
       }));
     }
   },
@@ -279,10 +282,13 @@ const ALL_PLUGINS = [
       return `\n\n> ✦ **已检索 OpenAlex 文献**：\`${query}\` (获取到 ${count} 篇学术文献与引用)\n\n`;
     },
     getSources(data) {
+      const isEn = state && state.lang === 'en';
       return ((data && data.works) || []).map((w) => ({
         title: `《${w.title}》 (${w.year})`,
         url: w.url,
-        snippet: `作者: ${w.authors} · 引用: ${w.citationCount} · ${w.abstract.slice(0, 150)}`
+        snippet: isEn
+          ? `Authors: ${w.authors} · Citations: ${w.citationCount} · ${w.abstract.slice(0, 150)}`
+          : `作者: ${w.authors} · 引用: ${w.citationCount} · ${w.abstract.slice(0, 150)}`
       }));
     }
   },
@@ -355,8 +361,9 @@ const ALL_PLUGINS = [
       return `\n\n> ✦ **已查阅维基百科** (${langLabel})：\`${query}\` (获取到 ${count} 个权威词条概述)\n\n`;
     },
     getSources(data) {
+      const isEn = state && state.lang === 'en';
       return ((data && data.entries) || []).map((e) => ({
-        title: `维基百科: ${e.title}`,
+        title: isEn ? `Wikipedia: ${e.title}` : `维基百科: ${e.title}`,
         url: e.url,
         snippet: `${e.description} · ${e.extract.slice(0, 150)}`
       }));
@@ -423,10 +430,11 @@ const ALL_PLUGINS = [
       return `\n\n> ✦ **已检索全球新闻**：\`${query}\` (获取到 ${count} 条最新新闻资讯)\n\n`;
     },
     getSources(data) {
+      const isEn = state && state.lang === 'en';
       return ((data && data.articles) || []).map((a) => ({
         title: `《${a.title}》 (${a.source})`,
         url: a.url,
-        snippet: `发布: ${a.publishedAt} · ${a.description}`
+        snippet: isEn ? `Published: ${a.publishedAt} · ${a.description}` : `发布: ${a.publishedAt} · ${a.description}`
       }));
     }
   },
@@ -671,25 +679,32 @@ const ALL_PLUGINS = [
     },
     getSources(data) {
       if (!data) return [];
+      const isEn = state && state.lang === 'en';
       if (data.assetType === 'crypto') {
         return [{
           title: `CoinGecko: ${data.coinId.toUpperCase()}`,
           url: data.url || `https://www.coingecko.com/en/coins/${data.coinId}`,
-          snippet: `现价: $${data.priceUsd} (¥${data.priceCny}) · 24h 涨跌: ${data.change24hUsd?.toFixed(2)}%`
+          snippet: isEn
+            ? `Price: $${data.priceUsd} · 24h Change: ${data.change24hUsd?.toFixed(2)}%`
+            : `现价: $${data.priceUsd} (¥${data.priceCny}) · 24h 涨跌: ${data.change24hUsd?.toFixed(2)}%`
         }];
       }
       if (data.assetType === 'stock') {
         return [{
           title: `Stock Quote: ${data.symbol}`,
           url: data.url,
-          snippet: `${data.companyName} · 现价: $${data.currentPrice} · 涨跌: ${data.percentChange?.toFixed(2)}%`
+          snippet: isEn
+            ? `${data.companyName} · Price: $${data.currentPrice} · Change: ${data.percentChange?.toFixed(2)}%`
+            : `${data.companyName} · 现价: $${data.currentPrice} · 涨跌: ${data.percentChange?.toFixed(2)}%`
         }];
       }
       if (data.assetType === 'forex') {
         return [{
           title: `ExchangeRate-API (${data.baseCurrency})`,
           url: 'https://www.exchangerate-api.com',
-          snippet: `基准货币: ${data.baseCurrency} · 更新时间: ${data.lastUpdated}`
+          snippet: isEn
+            ? `Base Currency: ${data.baseCurrency} · Updated: ${data.lastUpdated}`
+            : `基准货币: ${data.baseCurrency} · 更新时间: ${data.lastUpdated}`
         }];
       }
       return [];

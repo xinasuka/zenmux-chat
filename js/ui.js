@@ -49,17 +49,20 @@ export function closeLightbox() {
 export const TitleExtractor = {
   cleanUserPrompt(text, files, images) {
     if (files && files.length) {
-      return (files[0].name + (files.length > 1 ? ` 等${files.length}个文件` : '')).slice(0, 24);
+      const moreStr = files.length > 1
+        ? (state.lang === 'en' ? ` & ${files.length - 1} more` : ` 等${files.length}个文件`)
+        : '';
+      return (files[0].name + moreStr).slice(0, 24);
     }
     const raw = (text || '').trim();
-    if (!raw) return '新对话';
+    if (!raw) return t('sidebar.newChatTitle') || '新对话';
 
-    let cleaned = raw.replace(/^(?:(?:请问|请帮我|麻烦帮我|我想了解|帮我写一个|帮我写|帮我做|帮我分析|请分析|请解释|请教|你好|您好|hi|hello|如何|怎么|怎样|如何实现|怎么写|能否|可以帮我|想问下|我想问)[\s，,：:、]*)+/i, '').trim();
+    let cleaned = raw.replace(/^(?:(?:please tell me|please help me|can you|could you|how to|what is|who is|hi|hello|hey|请问|请帮我|麻烦帮我|我想了解|帮我写一个|帮我写|帮我做|帮我分析|请分析|请解释|请教|你好|您好|如何|怎么|怎样|如何实现|怎么写|能否|可以帮我|想问下|我想问)[\s，,：:、]*)+/i, '').trim();
     cleaned = cleaned.replace(/^[？?！!，,。.\s]+/, '').trim();
 
     let result = cleaned || raw;
     if (images && images.length && (!text || !text.trim())) {
-      result = '[图片] ' + result;
+      result = (state.lang === 'en' ? '[Image] ' : '[图片] ') + result;
     }
     return result.slice(0, 24);
   },
@@ -74,7 +77,7 @@ export const TitleExtractor = {
         .replace(/^[\d+.\s、]+/, '')
         .replace(/[：:。!！?？]+$/, '')
         .trim();
-      if (h.length >= 2 && h.length <= 26 && !/^(引言|简介|概述|分析|总结|解答|步骤|方案|说明)$/.test(h)) {
+      if (h.length >= 2 && h.length <= 26 && !/^(引言|简介|概述|分析|总结|解答|步骤|方案|说明|Introduction|Overview|Summary|Analysis|Solution|Steps|Notes?|Warning)$/i.test(h)) {
         return h;
       }
     }
@@ -85,7 +88,7 @@ export const TitleExtractor = {
         .replace(/^[\d+.\s、]+/, '')
         .replace(/[：:。!！?？]+$/, '')
         .trim();
-      if (b.length >= 2 && b.length <= 24 && !/^(注意|提示|警告|总结|说明|步骤|方案)$/.test(b)) {
+      if (b.length >= 2 && b.length <= 24 && !/^(注意|提示|警告|总结|说明|步骤|方案|Introduction|Overview|Summary|Analysis|Solution|Steps|Notes?|Warning)$/i.test(b)) {
         return b;
       }
     }
@@ -267,13 +270,13 @@ export function createImageCard(item, onRegenerate) {
     preview.innerHTML = `
       <div class="img-card-skeleton">
         <div class="img-card-skeleton-spinner"></div>
-        <div class="img-card-skeleton-text">正在调度生图引擎渲染画面…</div>
+        <div class="img-card-skeleton-text">${t('chat.imageRenderingProgress', { elapsed: 1 })}</div>
       </div>
     `;
   } else if (item.src) {
     const img = document.createElement('img');
     img.src = item.src;
-    img.alt = item.prompt || 'AI 生成图片';
+    img.alt = item.prompt || t('chat.imageAlt');
     img.loading = 'lazy';
     img.addEventListener('click', () => openLightbox(item.src));
     preview.appendChild(img);
@@ -284,7 +287,7 @@ export function createImageCard(item, onRegenerate) {
   if (item.revisedPrompt && item.revisedPrompt !== item.prompt) {
     const rev = document.createElement('div');
     rev.className = 'img-card-revised';
-    rev.innerHTML = `<strong>精修提示词:</strong> ${esc(item.revisedPrompt)}`;
+    rev.innerHTML = `<strong>${state.lang === 'en' ? 'Revised Prompt:' : '精修提示词:'}</strong> ${esc(item.revisedPrompt)}`;
     card.appendChild(rev);
   }
 
@@ -294,7 +297,7 @@ export function createImageCard(item, onRegenerate) {
 
     const meta = document.createElement('div');
     meta.className = 'img-card-meta';
-    meta.textContent = `${item.size || '1024x1024'} · ${item.model ? item.model.split('/').pop() : '生图'}`;
+    meta.textContent = `${item.size || '1024x1024'} · ${item.model ? item.model.split('/').pop() : (state.lang === 'en' ? 'Image' : '生图')}`;
     footer.appendChild(meta);
 
     const actions = document.createElement('div');
@@ -303,8 +306,8 @@ export function createImageCard(item, onRegenerate) {
     // 1. 下载按钮 (优先利用本地二进制 Blob，若为远程链接则借助边缘代理下载以防浏览器跨域拦截)
     const dlBtn = document.createElement('button');
     dlBtn.className = 'img-card-btn';
-    dlBtn.title = '下载高清图片 (PNG)';
-    dlBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> 下载';
+    dlBtn.title = state.lang === 'en' ? 'Download HD image (PNG)' : '下载高清图片 (PNG)';
+    dlBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> ${state.lang === 'en' ? 'Download' : '下载'}`;
     dlBtn.addEventListener('click', async () => {
       try {
         let downloadUrl = item.src;
@@ -341,16 +344,16 @@ export function createImageCard(item, onRegenerate) {
     if (typeof navigator !== 'undefined' && navigator.clipboard && typeof window !== 'undefined' && window.ClipboardItem && item.blob) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'img-card-btn';
-      copyBtn.title = '复制图片到剪贴板';
-      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 复制';
+      copyBtn.title = state.lang === 'en' ? 'Copy image to clipboard' : '复制图片到剪贴板';
+      copyBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> ${t('common.copy')}`;
       copyBtn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.write([
             new ClipboardItem({ [item.blob.type || 'image/png']: item.blob })
           ]);
-          toast('图片已复制到剪贴板', 'info');
+          toast(state.lang === 'en' ? 'Image copied to clipboard' : '图片已复制到剪贴板', 'info');
         } catch (e) {
-          toast('复制失败，可直接点击下载', 'error');
+          toast(state.lang === 'en' ? 'Copy failed, click Download instead' : '复制失败，可直接点击下载', 'error');
         }
       });
       actions.appendChild(copyBtn);
@@ -383,7 +386,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
         <div class="img-card-preview">
           <div class="img-card-skeleton">
             <div class="img-card-skeleton-spinner"></div>
-            <div class="img-card-skeleton-text">正在读取本地图像…</div>
+            <div class="img-card-skeleton-text">${state.lang === 'en' ? 'Loading local image…' : '正在读取本地图像…'}</div>
           </div>
         </div>
       </div>
@@ -449,20 +452,20 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
                   <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg-dim)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    <span>图片数据已失效</span>
+                    <span>${t('chat.imageExpired')}</span>
                   </div>
                   ${modelText ? `<div style="font-size:11px;color:var(--fg-dim);opacity:.7">${esc(modelText.split('/').pop())}${sizeText ? ' · ' + esc(sizeText) : ''}</div>` : ''}
                 </div>
                 <div style="font-size:12px;color:var(--fg-dim);line-height:1.6;margin-bottom:12px">
-                  <div>· 本地未保留二进制图像（IndexedDB 离线缓存已清理或未写入）</div>
-                  <div>· 远程图床链接已过期或未提供</div>
+                  <div>${t('chat.imageExpiredDesc1')}</div>
+                  <div>${t('chat.imageExpiredDesc2')}</div>
                 </div>
                 ${promptText ? `
                 <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--line);gap:8px">
                   <div style="font-size:11.5px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px" title="${esc(promptText)}">${esc(promptText)}</div>
                   <button class="img-card-btn copy-prompt-btn" style="white-space:nowrap">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    复制提示词
+                    ${t('chat.copyPrompt')}
                   </button>
                 </div>` : ''}
               </div>
@@ -473,9 +476,9 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
               copyBtn.addEventListener('click', async () => {
                 try {
                   await navigator.clipboard.writeText(promptText);
-                  toast('提示词已复制到剪贴板', 'success');
+                  toast(t('chat.promptCopied'), 'success');
                 } catch (_) {
-                  toast('复制失败，请手动选取', 'error');
+                  toast(state.lang === 'en' ? 'Copy failed, please select manually' : '复制失败，请手动选取', 'error');
                 }
               });
             }
@@ -492,7 +495,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
             }, onRegenerate);
             cardWrap.replaceWith(card);
           } else {
-            cardWrap.innerHTML = '<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">读取本地图片异常</div>';
+            cardWrap.innerHTML = `<div class="msg-text" style="color:var(--danger);font-size:12px;padding:8px">${state.lang === 'en' ? 'Failed to read local image' : '读取本地图片异常'}</div>`;
           }
         });
       });
@@ -512,7 +515,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
       thumb.className = 'msg-img-thumb';
       const imgTag = document.createElement('img');
       imgTag.src = img.dataUrl;
-      imgTag.alt = img.name || '图片';
+      imgTag.alt = img.name || (state.lang === 'en' ? 'Image' : '图片');
       imgTag.loading = 'lazy';
       thumb.addEventListener('click', () => openLightbox(img.dataUrl));
       thumb.appendChild(imgTag);
@@ -529,7 +532,8 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
       const card = document.createElement('details');
       card.className = 'msg-file-card';
       const summary = document.createElement('summary');
-      summary.innerHTML = `<strong>${esc(f.name)}</strong> <span style="font-size:11px;color:var(--fg-dim);margin-left:auto">${formatSize(f.size)}${f.lines ? ` · ${f.lines}行` : ''}</span>`;
+      const linesStr = f.lines ? ` · ${t('chat.linesCount', { count: f.lines })}` : '';
+      summary.innerHTML = `<strong>${esc(f.name)}</strong> <span style="font-size:11px;color:var(--fg-dim);margin-left:auto">${formatSize(f.size)}${linesStr}</span>`;
       const pre = document.createElement('pre');
       const code = document.createElement('code');
       code.textContent = f.text || '';

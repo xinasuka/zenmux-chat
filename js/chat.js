@@ -171,7 +171,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
       if (m.content && m.content.trim()) {
         parts.push({ type: 'text', text: m.content });
       } else {
-        parts.push({ type: 'text', text: '请分析上述内容' });
+        parts.push({ type: 'text', text: state.lang === 'en' ? 'Please analyze the uploaded content.' : '请分析上述内容' });
       }
       m.images.forEach((img) => {
         parts.push({
@@ -248,7 +248,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
       const rDetails = document.createElement('details');
       rDetails.className = 'reasoning';
       rDetails.open = true;
-      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>思考过程</span></summary><div class="reasoning-body">${renderMd(reasonAcc)}</div>`;
+      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>${t('chat.thinkingProcess')}</span></summary><div class="reasoning-body">${renderMd(reasonAcc)}</div>`;
       col.appendChild(rDetails);
     }
 
@@ -315,7 +315,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
     while (true) {
       if (maxTurns > 0 && toolTurns >= maxTurns) {
-        toast(`单轮工具调用已达上限 (${maxTurns} 次)，已自动停止调度并综合生成回答`, 'info');
+        toast(state.lang === 'en' ? `Tool invocation limit reached (${maxTurns} turns), synthesizing final answer.` : `单轮工具调用已达上限 (${maxTurns} 次)，已自动停止调度并综合生成回答`, 'info');
         isTerminatedEarly = true;
         break;
       }
@@ -345,7 +345,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
         duplicateCallCount++;
         // 允许最多 2 次合理重试（应对瞬态网络超时或接口限流），连续第 4 次调用同一工具且参数一致时判定为死循环
         if (duplicateCallCount >= 3) {
-          toast(`检测到工具【${fnName}】连续重复尝试超过上限，已自动终止并综合生成回答`, 'info');
+          toast(state.lang === 'en' ? `Repetitive tool calls detected for [${fnName}], terminating to generate final response.` : `检测到工具【${fnName}】连续重复尝试超过上限，已自动终止并综合生成回答`, 'info');
           isTerminatedEarly = true;
           break;
         }
@@ -368,7 +368,8 @@ export async function executeAssistantStream(userMsg, options = {}) {
       const plugin = PluginRegistry.getByToolName(fnName);
       if (plugin) {
         isSearching = true;
-        searchStatusText = `正在调用【${plugin.name}】插件…`;
+        const pName = PluginRegistry.getPluginName(plugin);
+        searchStatusText = state.lang === 'en' ? `Invoking [${pName}] tool...` : `正在调用【${pName}】插件…`;
         renderLiveUI(false);
         toBottom();
 
@@ -376,7 +377,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
         try {
           pluginResult = await plugin.execute(fnArgs, state.token);
         } catch (err) {
-          toast(`插件【${plugin.name}】提示: ${err.message || '调用失败'}`, 'info');
+          toast(state.lang === 'en' ? `Plugin [${pName}] notice: ${err.message || 'Execution failed'}` : `插件【${pName}】提示: ${err.message || '调用失败'}`, 'info');
           pluginResult = { error: err.message };
         }
 
@@ -400,7 +401,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
 
         toolResultContent = plugin.formatToolResult(pluginResult);
       } else {
-        toolResultContent = `未知工具或插件未启用: ${fnName}`;
+        toolResultContent = `Unknown tool or plugin disabled: ${fnName}`;
       }
 
       const asstToolMsg = {
@@ -431,7 +432,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
     // 若工具调用被上限截断或死循环熔断，且模型尚未给出最终回答，
     // 立即剥离所有 tools 定义重新发起收尾请求，迫使模型基于已收集的多轮工具观察输出综合结论。
     if (!acc && isTerminatedEarly) {
-      searchStatusText = '正在根据收集到的全部信息撰写最终回答…';
+      searchStatusText = state.lang === 'en' ? 'Synthesizing final response from gathered information...' : '正在根据收集到的全部信息撰写最终回答…';
       isSearching = true;
       renderLiveUI(false);
       toBottom();

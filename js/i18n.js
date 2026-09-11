@@ -777,6 +777,17 @@ export function applyTranslations(root = document) {
       }
     }
   });
+
+  // 6. Image alt text: [data-i18n-alt="key"]
+  root.querySelectorAll('[data-i18n-alt]').forEach((node) => {
+    const key = node.getAttribute('data-i18n-alt');
+    if (key) {
+      const translated = t(key);
+      if (translated && translated !== key) {
+        node.alt = translated;
+      }
+    }
+  });
 }
 
 /**

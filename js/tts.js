@@ -26,24 +26,24 @@ export const CLOUD_TTS_MODELS = [
 
 export const MODEL_VOICES_MAP = {
   'google/gemini-3.1-flash-tts-preview': [
-    { id: 'Kore', name: 'Kore (知性自然女声 · 推荐)', gender: 'female', default: true },
-    { id: 'Puck', name: 'Puck (活力生动男声)', gender: 'male' },
-    { id: 'Aoede', name: 'Aoede (温和优雅女声)', gender: 'female' },
-    { id: 'Fenrir', name: 'Fenrir (沉稳磁性男声)', gender: 'male' },
-    { id: 'Charon', name: 'Charon (深沉专业男声)', gender: 'male' }
+    { id: 'Kore', name: 'Kore (知性自然女声 · 推荐)', i18nKey: 'settings.ttsVoiceKore', gender: 'female', default: true },
+    { id: 'Puck', name: 'Puck (活力生动男声)', i18nKey: 'settings.ttsVoicePuck', gender: 'male' },
+    { id: 'Aoede', name: 'Aoede (温和优雅女声)', i18nKey: 'settings.ttsVoiceAoede', gender: 'female' },
+    { id: 'Fenrir', name: 'Fenrir (沉稳磁性男声)', i18nKey: 'settings.ttsVoiceFenrir', gender: 'male' },
+    { id: 'Charon', name: 'Charon (深沉专业男声)', i18nKey: 'settings.ttsVoiceCharon', gender: 'male' }
   ],
   'x-ai/grok-voice-tts-1.0': [
-    { id: 'Ara', name: 'Ara (亲切温暖女声 · 推荐)', gender: 'female', default: true },
-    { id: 'Eve', name: 'Eve (活力明快女声)', gender: 'female' },
-    { id: 'Leo', name: 'Leo (沉稳权威男声)', gender: 'male' },
-    { id: 'Rex', name: 'Rex (自信清晰男声)', gender: 'male' },
-    { id: 'Sal', name: 'Sal (平衡自然男声)', gender: 'male' }
+    { id: 'Ara', name: 'Ara (亲切温暖女声 · 推荐)', i18nKey: 'settings.ttsVoiceAra', gender: 'female', default: true },
+    { id: 'Eve', name: 'Eve (活力明快女声)', i18nKey: 'settings.ttsVoiceEve', gender: 'female' },
+    { id: 'Leo', name: 'Leo (沉稳权威男声)', i18nKey: 'settings.ttsVoiceLeo', gender: 'male' },
+    { id: 'Rex', name: 'Rex (自信清晰男声)', i18nKey: 'settings.ttsVoiceRex', gender: 'male' },
+    { id: 'Sal', name: 'Sal (平衡自然男声)', i18nKey: 'settings.ttsVoiceSal', gender: 'male' }
   ],
   'qwen/qwen-audio-3.0-tts-plus': [
-    { id: 'longanlingxin', name: '灵心 (温暖亲切女声 · 推荐)', gender: 'female', default: true },
-    { id: 'longanlufeng', name: '陆峰 (阳光明快男声)', gender: 'male' },
-    { id: 'loongalexanderhubase', name: 'Alexander (沉稳从容男声)', gender: 'male' },
-    { id: 'loongivyhubase', name: 'Ivy (知性干练女声)', gender: 'female' }
+    { id: 'longanlingxin', name: '灵心 (温暖亲切女声 · 推荐)', i18nKey: 'settings.ttsVoiceLingxin', gender: 'female', default: true },
+    { id: 'longanlufeng', name: '陆峰 (阳光明快男声)', i18nKey: 'settings.ttsVoiceLufeng', gender: 'male' },
+    { id: 'loongalexanderhubase', name: 'Alexander (沉稳从容男声)', i18nKey: 'settings.ttsVoiceAlexander', gender: 'male' },
+    { id: 'loongivyhubase', name: 'Ivy (知性干练女声)', i18nKey: 'settings.ttsVoiceIvy', gender: 'female' }
   ]
 };
 
@@ -72,7 +72,7 @@ const audioBlobCache = new Map();
 export function cleanTextForTTS(md) {
   if (!md) return '';
   let s = String(md);
-  s = s.replace(/```[\s\S]*?```/g, ' 代码块已忽略 ');
+  s = s.replace(/```[\s\S]*?```/g, state.lang === 'en' ? ' Code block omitted ' : ' 代码块已忽略 ');
   s = s.replace(/`([^`]+)`/g, '$1');
   s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
   s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
@@ -134,19 +134,20 @@ export function getCuratedSpeechVoices() {
   filtered.sort((a, b) => getVoiceScore(b) - getVoiceScore(a));
 
   function formatVoiceLabel(v) {
+    const isEn = state.lang === 'en';
     const n = v.name.toLowerCase();
-    if (/tingting/i.test(n)) return '婷婷 (标准普通话 · 女声)';
-    if (/xiaoxiao/i.test(n)) return '晓晓 (自然普通话 · 女声)';
-    if (/yunxi/i.test(n)) return '云希 (沉稳普通话 · 男声)';
-    if (/yunjian/i.test(n)) return '云健 (影视解说 · 男声)';
-    if (/meijia|mei-jia/i.test(n)) return '美佳 (台湾普通话 · 女声)';
-    if (/sin-ji|sinji/i.test(n)) return 'Sin-ji (标准粤语 · 女声)';
-    if (/google 普通话|google.*chinese/i.test(n)) return 'Google 普通话 (自然女声)';
-    if (/samantha/i.test(n)) return 'Samantha (标准美音 · 女声)';
-    if (/jenny/i.test(n)) return 'Jenny (自然美音 · 女声)';
-    if (/guy/i.test(n)) return 'Guy (自然美音 · 男声)';
-    if (/daniel/i.test(n)) return 'Daniel (标准英音 · 男声)';
-    if (/karen/i.test(n)) return 'Karen (澳大利亚音 · 女声)';
+    if (/tingting/i.test(n)) return isEn ? 'Tingting (Standard Mandarin · Female)' : '婷婷 (标准普通话 · 女声)';
+    if (/xiaoxiao/i.test(n)) return isEn ? 'Xiaoxiao (Natural Mandarin · Female)' : '晓晓 (自然普通话 · 女声)';
+    if (/yunxi/i.test(n)) return isEn ? 'Yunxi (Deep Mandarin · Male)' : '云希 (沉稳普通话 · 男声)';
+    if (/yunjian/i.test(n)) return isEn ? 'Yunjian (Narrative Mandarin · Male)' : '云健 (影视解说 · 男声)';
+    if (/meijia|mei-jia/i.test(n)) return isEn ? 'Meijia (Taiwan Mandarin · Female)' : '美佳 (台湾普通话 · 女声)';
+    if (/sin-ji|sinji/i.test(n)) return isEn ? 'Sin-ji (Cantonese · Female)' : 'Sin-ji (标准粤语 · 女声)';
+    if (/google 普通话|google.*chinese/i.test(n)) return isEn ? 'Google Mandarin (Natural Female)' : 'Google 普通话 (自然女声)';
+    if (/samantha/i.test(n)) return isEn ? 'Samantha (Standard US · Female)' : 'Samantha (标准美音 · 女声)';
+    if (/jenny/i.test(n)) return isEn ? 'Jenny (Natural US · Female)' : 'Jenny (自然美音 · 女声)';
+    if (/guy/i.test(n)) return isEn ? 'Guy (Natural US · Male)' : 'Guy (自然美音 · 男声)';
+    if (/daniel/i.test(n)) return isEn ? 'Daniel (Standard UK · Male)' : 'Daniel (标准英音 · 男声)';
+    if (/karen/i.test(n)) return isEn ? 'Karen (Australian · Female)' : 'Karen (澳大利亚音 · 女声)';
     const clean = v.name.replace(/Microsoft|Google|Apple|Desktop|Online \(Natural\)/gi, '').trim();
     return (clean || v.name) + ' (' + v.lang + ')';
   }
@@ -329,7 +330,7 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
         const event = JSON.parse(dataStr);
         if (event.error) {
           const errMsg = typeof event.error === 'string' ? event.error : (event.error.message || JSON.stringify(event.error));
-          lastErrorMsg = `上游语音服务报错: ${errMsg}`;
+          lastErrorMsg = state.lang === 'en' ? `Upstream voice service error: ${errMsg}` : `上游语音服务报错: ${errMsg}`;
           throw new Error(lastErrorMsg);
         }
         if (event.type === 'speech.audio.delta' && event.audio) {
@@ -345,7 +346,7 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
           }
         }
       } catch (parseErr) {
-        if (parseErr.message && parseErr.message.startsWith('上游语音服务报错:')) {
+        if (parseErr.message && (parseErr.message.startsWith('上游语音服务报错:') || parseErr.message.startsWith('Upstream voice service error:'))) {
           throw parseErr;
         }
       }
@@ -353,7 +354,7 @@ export async function fetchCloudTTSAudio(text, model = 'google/gemini-3.1-flash-
   }
 
   if (totalPcmBytes === 0) {
-    throw new Error('未接收到有效的云端语音分片');
+    throw new Error(state.lang === 'en' ? 'No valid cloud audio segments received' : '未接收到有效的云端语音分片');
   }
 
   // 内存中线性装配全部分片，并加盖标准 RIFF/WAVE 容器头
@@ -535,7 +536,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     updatePlayIcon(false);
     if (engineBadge) {
       engineBadge.classList.add('streaming');
-      engineBadge.innerHTML = '<span class="tts-pulse-dot"></span>正在生成…';
+      engineBadge.innerHTML = `<span class="tts-pulse-dot"></span>${state.lang === 'en' ? 'Generating...' : '正在生成…'}`;
     }
     if (slider) {
       slider.classList.add('buffering');
@@ -610,7 +611,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     } catch (err) {
       isBuffering = false;
       updatePlayIcon(false);
-      const errMsg = err.message || '语音合成请求失败';
+      const errMsg = err.message || (state.lang === 'en' ? 'Speech synthesis request failed' : '语音合成请求失败');
       if (onToast) onToast(errMsg, 'error');
       console.error('[TTS] Cloud synthesis failed:', err);
     }
@@ -621,7 +622,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   ------------------------------------------------------------- */
   function populateLocalVoices() {
     if (!('speechSynthesis' in window)) {
-      voiceSelect.innerHTML = '<option value="">浏览器不支持本地语音</option>';
+      voiceSelect.innerHTML = `<option value="">${state.lang === 'en' ? 'Browser does not support local speech' : '浏览器不支持本地语音'}</option>`;
       return;
     }
     const voices = getCuratedSpeechVoices();
@@ -629,7 +630,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     if (!voices.length) {
       const opt = document.createElement('option');
       opt.value = '';
-      opt.textContent = '系统默认语音';
+      opt.textContent = state.lang === 'en' ? 'System Default Voice' : '系统默认语音';
       voiceSelect.appendChild(opt);
       return;
     }

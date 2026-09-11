@@ -473,7 +473,7 @@ export function filterModelPicker(query) {
     if (!emptyEl) {
       emptyEl = document.createElement('div');
       emptyEl.className = 'model-picker-empty';
-      emptyEl.textContent = '未找到匹配的模型';
+      emptyEl.textContent = state.lang === 'en' ? 'No matching models found' : '未找到匹配的模型';
       el.modelPickerList.appendChild(emptyEl);
     }
     emptyEl.style.display = 'block';
@@ -539,15 +539,15 @@ export function loadModels() {
   return fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
     .then((r) => {
       if (r.status === 401) {
-        showGate('访问口令已失效或已被停用，请重新输入');
-        throw new Error('口令不正确');
+        showGate(state.lang === 'en' ? 'Access token has expired or been revoked. Please re-enter.' : '访问口令已失效或已被停用，请重新输入');
+        throw new Error(state.lang === 'en' ? 'Invalid token' : '口令不正确');
       }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     })
     .then((j) => {
       const list = (j && j.data) || [];
-      if (!list.length) throw new Error('模型列表为空');
+      if (!list.length) throw new Error(state.lang === 'en' ? 'Model list is empty' : '模型列表为空');
       fillModels(list);
       const ids = list.map((m) => m.id);
       if (!state.model || ids.indexOf(state.model) === -1) {
@@ -559,8 +559,8 @@ export function loadModels() {
       renderThread();
     })
     .catch((e) => {
-      if (e.message !== '口令不正确') {
-        toast(`模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
+      if (e.message !== '口令不正确' && e.message !== 'Invalid token') {
+        toast(state.lang === 'en' ? `Failed to load models: ${e.message} (You can enter or select manually)` : `模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
       }
     });
 }
@@ -768,7 +768,12 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
   voices.forEach((v) => {
     const opt = document.createElement('option');
     opt.value = v.id;
-    opt.textContent = v.name;
+    if (v.i18nKey) {
+      opt.setAttribute('data-i18n', v.i18nKey);
+      opt.textContent = t(v.i18nKey) || v.name;
+    } else {
+      opt.textContent = v.name;
+    }
     el.settingsTtsVoice.appendChild(opt);
   });
   const desired = targetVoiceId || state.ttsVoice || '';
@@ -1064,7 +1069,7 @@ export function loadAllConversations() {
     renderConvList();
     renderThread();
   }).catch((err) => {
-    toast(`读取 IndexedDB 会话失败: ${err.message}`, 'error');
+    toast(state.lang === 'en' ? `Failed to read session from IndexedDB: ${err.message}` : `读取 IndexedDB 会话失败: ${err.message}`, 'error');
   });
 }
 
@@ -1176,7 +1181,10 @@ export function send() {
   if (files.length) {
     const fileContextBlocks = files.map((f) => {
       const lang = f.ext || 'text';
-      return `--- 附件文件: ${f.name} (${formatSize(f.size)}${f.lines ? `, ${f.lines}行` : ''}) ---\n\`\`\`${lang}\n${f.text}\n\`\`\`\n--- 附件结束 ---`;
+      const linesInfo = f.lines ? (state.lang === 'en' ? `, ${f.lines} lines` : `, ${f.lines}行`) : '';
+      const header = state.lang === 'en' ? `--- Attached File: ${f.name} (${formatSize(f.size)}${linesInfo}) ---` : `--- 附件文件: ${f.name} (${formatSize(f.size)}${linesInfo}) ---`;
+      const footer = state.lang === 'en' ? '--- End of Attachment ---' : '--- 附件结束 ---';
+      return `${header}\n\`\`\`${lang}\n${f.text}\n\`\`\`\n${footer}`;
     }).join('\n\n');
 
     fullPrompt = fileContextBlocks + (text ? '\n\n' + text : (state.lang === 'en' ? '\n\nPlease analyze the uploaded file contents above.' : '\n\n请分析以上文件内容。'));
@@ -1301,7 +1309,7 @@ export async function submitGate() {
   try {
     const res = await fetch('/api/models', { headers: { 'X-Access-Token': v } });
     if (res.status === 401) throw new Error(t('errors.unauthorized') || '访问口令无效或已被管理员停用');
-    if (!res.ok) throw new Error(`服务端异常 (HTTP ${res.status})`);
+    if (!res.ok) throw new Error(state.lang === 'en' ? `Server error (HTTP ${res.status})` : `服务端异常 (HTTP ${res.status})`);
     const data = await res.json();
     const modelsList = (data && data.data) || [];
 
@@ -1560,12 +1568,12 @@ function initEventListeners() {
         }).then(() => {
           if (state.vadEngine === 'silero-onnx') {
             syncVadSettingsUI('silero-onnx');
-            toast('Silero ONNX 深度学习 VAD 模型已就绪', 'info');
+            toast(state.lang === 'en' ? 'Silero ONNX neural VAD model is ready' : 'Silero ONNX 深度学习 VAD 模型已就绪', 'info');
           }
         }).catch((err) => {
           if (state.vadEngine === 'silero-onnx') {
             syncVadSettingsUI('silero-onnx');
-            toast(`Silero ONNX 加载失败: ${err.message || err}`, 'error');
+            toast(state.lang === 'en' ? `Silero ONNX failed to load: ${err.message || err}` : `Silero ONNX 加载失败: ${err.message || err}`, 'error');
           }
         });
       }
@@ -1772,8 +1780,8 @@ export async function initApp() {
 
     try {
       const res = await fetch('/api/models', { headers: { 'X-Access-Token': savedToken } });
-      if (res.status === 401) throw new Error('访问口令已失效或未授权，请重新输入');
-      if (!res.ok) throw new Error(`服务端验证异常 (HTTP ${res.status})`);
+      if (res.status === 401) throw new Error(t('errors.unauthorized') || (state.lang === 'en' ? 'Access token has expired or is unauthorized. Please re-enter.' : '访问口令已失效或未授权，请重新输入'));
+      if (!res.ok) throw new Error(state.lang === 'en' ? `Server verification error (HTTP ${res.status})` : `服务端验证异常 (HTTP ${res.status})`);
       const data = await res.json();
       const modelsList = (data && data.data) || [];
 

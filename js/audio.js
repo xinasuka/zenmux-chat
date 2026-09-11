@@ -322,15 +322,23 @@ export class AudioRecorder {
       this.setState('listening');
     } catch (err) {
       this.cleanup();
-      let friendlyMsg = '无法启动语音输入';
+      let friendlyMsg = state.lang === 'en' ? 'Cannot start voice input' : '无法启动语音输入';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        friendlyMsg = '麦克风权限未开启，请在浏览器地址栏或系统设置中允许麦克风权限';
+        friendlyMsg = state.lang === 'en'
+          ? 'Microphone permission not granted. Please allow microphone access in your browser or system settings.'
+          : '麦克风权限未开启，请在浏览器地址栏或系统设置中允许麦克风权限';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        friendlyMsg = '未检测到可用的麦克风硬件设备';
+        friendlyMsg = state.lang === 'en'
+          ? 'No microphone device detected.'
+          : '未检测到可用的麦克风硬件设备';
       } else if (err.name === 'NotReadableError') {
-        friendlyMsg = '麦克风已被其他应用独占，无法访问';
+        friendlyMsg = state.lang === 'en'
+          ? 'Microphone is currently in use by another application.'
+          : '麦克风已被其他应用独占，无法访问';
       } else {
-        friendlyMsg = `麦克风初始化失败: ${err.message || String(err)}`;
+        friendlyMsg = state.lang === 'en'
+          ? `Microphone initialization failed: ${err.message || String(err)}`
+          : `麦克风初始化失败: ${err.message || String(err)}`;
       }
       this.onError(friendlyMsg);
     }
@@ -476,7 +484,7 @@ export class AudioRecorder {
     if (!hadSpeech || !chunksToProcess || chunksToProcess.length === 0) {
       this.setState('idle');
       this.onVolume(0);
-      this.onNotice('未检测到有效声音输入');
+      this.onNotice(t('composer.voiceNoAudio') || (state.lang === 'en' ? 'No valid speech detected' : '未检测到有效声音输入'));
       return;
     }
 
@@ -496,7 +504,7 @@ export class AudioRecorder {
     if (effectiveSpeechDurationMs < this.options.minSpeechDurationMs) {
       this.setState('idle');
       this.onVolume(0);
-      this.onNotice('声音过短，未识别到有效内容');
+      this.onNotice(state.lang === 'en' ? 'Voice input too short to recognize' : '声音过短，未识别到有效内容');
       return;
     }
 
@@ -534,13 +542,13 @@ export class AudioRecorder {
       } else if (serverNotice) {
         this.onNotice(serverNotice);
       } else {
-        this.onNotice('未能识别到文字内容');
+        this.onNotice(state.lang === 'en' ? 'No text content recognized' : '未能识别到文字内容');
       }
 
     } catch (err) {
       this.setState('idle');
       this.onVolume(0);
-      this.onError(err.message || '语音转文字处理失败');
+      this.onError(err.message || (state.lang === 'en' ? 'Speech-to-text processing failed' : '语音转文字处理失败'));
     }
   }
 
@@ -727,7 +735,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             <span class="wave-bar"></span>
           </div>
           <div class="voice-overlay-info">
-            <span id="voice-overlay-status" class="voice-overlay-status">正在聆听…</span>
+            <span id="voice-overlay-status" class="voice-overlay-status">${t('composer.voiceListening') || (state.lang === 'en' ? 'Listening…' : '正在聆听…')}</span>
             <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
           </div>
         </div>
@@ -783,13 +791,13 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // 1. Morph voice button to Voice On / Stop button
       el.voiceBtn.classList.add('voice-on', 'recording');
       el.voiceBtn.innerHTML = STOP_ICON_SVG;
-      el.voiceBtn.title = '正在录音 (VAD 智能切除静音)… 点击结束并转录';
+      el.voiceBtn.title = state.lang === 'en' ? 'Recording (VAD active)… Click to finish and transcribe' : '正在录音 (VAD 智能切除静音)… 点击结束并转录';
 
       // 2. Hide input textarea and show voice overlay in prompt area
       if (el.input) el.input.style.display = 'none';
       overlay.style.display = 'flex';
       overlay.classList.remove('is-transcribing');
-      if (el.voiceStatus) el.voiceStatus.textContent = '正在聆听…';
+      if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceListening') || (state.lang === 'en' ? 'Listening…' : '正在聆听…');
       if (el.send) el.send.disabled = true;
 
       // 3. Immediately prime wave bars
