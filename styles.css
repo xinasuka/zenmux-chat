@@ -2409,10 +2409,7 @@
 
   /* Dropdown Popover Panel (Desktop) */
   .settings-picker-panel {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
+    position: fixed;
     min-width: 260px;
     background: var(--bg-elev);
     border: 1px solid var(--line);
@@ -2420,7 +2417,7 @@
     box-shadow: 0 14px 36px rgba(0,0,0,0.42), 0 0 1px rgba(255,255,255,0.08);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    z-index: 1100;
+    z-index: 1200;
     padding: 4px;
     display: none;
     flex-direction: column;
@@ -2434,21 +2431,29 @@
     overflow: hidden;
   }
   [data-theme="light"] .settings-picker-panel {
-    background: #FFFFFF;
-    box-shadow: 0 14px 36px -8px rgba(45,35,25,.18), 0 2px 8px rgba(45,35,25,.06);
+    background: #FAF9F5;
+    box-shadow: 0 16px 40px -8px rgba(45,35,25,.22), 0 2px 8px rgba(45,35,25,.08);
     border-color: var(--line);
   }
-  .settings-picker-wrap.dropup .settings-picker-panel {
-    top: auto;
-    bottom: calc(100% + 4px);
+  .settings-picker-wrap.dropup .settings-picker-panel,
+  .settings-picker-panel.dropup {
     transform-origin: bottom center;
   }
-  .settings-picker-wrap.open .settings-picker-panel {
+  .settings-picker-wrap.open .settings-picker-panel,
+  .settings-picker-panel.open {
     display: flex;
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
     pointer-events: auto;
+  }
+  .settings-picker-wrap.open .settings-picker-backdrop,
+  .settings-picker-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .settings-picker-drag-handle {
+    display: none;
   }
   .settings-picker-sheet-header {
     display: none;
@@ -2710,6 +2715,18 @@
     .settings-picker-wrap.subselect-wrap {
       width: 100% !important;
     }
+    .settings-picker-drag-handle {
+      display: block !important;
+      width: 36px !important;
+      height: 4px !important;
+      border-radius: 2px !important;
+      background: var(--line) !important;
+      margin: 8px auto 4px !important;
+      flex-shrink: 0 !important;
+    }
+    [data-theme="light"] .settings-picker-drag-handle {
+      background: rgba(45,35,25,0.18) !important;
+    }
     .settings-picker-backdrop {
       display: block !important;
       position: fixed !important;
@@ -2723,7 +2740,8 @@
       transition: opacity .22s ease !important;
       touch-action: none !important;
     }
-    .settings-picker-wrap.open .settings-picker-backdrop {
+    .settings-picker-wrap.open .settings-picker-backdrop,
+    .settings-picker-backdrop.open {
       opacity: 1 !important;
       pointer-events: auto !important;
     }
@@ -2748,7 +2766,13 @@
       background: var(--bg-elev) !important;
       overflow: hidden !important;
     }
-    .settings-picker-wrap.open .settings-picker-panel {
+    [data-theme="light"] .settings-picker-panel {
+      background: #FAF9F5 !important;
+      border-color: var(--line) !important;
+      box-shadow: 0 -12px 48px rgba(45,35,25,.22) !important;
+    }
+    .settings-picker-wrap.open .settings-picker-panel,
+    .settings-picker-panel.open {
       transform: translateY(0) !important;
       opacity: 1 !important;
       visibility: visible !important;
@@ -2759,10 +2783,13 @@
       display: flex !important;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 18px 10px;
+      padding: 10px 18px 10px;
       border-bottom: 1px solid var(--line-soft);
       flex: 0 0 auto;
       position: relative;
+    }
+    [data-theme="light"] .settings-picker-sheet-header {
+      border-bottom-color: var(--line-soft) !important;
     }
     .settings-picker-sheet-title {
       font-size: 14px;

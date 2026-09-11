@@ -788,6 +788,12 @@ export function closeAllSettingsPickers() {
     const b = w.querySelector('.settings-picker-btn');
     if (b) b.setAttribute('aria-expanded', 'false');
   });
+  document.querySelectorAll('.settings-picker-panel.open').forEach((p) => {
+    p.classList.remove('open');
+  });
+  document.querySelectorAll('.settings-picker-backdrop.open').forEach((bd) => {
+    bd.classList.remove('open');
+  });
 }
 
 export function syncSettingsPicker(selectEl) {
@@ -852,6 +858,10 @@ export function initSettingsPickers() {
     panel.className = 'settings-picker-panel';
     panel.setAttribute('role', 'listbox');
 
+    // Mobile drag handle
+    const dragHandle = document.createElement('div');
+    dragHandle.className = 'settings-picker-drag-handle';
+
     // Mobile sheet header with title & close button
     const sheetHeader = document.createElement('div');
     sheetHeader.className = 'settings-picker-sheet-header';
@@ -872,8 +882,8 @@ export function initSettingsPickers() {
     const sheetClose = document.createElement('button');
     sheetClose.className = 'settings-picker-sheet-close';
     sheetClose.type = 'button';
-    sheetClose.innerHTML = '&times;';
     sheetClose.setAttribute('aria-label', '关闭');
+    sheetClose.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     sheetClose.addEventListener('click', (e) => {
       e.stopPropagation();
       closeAllSettingsPickers();
@@ -885,12 +895,15 @@ export function initSettingsPickers() {
     const listContainer = document.createElement('div');
     listContainer.className = 'settings-picker-list';
 
+    panel.appendChild(dragHandle);
     panel.appendChild(sheetHeader);
     panel.appendChild(listContainer);
 
     wrap.appendChild(btn);
-    wrap.appendChild(backdrop);
-    wrap.appendChild(panel);
+
+    // Teleport panel & backdrop directly to body to avoid parent modal clipping, scroll constraints, or CSS transform stacking traps
+    document.body.appendChild(backdrop);
+    document.body.appendChild(panel);
 
     if (sel.parentNode) {
       sel.parentNode.insertBefore(wrap, sel.nextSibling);
@@ -965,8 +978,7 @@ export function initSettingsPickers() {
           sel.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncUI();
-        wrap.classList.remove('open');
-        btn.setAttribute('aria-expanded', 'false');
+        closeAllSettingsPickers();
       });
 
       item.addEventListener('keydown', (e) => {
@@ -1017,22 +1029,40 @@ export function initSettingsPickers() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (btn.disabled) return;
-      const isOpen = wrap.classList.contains('open');
+      const isOpen = panel.classList.contains('open');
 
       closeAllSettingsPickers();
       closeAllParamPickers();
 
       if (!isOpen) {
         wrap.classList.add('open');
+        panel.classList.add('open');
+        backdrop.classList.add('open');
         btn.setAttribute('aria-expanded', 'true');
 
         if (window.innerWidth > 768) {
-          const rect = wrap.getBoundingClientRect();
-          if (window.innerHeight - rect.bottom < 260 && rect.top > 260) {
-            wrap.classList.add('dropup');
+          const rect = btn.getBoundingClientRect();
+          panel.style.left = `${rect.left}px`;
+          panel.style.width = `${Math.max(rect.width, 260)}px`;
+
+          const spaceBelow = window.innerHeight - rect.bottom;
+          if (spaceBelow < 260 && rect.top > 260) {
+            panel.style.top = 'auto';
+            panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+            panel.classList.add('dropup');
           } else {
-            wrap.classList.remove('dropup');
+            panel.style.bottom = 'auto';
+            panel.style.top = `${rect.bottom + 4}px`;
+            panel.classList.remove('dropup');
           }
+        } else {
+          // Clean desktop inline styles for mobile bottom sheet
+          panel.style.left = '';
+          panel.style.right = '';
+          panel.style.top = '';
+          panel.style.bottom = '';
+          panel.style.width = '';
+          panel.classList.remove('dropup');
         }
       }
     });
@@ -1057,7 +1087,7 @@ export function initSettingsPickers() {
   if (!document._settingsPickerGlobalListeners) {
     document._settingsPickerGlobalListeners = true;
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.settings-picker-wrap')) {
+      if (!e.target.closest('.settings-picker-wrap') && !e.target.closest('.settings-picker-panel')) {
         closeAllSettingsPickers();
       }
     });
@@ -1066,6 +1096,17 @@ export function initSettingsPickers() {
         closeAllSettingsPickers();
       }
     });
+    const dismissOnScrollOrResize = () => {
+      if (window.innerWidth > 768 && document.querySelector('.settings-picker-panel.open')) {
+        closeAllSettingsPickers();
+      }
+    };
+    window.addEventListener('resize', dismissOnScrollOrResize);
+    const modalBody = document.querySelector('.settings-modal-body');
+    if (modalBody) {
+      modalBody.addEventListener('scroll', dismissOnScrollOrResize, { passive: true });
+    }
   }
 }
+
 
