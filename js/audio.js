@@ -841,29 +841,75 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     return overlay;
   }
 
+  /* ---------- Floating Voice HUD Island Reference & Cache ---------- */
+  let hudCapsuleEl = null;
+  let hudStatusEl = null;
+  let hudTimerEl = null;
+  let hudCountdownEl = null;
+  let hudWaveEl = null;
+  let hudGestureHintEl = null;
+  let hudBars = [];
+
+  function ensureVoiceHud() {
+    if (!hudCapsuleEl) {
+      hudCapsuleEl = document.getElementById('voice-hud-capsule');
+      if (hudCapsuleEl) {
+        hudStatusEl = hudCapsuleEl.querySelector('#hud-status-text');
+        hudTimerEl = hudCapsuleEl.querySelector('#hud-timer');
+        hudCountdownEl = hudCapsuleEl.querySelector('#hud-countdown');
+        hudWaveEl = hudCapsuleEl.querySelector('#hud-wave-visualizer');
+        hudGestureHintEl = hudCapsuleEl.querySelector('#hud-gesture-hint');
+        hudBars = hudWaveEl ? hudWaveEl.querySelectorAll('.hud-bar') : [];
+      }
+    }
+    return hudCapsuleEl;
+  }
+
   function updateWaveform(vol) {
     const overlay = ensureVoiceOverlay();
     const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
-    if (!waveEl) return;
-    const bars = waveEl.querySelectorAll('.wave-bar');
-    if (!bars || bars.length === 0) return;
+    if (waveEl) {
+      const bars = waveEl.querySelectorAll('.wave-bar');
+      if (bars && bars.length > 0) {
+        bars.forEach((bar, idx) => {
+          const factor = 1 - Math.abs(idx - 3.5) / 4;
+          const jitter = 0.75 + Math.random() * 0.5;
+          const scale = Math.max(0.3, Math.min(1.0, (vol * 2.5 * factor * jitter) + 0.3));
+          bar.style.transform = `scaleY(${scale.toFixed(2)})`;
+        });
+      }
+    }
 
-    bars.forEach((bar, idx) => {
-      const factor = 1 - Math.abs(idx - 3.5) / 4;
-      const jitter = 0.75 + Math.random() * 0.5;
-      const scale = Math.max(0.3, Math.min(1.0, (vol * 2.5 * factor * jitter) + 0.3));
-      bar.style.transform = `scaleY(${scale.toFixed(2)})`;
-    });
+    // Drive Floating HUD Island 16-bar wave
+    ensureVoiceHud();
+    if (hudBars && hudBars.length > 0) {
+      const center = (hudBars.length - 1) / 2;
+      hudBars.forEach((bar, idx) => {
+        const factor = 1 - Math.abs(idx - center) / (center + 1);
+        const jitter = 0.7 + Math.random() * 0.6;
+        const scale = Math.max(0.2, Math.min(1.0, (vol * 3.0 * factor * jitter) + 0.2));
+        bar.style.transform = `scaleY(${scale.toFixed(2)})`;
+      });
+    }
   }
 
   function resetWaveform() {
     const overlay = ensureVoiceOverlay();
     const waveEl = el.voiceWave || overlay.querySelector('#voice-wave-visualizer');
-    if (!waveEl) return;
-    const bars = waveEl.querySelectorAll('.wave-bar');
-    bars.forEach((bar) => {
-      bar.style.transform = 'scaleY(0.3)';
-    });
+    if (waveEl) {
+      const bars = waveEl.querySelectorAll('.wave-bar');
+      bars.forEach((bar) => {
+        bar.style.transform = 'scaleY(0.3)';
+      });
+    }
+
+    // Reset Floating HUD Island bars
+    ensureVoiceHud();
+    if (hudBars && hudBars.length > 0) {
+      hudBars.forEach((bar) => {
+        bar.style.transform = 'scaleY(0.2)';
+      });
+    }
   }
 
   let composerVoiceMode = false;
@@ -874,6 +920,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (el.input) el.input.style.display = 'none';
     overlay.style.display = 'flex';
     overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    ensureVoiceHud();
+    if (hudCapsuleEl) {
+      hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+      if (hudCountdownEl) hudCountdownEl.style.display = 'none';
+    }
     if (el.voiceBarPrompt) {
       el.voiceBarPrompt.textContent = t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话');
     }
@@ -890,6 +941,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     const overlay = ensureVoiceOverlay();
     overlay.style.display = 'none';
     overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    ensureVoiceHud();
+    if (hudCapsuleEl) {
+      hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+      if (hudCountdownEl) hudCountdownEl.style.display = 'none';
+    }
     clearInterval(voiceTimerInterval);
     resetWaveform();
 
@@ -908,6 +964,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
   function updateVoiceUI(status) {
     if (!el.voiceBtn) return;
     const overlay = ensureVoiceOverlay();
+    ensureVoiceHud();
 
     if (status === 'listening') {
       overlay.classList.add('is-pressing');
@@ -916,6 +973,25 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         el.voiceStatus.textContent = t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束');
         el.voiceStatus.style.color = '';
       }
+
+      // Activate floating HUD island
+      if (hudCapsuleEl) {
+        hudCapsuleEl.classList.add('active');
+        hudCapsuleEl.classList.remove('cancelling', 'transcribing');
+      }
+      if (hudStatusEl) {
+        hudStatusEl.textContent = t('composer.voiceRecording') || (state.lang === 'en' ? 'Recording' : '正在录音');
+      }
+      if (hudTimerEl) {
+        hudTimerEl.textContent = '00:00';
+      }
+      if (hudCountdownEl) {
+        hudCountdownEl.style.display = 'none';
+      }
+      if (hudGestureHintEl) {
+        hudGestureHintEl.textContent = t('composer.voiceSlideToCancel') || (state.lang === 'en' ? '▲ Slide up to cancel · Release to send' : '▲ 上滑取消 · 松开发送');
+      }
+
       if (el.send) el.send.disabled = true;
 
       // Prime wave bars
@@ -936,7 +1012,9 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
         const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
         const s = String(secondsElapsed % 60).padStart(2, '0');
-        if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
+        const timeStr = `${m}:${s}`;
+        if (el.voiceTimer) el.voiceTimer.textContent = timeStr;
+        if (hudTimerEl) hudTimerEl.textContent = timeStr;
 
         // Approaching 60s limit (remaining <= 10s)
         if (remaining <= 10 && remaining > 0) {
@@ -948,9 +1026,18 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             el.voiceTimer.style.color = '#ff6b6b';
             el.voiceTimer.style.background = 'rgba(255, 107, 107, 0.2)';
           }
+          if (hudStatusEl && (!hudCapsuleEl || !hudCapsuleEl.classList.contains('cancelling'))) {
+            hudStatusEl.textContent = t('composer.voiceApproachingLimit', { remaining });
+          }
+          if (hudCountdownEl) {
+            hudCountdownEl.style.display = 'inline-flex';
+            hudCountdownEl.textContent = `${remaining}s`;
+          }
         } else if (remaining <= 0) {
           clearInterval(voiceTimerInterval);
           if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceLimitReached') || (state.lang === 'en' ? 'Time limit reached, transcribing...' : '已达上限，正在转录…');
+          if (hudStatusEl) hudStatusEl.textContent = t('composer.voiceLimitReached') || (state.lang === 'en' ? 'Time limit reached, transcribing...' : '已达上限，正在转录…');
+          if (hudCountdownEl) hudCountdownEl.style.display = 'none';
           const rec = ensureRecorder();
           if (rec.state === 'listening') {
             rec.stop();
@@ -970,6 +1057,20 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         el.voiceTimer.style.color = '';
         el.voiceTimer.style.background = '';
       }
+      if (hudCapsuleEl) {
+        hudCapsuleEl.classList.add('active', 'transcribing');
+        hudCapsuleEl.classList.remove('cancelling');
+      }
+      if (hudStatusEl) {
+        hudStatusEl.textContent = t('composer.voiceTranscribing') || (state.lang === 'en' ? 'Transcribing speech...' : '正在转录文本...');
+      }
+      if (hudCountdownEl) {
+        hudCountdownEl.style.display = 'none';
+      }
+      if (hudGestureHintEl) {
+        hudGestureHintEl.textContent = '';
+      }
+
       if (el.voiceBtn) {
         el.voiceBtn.classList.add('transcribing');
         el.voiceBtn.innerHTML = SPINNER_ICON_SVG;
@@ -980,6 +1081,10 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // Idle / Finished
       clearInterval(voiceTimerInterval);
       overlay.classList.remove('is-pressing', 'is-transcribing', 'is-cancelling');
+      if (hudCapsuleEl) {
+        hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+        if (hudCountdownEl) hudCountdownEl.style.display = 'none';
+      }
       if (el.voiceStatus) el.voiceStatus.style.color = '';
       if (el.voiceTimer) {
         el.voiceTimer.style.color = '';
@@ -1064,17 +1169,32 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (!isPressing) return;
     const rect = overlay.getBoundingClientRect();
     const isCancelArea = e.clientY < rect.top - 45;
+    ensureVoiceHud();
     if (isCancelArea) {
       overlay.classList.add('is-cancelling');
+      if (hudCapsuleEl) hudCapsuleEl.classList.add('cancelling');
       if (el.voiceStatus) {
-        el.voiceStatus.textContent = state.lang === 'en' ? 'Release to cancel' : '松开 取消录音';
+        el.voiceStatus.textContent = t('composer.voiceReleaseToCancel') || (state.lang === 'en' ? 'Release to cancel' : '松开 取消录音');
         el.voiceStatus.style.color = '#ff6b6b';
+      }
+      if (hudStatusEl) {
+        hudStatusEl.textContent = state.lang === 'en' ? 'Release to Cancel' : '松开 取消录音';
+      }
+      if (hudGestureHintEl) {
+        hudGestureHintEl.textContent = t('composer.voiceReleaseToCancel') || (state.lang === 'en' ? '✕ Release to cancel' : '✕ 松开手指，取消发送');
       }
     } else {
       overlay.classList.remove('is-cancelling');
+      if (hudCapsuleEl) hudCapsuleEl.classList.remove('cancelling');
       if (el.voiceStatus) {
         el.voiceStatus.textContent = t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束');
         el.voiceStatus.style.color = '';
+      }
+      if (hudStatusEl) {
+        hudStatusEl.textContent = t('composer.voiceRecording') || (state.lang === 'en' ? 'Recording' : '正在录音');
+      }
+      if (hudGestureHintEl) {
+        hudGestureHintEl.textContent = t('composer.voiceSlideToCancel') || (state.lang === 'en' ? '▲ Slide up to cancel · Release to send' : '▲ 上滑取消 · 松开发送');
       }
     }
   });
@@ -1087,6 +1207,9 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     const shouldCancel = e && e.clientY < rect.top - 45;
 
     overlay.classList.remove('is-pressing', 'is-cancelling');
+    ensureVoiceHud();
+    if (hudCapsuleEl) hudCapsuleEl.classList.remove('cancelling');
+
     try {
       if (activePointerId !== null) {
         overlay.releasePointerCapture(activePointerId);
@@ -1098,13 +1221,15 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (rec.state !== 'listening') return;
 
     if (shouldCancel) {
+      if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
       rec.cancel();
-      toast(state.lang === 'en' ? 'Recording cancelled' : '已取消录音', 'info');
+      toast(t('composer.voiceCancelled') || (state.lang === 'en' ? 'Recording cancelled' : '已取消录音'), 'info');
       return;
     }
 
     const duration = Date.now() - pressStartTime;
     if (duration < 300) {
+      if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
       rec.cancel();
       toast(t('composer.voiceShortTapWarning') || (state.lang === 'en' ? 'Hold to speak, release to finish' : '按住说话，松开结束'), 'info');
       return;
@@ -1118,6 +1243,8 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (!isPressing) return;
     isPressing = false;
     overlay.classList.remove('is-pressing', 'is-cancelling');
+    ensureVoiceHud();
+    if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
     activePointerId = null;
     const rec = ensureRecorder();
     if (rec.state === 'listening') {

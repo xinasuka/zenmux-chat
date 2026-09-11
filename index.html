@@ -198,6 +198,39 @@
       <div id="composer-attachments" class="attachments-tray"></div>
       <div id="composer" data-page-node-id="B7tnlXHiSbdyTHXDW3BH07">
         <input type="file" id="file-input" multiple style="display:none">
+        <div id="voice-hud-capsule" class="voice-hud-capsule" aria-live="polite">
+          <div class="hud-top-row">
+            <div class="hud-beacon-group">
+              <span class="hud-pulse-dot"></span>
+              <span id="hud-status-text" class="hud-status-text" data-i18n="composer.voiceRecording">正在录音</span>
+            </div>
+            <div class="hud-timer-group">
+              <span id="hud-timer" class="hud-timer">00:00</span>
+              <span id="hud-countdown" class="hud-countdown" style="display:none;">60s</span>
+            </div>
+          </div>
+          <div id="hud-wave-visualizer" class="hud-wave-visualizer">
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+            <span class="hud-bar"></span>
+          </div>
+          <div class="hud-bottom-row">
+            <span id="hud-gesture-hint" class="hud-gesture-hint" data-i18n="composer.voiceSlideToCancel">▲ 上滑取消 · 松开发送</span>
+          </div>
+        </div>
         <div id="composer-toolbar" class="composer-toolbar">
           <button id="attach-btn" class="composer-icon-btn" title="添加图片或文件（支持代码、文本、数据表格、PDF等）" data-i18n-title="composer.attachTitle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
