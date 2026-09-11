@@ -1317,17 +1317,51 @@
     50%{opacity:.6;transform:scale(.95)}
   }
 
-  /* ---------- Composer Voice Dictation Overlay ---------- */
+  .composer-icon-btn.mode-voice{
+    color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent);
+  }
+
+  /* ---------- Composer Voice Dictation Bar (Push-to-Talk) ---------- */
   .composer-voice-overlay{
-    flex:1 1 auto;min-width:0;width:100%;min-height:34px;height:34px;display:flex;align-items:center;
-    background:rgba(255,255,255,.04);border:1px solid rgba(255,74,74,.4);
-    border-radius:9px;padding:0 12px;user-select:none;box-sizing:border-box;transition:all .2s ease;
+    flex:1 1 auto;min-width:0;width:100%;min-height:36px;height:36px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:9px;padding:0 14px;box-sizing:border-box;transition:all .18s ease;
+    cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
+  }
+  .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing){
+    background:rgba(255,255,255,.08);border-color:var(--accent);
+  }
+  .composer-voice-overlay.is-pressing{
+    background:rgba(255,74,74,.12);border-color:rgba(255,74,74,.6);
+    box-shadow:0 0 16px rgba(255,74,74,.25);transform:scale(.99);
+  }
+  .composer-voice-overlay.is-cancelling{
+    background:rgba(255,74,74,.22);border-color:#ff4a4a;
+    box-shadow:0 0 20px rgba(255,74,74,.4);
   }
   .composer-voice-overlay.is-transcribing{
-    border-color:rgba(127,119,221,.45);background:rgba(127,119,221,.08);
+    border-color:rgba(127,119,221,.5);background:rgba(127,119,221,.1);cursor:wait;
+  }
+  .voice-overlay-resting{
+    display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;
+    font-weight:500;color:var(--fg);pointer-events:none;letter-spacing:.3px;
+  }
+  .voice-bar-mic-icon{
+    color:var(--accent);transition:transform .15s;flex-shrink:0;
+  }
+  .composer-voice-overlay:hover .voice-bar-mic-icon{
+    transform:scale(1.12);
   }
   .voice-overlay-content{
-    display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;
+    display:none;align-items:center;justify-content:space-between;width:100%;gap:12px;pointer-events:none;
+  }
+  .composer-voice-overlay.is-pressing .voice-overlay-resting,
+  .composer-voice-overlay.is-transcribing .voice-overlay-resting{
+    display:none;
+  }
+  .composer-voice-overlay.is-pressing .voice-overlay-content,
+  .composer-voice-overlay.is-transcribing .voice-overlay-content{
+    display:flex;
   }
   .voice-wave-visualizer{
     display:flex;align-items:center;gap:3.5px;height:22px;padding:0 2px;

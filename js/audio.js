@@ -143,7 +143,8 @@ export class AudioRecorder {
       hangoverMs: 3000,          // 尾部静音悬挂窗口（3.0秒，充足容忍语流自然换气与思考停顿）
       minSpeechDurationMs: 300,  // 最短有效语音时长（低于此值视为误触取消）
       maxSpeechDurationMs: 60000,// 单次录音物理上限（60秒自动截断）
-      noSpeechTimeoutMs: 6000    // 首声无声超时门限（业界标准 6 秒未开口自动取消释放）
+      noSpeechTimeoutMs: 6000,   // 首声无声超时门限（非按住模式下6秒未开口自动释放）
+      manualMode: true           // 按住说话模式（默认由物理按键按下与释放全权掌控，禁用启发式静音提前掐断）
     }, options);
 
     this.state = 'idle'; // 'idle' | 'listening' | 'transcribing'
@@ -227,13 +228,15 @@ export class AudioRecorder {
       this.validSpeechFramesCount = 0;
       this.frameCount = 0;
 
-      // 双重保险：首声 6 秒无声超时看门狗硬件定时器
+      // 首声 6 秒无声超时看门狗硬件定时器（仅在非 manualMode 免提模式下生效）
       if (this.noSpeechTimer) clearTimeout(this.noSpeechTimer);
-      this.noSpeechTimer = setTimeout(() => {
-        if (this.state === 'listening' && !this.speechStarted) {
-          this.stop();
-        }
-      }, this.options.noSpeechTimeoutMs);
+      if (!this.options.manualMode) {
+        this.noSpeechTimer = setTimeout(() => {
+          if (this.state === 'listening' && !this.speechStarted) {
+            this.stop();
+          }
+        }, this.options.noSpeechTimeoutMs);
+      }
 
       // 准备神经网络 VAD 状态（若用户启用了 Silero ONNX 引擎）
       if (state.vadEngine === 'silero-onnx') {
@@ -447,14 +450,14 @@ export class AudioRecorder {
       }
     }
 
-    // 6. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别）
-    if (this.speechStarted && (now - this.lastSpeechTime >= this.options.hangoverMs)) {
+    // 6. VAD 自动静音截断（人声出现后，若持续静音超过 hangoverMs，自动停止并识别；按住模式下禁用）
+    if (!this.options.manualMode && this.speechStarted && (now - this.lastSpeechTime >= this.options.hangoverMs)) {
       this.stop();
       return;
     }
 
-    // 7. 首声超时自愈：若开启录音后持续 6 秒完全未检测到发声，自动停止并释放麦克风硬件
-    if (!this.speechStarted && (now - this.startTime >= this.options.noSpeechTimeoutMs)) {
+    // 7. 首声超时自愈：若开启录音后持续 6 秒完全未检测到发声，自动停止并释放麦克风硬件（按住模式下禁用）
+    if (!this.options.manualMode && !this.speechStarted && (now - this.startTime >= this.options.noSpeechTimeoutMs)) {
       this.stop();
       return;
     }
@@ -623,6 +626,20 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       <line x1="8" y1="23" x2="16" y2="23"></line>
     </svg>
   `;
+  const KEYBOARD_ICON_SVG = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+      <line x1="6" y1="8" x2="6.01" y2="8"></line>
+      <line x1="10" y1="8" x2="10.01" y2="8"></line>
+      <line x1="14" y1="8" x2="14.01" y2="8"></line>
+      <line x1="18" y1="8" x2="18.01" y2="8"></line>
+      <line x1="6" y1="12" x2="6.01" y2="12"></line>
+      <line x1="10" y1="12" x2="10.01" y2="12"></line>
+      <line x1="14" y1="12" x2="14.01" y2="12"></line>
+      <line x1="18" y1="12" x2="18.01" y2="12"></line>
+      <line x1="7" y1="16" x2="17" y2="16"></line>
+    </svg>
+  `;
   const STOP_ICON_SVG = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
       <rect x="6" y="6" width="12" height="12" rx="2.5"></rect>
@@ -644,27 +661,76 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         flex: 1 1 auto;
         min-width: 0;
         width: 100%;
-        min-height: 34px;
-        height: 34px;
+        min-height: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 74, 74, 0.45);
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
         border-radius: 9px;
-        padding: 0 12px;
-        user-select: none;
+        padding: 0 14px;
         box-sizing: border-box;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        transition: all 0.18s ease;
+      }
+      .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing) {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--accent, #7f77dd);
+      }
+      .composer-voice-overlay.is-pressing {
+        background: rgba(255, 74, 74, 0.12);
+        border-color: rgba(255, 74, 74, 0.6);
+        box-shadow: 0 0 16px rgba(255, 74, 74, 0.25);
+        transform: scale(0.99);
+      }
+      .composer-voice-overlay.is-cancelling {
+        background: rgba(255, 74, 74, 0.22);
+        border-color: #ff4a4a;
+        box-shadow: 0 0 20px rgba(255, 74, 74, 0.4);
       }
       .composer-voice-overlay.is-transcribing {
-        border-color: rgba(127, 119, 221, 0.45);
-        background: rgba(127, 119, 221, 0.08);
+        border-color: rgba(127, 119, 221, 0.5);
+        background: rgba(127, 119, 221, 0.1);
+        cursor: wait;
+      }
+      .voice-overlay-resting {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fg, #eee);
+        pointer-events: none;
+        letter-spacing: 0.3px;
+      }
+      .voice-bar-mic-icon {
+        color: var(--accent, #7f77dd);
+        transition: transform 0.15s;
+        flex-shrink: 0;
+      }
+      .composer-voice-overlay:hover .voice-bar-mic-icon {
+        transform: scale(1.12);
       }
       .voice-overlay-content {
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: space-between;
         width: 100%;
         gap: 12px;
+        pointer-events: none;
+      }
+      .composer-voice-overlay.is-pressing .voice-overlay-resting,
+      .composer-voice-overlay.is-transcribing .voice-overlay-resting {
+        display: none;
+      }
+      .composer-voice-overlay.is-pressing .voice-overlay-content,
+      .composer-voice-overlay.is-transcribing .voice-overlay-content {
+        display: flex;
       }
       .voice-wave-visualizer {
         display: flex;
@@ -709,6 +775,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         padding: 2px 6px;
         border-radius: 4px;
       }
+      .composer-icon-btn.mode-voice {
+        color: var(--accent, #7f77dd);
+        background: var(--accent-glow, rgba(127, 119, 221, 0.15));
+        border: 1px solid var(--accent, #7f77dd);
+      }
     `;
     document.head.appendChild(style);
   }
@@ -721,8 +792,20 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       overlay.id = 'composer-voice-overlay';
       overlay.className = 'composer-voice-overlay';
       overlay.style.display = 'none';
+      overlay.setAttribute('role', 'button');
+      overlay.setAttribute('tabindex', '0');
       overlay.setAttribute('aria-live', 'polite');
+      overlay.setAttribute('aria-label', t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话'));
       overlay.innerHTML = `
+        <div class="voice-overlay-resting">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-bar-mic-icon">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span id="voice-bar-prompt" class="voice-bar-prompt">${t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话')}</span>
+        </div>
         <div class="voice-overlay-content">
           <div id="voice-wave-visualizer" class="voice-wave-visualizer">
             <span class="wave-bar"></span>
@@ -735,7 +818,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             <span class="wave-bar"></span>
           </div>
           <div class="voice-overlay-info">
-            <span id="voice-overlay-status" class="voice-overlay-status">${t('composer.voiceListening') || (state.lang === 'en' ? 'Listening…' : '正在聆听…')}</span>
+            <span id="voice-overlay-status" class="voice-overlay-status">${t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束')}</span>
             <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
           </div>
         </div>
@@ -754,6 +837,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     el.voiceStatus = overlay.querySelector('#voice-overlay-status') || document.getElementById('voice-overlay-status');
     el.voiceTimer = overlay.querySelector('#voice-overlay-timer') || document.getElementById('voice-overlay-timer');
     el.voiceWave = overlay.querySelector('#voice-wave-visualizer') || document.getElementById('voice-wave-visualizer');
+    el.voiceBarPrompt = overlay.querySelector('#voice-bar-prompt') || document.getElementById('voice-bar-prompt');
     return overlay;
   }
 
@@ -763,10 +847,10 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (!waveEl) return;
     const bars = waveEl.querySelectorAll('.wave-bar');
     if (!bars || bars.length === 0) return;
+
     bars.forEach((bar, idx) => {
-      const distFromCenter = Math.abs(idx - 3.5) / 3.5;
-      const factor = Math.max(0.35, 1 - distFromCenter * 0.45);
-      const jitter = 0.9 + Math.random() * 0.2;
+      const factor = 1 - Math.abs(idx - 3.5) / 4;
+      const jitter = 0.75 + Math.random() * 0.5;
       const scale = Math.max(0.3, Math.min(1.0, (vol * 2.5 * factor * jitter) + 0.3));
       bar.style.transform = `scaleY(${scale.toFixed(2)})`;
     });
@@ -782,37 +866,67 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     });
   }
 
+  let composerVoiceMode = false;
+
+  function switchToVoiceMode() {
+    composerVoiceMode = true;
+    const overlay = ensureVoiceOverlay();
+    if (el.input) el.input.style.display = 'none';
+    overlay.style.display = 'flex';
+    overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    if (el.voiceBarPrompt) {
+      el.voiceBarPrompt.textContent = t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话');
+    }
+    if (el.voiceBtn) {
+      el.voiceBtn.classList.add('mode-voice');
+      el.voiceBtn.classList.remove('recording', 'voice-on', 'transcribing');
+      el.voiceBtn.innerHTML = KEYBOARD_ICON_SVG;
+      el.voiceBtn.title = t('composer.voiceSwitchToText') || (state.lang === 'en' ? 'Switch to keyboard input' : '切换为键盘输入');
+    }
+  }
+
+  function switchToTextMode() {
+    composerVoiceMode = false;
+    const overlay = ensureVoiceOverlay();
+    overlay.style.display = 'none';
+    overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    clearInterval(voiceTimerInterval);
+    resetWaveform();
+
+    if (el.input) {
+      el.input.style.display = '';
+      el.input.focus();
+    }
+    if (el.voiceBtn) {
+      el.voiceBtn.classList.remove('mode-voice', 'recording', 'voice-on', 'transcribing');
+      el.voiceBtn.innerHTML = MIC_ICON_SVG;
+      el.voiceBtn.title = t('composer.voiceSwitchToVoice') || (state.lang === 'en' ? 'Switch to push-to-talk' : '切换为按住说话');
+    }
+    syncSend();
+  }
+
   function updateVoiceUI(status) {
     if (!el.voiceBtn) return;
     const overlay = ensureVoiceOverlay();
-    el.voiceBtn.classList.remove('recording', 'voice-on', 'transcribing');
 
     if (status === 'listening') {
-      // 1. Morph voice button to Voice On / Stop button
-      el.voiceBtn.classList.add('voice-on', 'recording');
-      el.voiceBtn.innerHTML = STOP_ICON_SVG;
-      el.voiceBtn.title = state.lang === 'en' ? 'Recording (VAD active)… Click to finish and transcribe' : '正在录音 (VAD 智能切除静音)… 点击结束并转录';
-
-      // 2. Hide input textarea and show voice overlay in prompt area
-      if (el.input) el.input.style.display = 'none';
-      overlay.style.display = 'flex';
-      overlay.classList.remove('is-transcribing');
-      if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceListening') || (state.lang === 'en' ? 'Listening…' : '正在聆听…');
+      overlay.classList.add('is-pressing');
+      overlay.classList.remove('is-transcribing', 'is-cancelling');
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束');
+        el.voiceStatus.style.color = '';
+      }
       if (el.send) el.send.disabled = true;
 
-      // 3. Immediately prime wave bars
+      // Prime wave bars
       updateWaveform(0.12);
 
-      // 4. Start elapsed duration timer with 10s remaining countdown alert
+      // Start elapsed duration timer with 10s countdown alert
       secondsElapsed = 0;
       if (el.voiceTimer) {
         el.voiceTimer.textContent = '00:00';
         el.voiceTimer.style.color = '';
         el.voiceTimer.style.background = '';
-      }
-      if (el.voiceStatus) {
-        el.voiceStatus.textContent = t('composer.voiceListening') || '正在聆听…';
-        el.voiceStatus.style.color = '';
       }
       clearInterval(voiceTimerInterval);
       voiceTimerInterval = setInterval(() => {
@@ -824,19 +938,9 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         const s = String(secondsElapsed % 60).padStart(2, '0');
         if (el.voiceTimer) el.voiceTimer.textContent = `${m}:${s}`;
 
-        // 关键防线：首声 6 秒无声绝对看门狗，兜底任何麦克风硬件静音或静音环境漏报
-        // 注意：一旦检测到人声活动 (speechStarted === true)，看门狗自动解除，后续由 VAD 尾部静音截断 (hangoverMs) 自主接管
-        const rec = ensureRecorder();
-        if (secondsElapsed >= 6 && !rec.speechStarted) {
-          clearInterval(voiceTimerInterval);
-          rec.cancel();
-          toast(t('composer.voiceNoAudio') || (state.lang === 'en' ? 'No valid speech detected' : '未检测到有效声音输入'), 'info');
-          return;
-        }
-
-        // 临近 60 秒上限时（剩余 10 秒以内）给予视觉倒数预警
+        // Approaching 60s limit (remaining <= 10s)
         if (remaining <= 10 && remaining > 0) {
-          if (el.voiceStatus) {
+          if (el.voiceStatus && !overlay.classList.contains('is-cancelling')) {
             el.voiceStatus.textContent = t('composer.voiceApproachingLimit', { remaining });
             el.voiceStatus.style.color = '#ff6b6b';
           }
@@ -846,7 +950,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
           }
         } else if (remaining <= 0) {
           clearInterval(voiceTimerInterval);
-          if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceLimitReached') || '已达上限，正在转录…';
+          if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceLimitReached') || (state.lang === 'en' ? 'Time limit reached, transcribing...' : '已达上限，正在转录…');
           const rec = ensureRecorder();
           if (rec.state === 'listening') {
             rec.stop();
@@ -855,34 +959,27 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       }, 1000);
 
     } else if (status === 'transcribing') {
-      // 1. Button indicates transcribing
-      el.voiceBtn.classList.add('transcribing');
-      el.voiceBtn.innerHTML = SPINNER_ICON_SVG;
-      el.voiceBtn.title = t('composer.voiceTranscribing') || '正在转录文本...';
-
-      // 2. Stop timer and update prompt area status
       clearInterval(voiceTimerInterval);
-      overlay.style.display = 'flex';
       overlay.classList.add('is-transcribing');
+      overlay.classList.remove('is-pressing', 'is-cancelling');
       if (el.voiceStatus) {
-        el.voiceStatus.textContent = t('composer.voiceTranscribing') || '正在转录文本...';
+        el.voiceStatus.textContent = t('composer.voiceTranscribing') || (state.lang === 'en' ? 'Transcribing speech...' : '正在转录文本...');
         el.voiceStatus.style.color = '';
       }
       if (el.voiceTimer) {
         el.voiceTimer.style.color = '';
         el.voiceTimer.style.background = '';
       }
+      if (el.voiceBtn) {
+        el.voiceBtn.classList.add('transcribing');
+        el.voiceBtn.innerHTML = SPINNER_ICON_SVG;
+      }
       if (el.send) el.send.disabled = true;
 
     } else {
       // Idle / Finished
       clearInterval(voiceTimerInterval);
-      el.voiceBtn.innerHTML = MIC_ICON_SVG;
-      el.voiceBtn.title = t('composer.voiceTitle') || '语音输入';
-
-      // Restore textarea prompt area
-      overlay.style.display = 'none';
-      overlay.classList.remove('is-transcribing');
+      overlay.classList.remove('is-pressing', 'is-transcribing', 'is-cancelling');
       if (el.voiceStatus) el.voiceStatus.style.color = '';
       if (el.voiceTimer) {
         el.voiceTimer.style.color = '';
@@ -890,17 +987,23 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       }
       resetWaveform();
 
-      if (el.input) {
-        el.input.style.display = '';
-        el.input.focus();
+      if (composerVoiceMode) {
+        if (el.voiceBtn) {
+          el.voiceBtn.classList.remove('recording', 'voice-on', 'transcribing');
+          el.voiceBtn.classList.add('mode-voice');
+          el.voiceBtn.innerHTML = KEYBOARD_ICON_SVG;
+          el.voiceBtn.title = t('composer.voiceSwitchToText') || (state.lang === 'en' ? 'Switch to keyboard input' : '切换为键盘输入');
+        }
+      } else {
+        switchToTextMode();
       }
-      syncSend();
     }
   }
 
   function ensureRecorder() {
     if (!recorder) {
       recorder = new AudioRecorder({
+        manualMode: true,
         onStateChange: (recState) => {
           updateVoiceUI(recState);
         },
@@ -915,28 +1018,120 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             autoGrow();
             syncSend();
           }
-          toast(t('composer.voiceCompleted') || '语音识别完成', 'info');
+          toast(t('composer.voiceCompleted') || (state.lang === 'en' ? 'Speech recognition complete' : '语音识别完成'), 'info');
+          // Behavior A: Auto-revert to editor so user can immediately review/edit/send
+          switchToTextMode();
         },
         onNotice: (msg) => {
           updateVoiceUI('idle');
           toast(msg, 'info');
+          switchToTextMode();
         },
         onError: (err) => {
           updateVoiceUI('idle');
           toast(err, 'error');
+          switchToTextMode();
         }
       });
     }
     return recorder;
   }
 
+  // W3C Pointer Events Binding for Push-to-Talk (Hold-to-Speak)
+  const overlay = ensureVoiceOverlay();
+  let isPressing = false;
+  let pressStartTime = 0;
+  let activePointerId = null;
+
+  overlay.addEventListener('pointerdown', async (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const rec = ensureRecorder();
+    if (rec.state === 'transcribing') return;
+
+    e.preventDefault();
+    isPressing = true;
+    pressStartTime = Date.now();
+    activePointerId = e.pointerId;
+
+    try {
+      overlay.setPointerCapture(activePointerId);
+    } catch (_) {}
+
+    await rec.start();
+  });
+
+  overlay.addEventListener('pointermove', (e) => {
+    if (!isPressing) return;
+    const rect = overlay.getBoundingClientRect();
+    const isCancelArea = e.clientY < rect.top - 45;
+    if (isCancelArea) {
+      overlay.classList.add('is-cancelling');
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = state.lang === 'en' ? 'Release to cancel' : '松开 取消录音';
+        el.voiceStatus.style.color = '#ff6b6b';
+      }
+    } else {
+      overlay.classList.remove('is-cancelling');
+      if (el.voiceStatus) {
+        el.voiceStatus.textContent = t('composer.voiceReleaseToSend') || (state.lang === 'en' ? 'Release to Finish' : '松开 结束');
+        el.voiceStatus.style.color = '';
+      }
+    }
+  });
+
+  const handlePointerRelease = async (e) => {
+    if (!isPressing) return;
+    isPressing = false;
+
+    const rect = overlay.getBoundingClientRect();
+    const shouldCancel = e && e.clientY < rect.top - 45;
+
+    overlay.classList.remove('is-pressing', 'is-cancelling');
+    try {
+      if (activePointerId !== null) {
+        overlay.releasePointerCapture(activePointerId);
+      }
+    } catch (_) {}
+    activePointerId = null;
+
+    const rec = ensureRecorder();
+    if (rec.state !== 'listening') return;
+
+    if (shouldCancel) {
+      rec.cancel();
+      toast(state.lang === 'en' ? 'Recording cancelled' : '已取消录音', 'info');
+      return;
+    }
+
+    const duration = Date.now() - pressStartTime;
+    if (duration < 300) {
+      rec.cancel();
+      toast(t('composer.voiceShortTapWarning') || (state.lang === 'en' ? 'Hold to speak, release to finish' : '按住说话，松开结束'), 'info');
+      return;
+    }
+
+    await rec.stop();
+  };
+
+  overlay.addEventListener('pointerup', handlePointerRelease);
+  overlay.addEventListener('pointercancel', () => {
+    if (!isPressing) return;
+    isPressing = false;
+    overlay.classList.remove('is-pressing', 'is-cancelling');
+    activePointerId = null;
+    const rec = ensureRecorder();
+    if (rec.state === 'listening') {
+      rec.cancel();
+    }
+  });
+
+  // Mode toggle on voice button
   if (el.voiceBtn) {
-    el.voiceBtn.addEventListener('click', async () => {
-      const rec = ensureRecorder();
-      if (rec.state === 'listening') {
-        rec.stop();
-      } else if (rec.state === 'idle') {
-        await rec.start();
+    el.voiceBtn.addEventListener('click', () => {
+      if (composerVoiceMode) {
+        switchToTextMode();
+      } else {
+        switchToVoiceMode();
       }
     });
   }

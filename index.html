@@ -227,7 +227,16 @@
         </div>
         <div id="composer-main-row" class="composer-main-row">
           <textarea id="input" rows="1" placeholder="发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行" data-i18n-placeholder="composer.inputPlaceholder"></textarea>
-          <div id="composer-voice-overlay" class="composer-voice-overlay" style="display:none;" aria-live="polite">
+          <div id="composer-voice-overlay" class="composer-voice-overlay" style="display:none;" role="button" tabindex="0" aria-live="polite" aria-label="按住说话" data-i18n-aria="composer.voiceHoldToSpeak">
+            <div class="voice-overlay-resting">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-bar-mic-icon">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+              <span id="voice-bar-prompt" class="voice-bar-prompt" data-i18n="composer.voiceHoldToSpeak">按住 说话</span>
+            </div>
             <div class="voice-overlay-content">
               <div id="voice-wave-visualizer" class="voice-wave-visualizer">
                 <span class="wave-bar"></span>
@@ -240,7 +249,7 @@
                 <span class="wave-bar"></span>
               </div>
               <div class="voice-overlay-info">
-                <span id="voice-overlay-status" class="voice-overlay-status" data-i18n="composer.voiceListening">正在聆听…</span>
+                <span id="voice-overlay-status" class="voice-overlay-status" data-i18n="composer.voiceReleaseToSend">松开 结束</span>
                 <span id="voice-overlay-timer" class="voice-overlay-timer">00:00</span>
               </div>
             </div>
