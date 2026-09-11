@@ -83,5 +83,10 @@ Every commit message must follow Conventional Commits and explicitly contain the
 - `README.md` must be clean, professional, and elegant.
 - **Zero Emojis**: Do not use emojis anywhere in `README.md`. Use clean Markdown headings, bullet points, and tables.
 
-### 5.2 Architectural Design Documentation
-- Keep `design/design.md` updated with the latest system topology diagram (Mermaid) and the built-in plugin matrix whenever a new tool or gateway is introduced.
+### 5.2 Architectural Design Documentation & Strict Local-Only Invariant
+- **Local-Only Master Specification (`design/design.md`)**:
+  - `design/design.md` serves as a comprehensive private architectural workbook containing exhaustive internal specifications, mathematical formulations, and engineering notes.
+  - **STRICTLY LOCAL-ONLY — NEVER UPLOAD TO GITHUB**: `design/design.md` must **NEVER** be staged, committed, or pushed to GitHub or remote repositories under any circumstances. It is permanently excluded via `.gitignore` (`design/*`). AI agents must **NEVER** modify `.gitignore` to unignore `design/design.md`, nor execute forced git additions (`git add -f`).
+- **Canonical Public Specification (`design/arch.md`)**:
+  - `design/arch.md` is the sole version-controlled architectural specification tracked in Git (`!design/arch.md`).
+  - Keep `design/arch.md` synchronized with high-level system topology diagrams (Mermaid), subsystem paradigms, and plugin capabilities whenever new features or gateways are introduced.
