@@ -790,6 +790,12 @@ export function closeAllSettingsPickers() {
   });
   document.querySelectorAll('.settings-picker-panel.open').forEach((p) => {
     p.classList.remove('open');
+    p.classList.remove('dropup');
+    if (window.innerWidth > 768) {
+      p.style.display = '';
+      p.style.visibility = '';
+      p.style.opacity = '';
+    }
   });
   document.querySelectorAll('.settings-picker-backdrop.open').forEach((bd) => {
     bd.classList.remove('open');
@@ -802,9 +808,13 @@ export function syncSettingsPicker(selectEl) {
   }
 }
 
+let lastModalScrollTop = 0;
+
 export function initSettingsPickers() {
   const selects = document.querySelectorAll('.settings-select');
   if (!selects.length) return;
+
+  const modalBody = document.querySelector('.settings-modal-body');
 
   selects.forEach((sel) => {
     if (sel.dataset.hasSettingsPicker) return;
@@ -1037,31 +1047,45 @@ export function initSettingsPickers() {
       if (!isOpen) {
         wrap.classList.add('open');
         panel.classList.add('open');
-        backdrop.classList.add('open');
         btn.setAttribute('aria-expanded', 'true');
 
         if (window.innerWidth > 768) {
+          lastModalScrollTop = modalBody ? modalBody.scrollTop : 0;
           const rect = btn.getBoundingClientRect();
-          panel.style.left = `${rect.left}px`;
-          panel.style.width = `${Math.max(rect.width, 260)}px`;
+          const targetWidth = Math.round(Math.max(rect.width, 260));
+          const maxLeft = Math.max(12, window.innerWidth - targetWidth - 16);
+          const leftPos = Math.max(12, Math.min(Math.round(rect.left), maxLeft));
+
+          panel.style.position = 'fixed';
+          panel.style.zIndex = '2500';
+          panel.style.left = `${leftPos}px`;
+          panel.style.width = `${targetWidth}px`;
+          panel.style.display = 'flex';
+          panel.style.visibility = 'visible';
+          panel.style.opacity = '1';
 
           const spaceBelow = window.innerHeight - rect.bottom;
           if (spaceBelow < 260 && rect.top > 260) {
             panel.style.top = 'auto';
-            panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+            panel.style.bottom = `${Math.round(window.innerHeight - rect.top + 4)}px`;
             panel.classList.add('dropup');
           } else {
             panel.style.bottom = 'auto';
-            panel.style.top = `${rect.bottom + 4}px`;
+            panel.style.top = `${Math.round(rect.bottom + 4)}px`;
             panel.classList.remove('dropup');
           }
         } else {
-          // Clean desktop inline styles for mobile bottom sheet
+          // Mobile bottom sheet mode
+          backdrop.classList.add('open');
+          panel.style.position = '';
           panel.style.left = '';
           panel.style.right = '';
           panel.style.top = '';
           panel.style.bottom = '';
           panel.style.width = '';
+          panel.style.display = '';
+          panel.style.visibility = '';
+          panel.style.opacity = '';
           panel.classList.remove('dropup');
         }
       }
@@ -1096,17 +1120,22 @@ export function initSettingsPickers() {
         closeAllSettingsPickers();
       }
     });
-    const dismissOnScrollOrResize = () => {
+    window.addEventListener('resize', () => {
       if (window.innerWidth > 768 && document.querySelector('.settings-picker-panel.open')) {
         closeAllSettingsPickers();
       }
-    };
-    window.addEventListener('resize', dismissOnScrollOrResize);
-    const modalBody = document.querySelector('.settings-modal-body');
+    });
     if (modalBody) {
-      modalBody.addEventListener('scroll', dismissOnScrollOrResize, { passive: true });
+      modalBody.addEventListener('scroll', () => {
+        if (window.innerWidth > 768 && document.querySelector('.settings-picker-panel.open')) {
+          if (Math.abs(modalBody.scrollTop - lastModalScrollTop) > 20) {
+            closeAllSettingsPickers();
+          }
+        }
+      }, { passive: true });
     }
   }
 }
+
 
 

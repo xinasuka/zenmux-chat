@@ -2417,7 +2417,7 @@
     box-shadow: 0 14px 36px rgba(0,0,0,0.42), 0 0 1px rgba(255,255,255,0.08);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    z-index: 1200;
+    z-index: 2500 !important;
     padding: 4px;
     display: none;
     flex-direction: column;
@@ -2441,11 +2441,11 @@
   }
   .settings-picker-wrap.open .settings-picker-panel,
   .settings-picker-panel.open {
-    display: flex;
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0) scale(1);
-    pointer-events: auto;
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
   }
   .settings-picker-wrap.open .settings-picker-backdrop,
   .settings-picker-backdrop.open {
