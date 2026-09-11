@@ -5,7 +5,7 @@ import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc } from '.
 import { ZenMuxDB } from './db.js';
 import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
-import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter, initParamPickers, syncParamPicker, closeAllParamPickers } from './ui.js';
+import { toast, bubble, openLightbox, closeLightbox, TitleExtractor, updateSidebarFooter, initParamPickers, syncParamPicker, closeAllParamPickers, initSettingsPickers, syncSettingsPicker, closeAllSettingsPickers } from './ui.js';
 import { renderAttachmentsTray, processIncomingFiles } from './attachments.js';
 import { executeAssistantStream, executeImageGeneration } from './chat.js';
 import { PluginRegistry } from './plugins.js';
@@ -775,6 +775,7 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
       localStorage.setItem(LS.ttsVoice, def.id);
     }
   }
+  syncSettingsPicker(el.settingsTtsVoice);
 }
 
 export function syncVadSettingsUI(vadEngine) {
@@ -811,13 +812,16 @@ export function renderSettingsState() {
   }
   if (el.settingsAsrModel) {
     el.settingsAsrModel.value = state.asrModel || 'bytedance/doubao-seed-asr-2.0';
+    syncSettingsPicker(el.settingsAsrModel);
   }
   if (el.settingsVadEngine) {
     el.settingsVadEngine.value = state.vadEngine || 'energy';
+    syncSettingsPicker(el.settingsVadEngine);
   }
   syncVadSettingsUI(state.vadEngine || 'energy');
   if (el.settingsTtsModel) {
     el.settingsTtsModel.value = state.ttsModel || 'browser';
+    syncSettingsPicker(el.settingsTtsModel);
   }
   syncSettingsTtsVoiceOptions(state.ttsModel || 'browser', state.ttsVoice);
   if (el.settingsTtsVoiceRow) {
@@ -835,6 +839,7 @@ export function openSettingsModal() {
 }
 
 export function closeSettingsModal() {
+  closeAllSettingsPickers();
   if (el.settingsModalBackdrop) el.settingsModalBackdrop.classList.add('hide');
   syncModalOpenState();
 }
@@ -1705,6 +1710,7 @@ export async function initApp() {
   if (el.imageBackground) el.imageBackground.value = state.imageBackground;
 
   initParamPickers();
+  initSettingsPickers();
 
   initVoiceDictation({ toast, autoGrow, syncSend });
   autoGrow();

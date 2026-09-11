@@ -779,3 +779,293 @@ export function initParamPickers() {
     });
   }
 }
+
+/* ---------- Custom Settings Pickers (Anthropic Parity & Mobile Bottom Sheets) ---------- */
+
+export function closeAllSettingsPickers() {
+  document.querySelectorAll('.settings-picker-wrap.open').forEach((w) => {
+    w.classList.remove('open');
+    const b = w.querySelector('.settings-picker-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+export function syncSettingsPicker(selectEl) {
+  if (selectEl && typeof selectEl._syncSettingsPicker === 'function') {
+    selectEl._syncSettingsPicker();
+  }
+}
+
+export function initSettingsPickers() {
+  const selects = document.querySelectorAll('.settings-select');
+  if (!selects.length) return;
+
+  selects.forEach((sel) => {
+    if (sel.dataset.hasSettingsPicker) return;
+    sel.dataset.hasSettingsPicker = 'true';
+
+    // Visually conceal native select while maintaining complete accessibility and form value state
+    sel.classList.add('param-select-hidden');
+
+    const isSubselect = sel.classList.contains('settings-subselect');
+    const wrap = document.createElement('div');
+    wrap.className = `settings-picker-wrap${isSubselect ? ' subselect-wrap' : ''}`;
+    wrap.id = `settings-picker-${sel.id}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'settings-picker-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.title = sel.title || '';
+
+    const label = document.createElement('span');
+    label.className = 'settings-picker-label';
+
+    const arrowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    arrowSvg.setAttribute('class', 'settings-picker-arrow');
+    arrowSvg.setAttribute('width', '12');
+    arrowSvg.setAttribute('height', '12');
+    arrowSvg.setAttribute('viewBox', '0 0 24 24');
+    arrowSvg.setAttribute('fill', 'none');
+    arrowSvg.setAttribute('stroke', 'currentColor');
+    arrowSvg.setAttribute('stroke-width', '2');
+    arrowSvg.setAttribute('stroke-linecap', 'round');
+    arrowSvg.setAttribute('stroke-linejoin', 'round');
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline.setAttribute('points', '6 9 12 15 18 9');
+    arrowSvg.appendChild(polyline);
+
+    btn.appendChild(label);
+    btn.appendChild(arrowSvg);
+
+    // Mobile sheet backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'settings-picker-backdrop';
+    backdrop.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllSettingsPickers();
+    });
+
+    // Popover / sheet panel
+    const panel = document.createElement('div');
+    panel.className = 'settings-picker-panel';
+    panel.setAttribute('role', 'listbox');
+
+    // Mobile sheet header with title & close button
+    const sheetHeader = document.createElement('div');
+    sheetHeader.className = 'settings-picker-sheet-header';
+
+    const sheetTitle = document.createElement('span');
+    sheetTitle.className = 'settings-picker-sheet-title';
+    let derivedTitle = '';
+    if (isSubselect) {
+      const sublabel = sel.closest('.settings-subrow')?.querySelector('.settings-sublabel');
+      derivedTitle = sublabel ? sublabel.textContent.replace(/[:：]/g, '').trim() : '';
+    }
+    if (!derivedTitle) {
+      const secTitle = sel.closest('.settings-section')?.querySelector('.settings-section-title');
+      derivedTitle = secTitle ? secTitle.textContent.trim() : '';
+    }
+    sheetTitle.textContent = derivedTitle || '选择配置项';
+
+    const sheetClose = document.createElement('button');
+    sheetClose.className = 'settings-picker-sheet-close';
+    sheetClose.type = 'button';
+    sheetClose.innerHTML = '&times;';
+    sheetClose.setAttribute('aria-label', '关闭');
+    sheetClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllSettingsPickers();
+    });
+
+    sheetHeader.appendChild(sheetTitle);
+    sheetHeader.appendChild(sheetClose);
+
+    const listContainer = document.createElement('div');
+    listContainer.className = 'settings-picker-list';
+
+    panel.appendChild(sheetHeader);
+    panel.appendChild(listContainer);
+
+    wrap.appendChild(btn);
+    wrap.appendChild(backdrop);
+    wrap.appendChild(panel);
+
+    if (sel.parentNode) {
+      sel.parentNode.insertBefore(wrap, sel.nextSibling);
+    }
+
+    function syncUI() {
+      btn.disabled = !!sel.disabled;
+      const activeOpt = Array.from(sel.options).find((o) => o.value === sel.value) || sel.options[0];
+      label.textContent = activeOpt ? activeOpt.textContent : '';
+
+      panel.querySelectorAll('.settings-picker-item').forEach((item) => {
+        const isMatch = item.getAttribute('data-value') === sel.value;
+        item.classList.toggle('active', isMatch);
+        item.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+      });
+    }
+
+    function createItem(opt) {
+      const item = document.createElement('div');
+      item.className = 'settings-picker-item';
+      item.setAttribute('role', 'option');
+      item.setAttribute('data-value', opt.value);
+      item.setAttribute('tabindex', '0');
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'settings-picker-item-content';
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'settings-picker-item-text';
+
+      let rawText = (opt.textContent || '').trim();
+      let badgeText = '';
+      if (rawText.includes('· 推荐')) {
+        badgeText = '推荐';
+        rawText = rawText.replace(/\s*·\s*推荐(?=\)?)/, '');
+      } else if (rawText.includes('· 默认')) {
+        badgeText = '默认';
+        rawText = rawText.replace(/\s*·\s*默认(?=\)?)/, '');
+      }
+
+      textSpan.textContent = rawText;
+      contentWrap.appendChild(textSpan);
+
+      if (badgeText) {
+        const badge = document.createElement('span');
+        badge.className = 'settings-picker-item-badge';
+        badge.textContent = badgeText;
+        contentWrap.appendChild(badge);
+      }
+
+      const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      checkSvg.setAttribute('class', 'settings-picker-item-check');
+      checkSvg.setAttribute('width', '13');
+      checkSvg.setAttribute('height', '13');
+      checkSvg.setAttribute('viewBox', '0 0 24 24');
+      checkSvg.setAttribute('fill', 'none');
+      checkSvg.setAttribute('stroke', 'currentColor');
+      checkSvg.setAttribute('stroke-width', '2.5');
+      checkSvg.setAttribute('stroke-linecap', 'round');
+      checkSvg.setAttribute('stroke-linejoin', 'round');
+      const checkPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      checkPoly.setAttribute('points', '20 6 9 17 4 12');
+      checkSvg.appendChild(checkPoly);
+
+      item.appendChild(contentWrap);
+      item.appendChild(checkSvg);
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (sel.value !== opt.value) {
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncUI();
+        wrap.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          item.click();
+        }
+      });
+
+      return item;
+    }
+
+    function renderOptions() {
+      listContainer.innerHTML = '';
+      const children = Array.from(sel.children);
+      const hasOptgroups = children.some((c) => c.tagName === 'OPTGROUP');
+
+      if (hasOptgroups) {
+        children.forEach((child) => {
+          if (child.tagName === 'OPTGROUP') {
+            const groupWrap = document.createElement('div');
+            groupWrap.className = 'settings-picker-group';
+
+            const groupTitle = document.createElement('div');
+            groupTitle.className = 'settings-picker-group-title';
+            groupTitle.textContent = child.label || '';
+            groupWrap.appendChild(groupTitle);
+
+            Array.from(child.children).forEach((opt) => {
+              if (opt.tagName === 'OPTION') {
+                groupWrap.appendChild(createItem(opt));
+              }
+            });
+
+            listContainer.appendChild(groupWrap);
+          } else if (child.tagName === 'OPTION') {
+            listContainer.appendChild(createItem(child));
+          }
+        });
+      } else {
+        Array.from(sel.options).forEach((opt) => {
+          listContainer.appendChild(createItem(opt));
+        });
+      }
+      syncUI();
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (btn.disabled) return;
+      const isOpen = wrap.classList.contains('open');
+
+      closeAllSettingsPickers();
+      closeAllParamPickers();
+
+      if (!isOpen) {
+        wrap.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+
+        if (window.innerWidth > 768) {
+          const rect = wrap.getBoundingClientRect();
+          if (window.innerHeight - rect.bottom < 260 && rect.top > 260) {
+            wrap.classList.add('dropup');
+          } else {
+            wrap.classList.remove('dropup');
+          }
+        }
+      }
+    });
+
+    sel.addEventListener('change', syncUI);
+
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(() => {
+        renderOptions();
+        syncUI();
+      });
+      observer.observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    }
+
+    renderOptions();
+    sel._syncSettingsPicker = () => {
+      renderOptions();
+      syncUI();
+    };
+  });
+
+  if (!document._settingsPickerGlobalListeners) {
+    document._settingsPickerGlobalListeners = true;
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.settings-picker-wrap')) {
+        closeAllSettingsPickers();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllSettingsPickers();
+      }
+    });
+  }
+}
+
