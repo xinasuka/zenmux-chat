@@ -4,7 +4,7 @@
 
 // CACHE_NAME acts as the primary invalidation catalyst.
 // Synchronized atomically with package.json via scripts/bump.js on every release.
-const CACHE_NAME = 'zenchat-shell-v2.21.7';
+const CACHE_NAME = 'zenchat-shell-v2.21.8';
 
 // Static application shell assets pre-cached during worker installation
 const PRECACHE_ASSETS = [
@@ -32,6 +32,16 @@ self.addEventListener('install', (event) => {
       });
     }).then(() => self.skipWaiting()) // Instantly transition worker to activate phase
   );
+});
+
+/**
+ * Message Event Listener
+ * Enables client controllers to command waiting worker to skip waiting and activate immediately.
+ */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 /**

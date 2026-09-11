@@ -272,6 +272,7 @@ export const TRANSLATIONS = {
       versionCheckBtn: '检查更新',
       versionRestartBtn: '立即重启更新',
       versionChecking: '正在检查…',
+      versionApplying: '正在应用更新…',
       versionCheckFail: '检查更新失败，请稍后重试',
 
       resetSettings: '清空设定',
@@ -289,6 +290,7 @@ export const TRANSLATIONS = {
       title: '发现新版本',
       currentVer: '（当前 v{version}）',
       reloadBtn: '立即更新',
+      updatingBtn: '正在更新…',
       laterBtn: '稍后',
       laterTooltip: '2小时后再次提醒',
       closeTooltip: '关闭 (稍后提醒)',
@@ -606,6 +608,7 @@ export const TRANSLATIONS = {
       versionCheckBtn: 'Check for Updates',
       versionRestartBtn: 'Restart to Update',
       versionChecking: 'Checking...',
+      versionApplying: 'Applying update...',
       versionCheckFail: 'Failed to check for updates, please try again later',
 
       resetSettings: 'Reset All',
@@ -623,6 +626,7 @@ export const TRANSLATIONS = {
       title: 'New version available',
       currentVer: '(Current v{version})',
       reloadBtn: 'Update Now',
+      updatingBtn: 'Updating...',
       laterBtn: 'Later',
       laterTooltip: 'Remind me in 2 hours',
       closeTooltip: 'Close (remind later)',

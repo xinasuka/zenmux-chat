@@ -90,11 +90,92 @@ export function dismissUpdateBanner() {
   }
 }
 
+let isReloading = false;
+
 /**
- * Immediately reload the application to ingest the latest bundle.
+ * Deterministically reload the application to ingest the latest release bundle:
+ * 1. Provides instant visual feedback on update buttons (spinner, "Applying update...").
+ * 2. Synchronizes with Service Worker lifecycle (awaits in-flight installation and commands SKIP_WAITING).
+ * 3. Directly purges legacy shell cache buckets in window.caches to prevent Stale-While-Revalidate collision.
+ * 4. Executes atomic reload under the fresh release.
  */
-export function triggerAppReload() {
-  window.location.reload();
+export async function triggerAppReload() {
+  if (isReloading) return;
+  isReloading = true;
+
+  // 1. Visual feedback on all update triggers
+  if (el.updateReload) {
+    el.updateReload.disabled = true;
+    el.updateReload.textContent = t('updateBanner.updatingBtn') || (state.lang === 'en' ? 'Updating...' : '正在更新…');
+  }
+  if (el.settingsCheckUpdateBtn) {
+    el.settingsCheckUpdateBtn.disabled = true;
+    const label = el.settingsCheckUpdateBtn.querySelector('.check-update-label');
+    const icon = el.settingsCheckUpdateBtn.querySelector('.check-update-icon');
+    if (label) label.textContent = t('settings.versionApplying') || (state.lang === 'en' ? 'Applying update...' : '正在应用更新…');
+    if (icon) icon.classList.add('spinning');
+  }
+  if (el.settingsUpdateStatus) {
+    el.settingsUpdateStatus.textContent = state.lang === 'en'
+      ? 'Synchronizing latest release and activating cache...'
+      : '正在同步最新发布并刷新应用缓存…';
+  }
+
+  // 2. Service Worker Lifecycle Synchronization
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+      if (reg) {
+        // If a new worker is already waiting, command it to activate immediately
+        if (reg.waiting) {
+          try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+        } else {
+          // Trigger SW update check and track worker installation
+          await reg.update().catch(() => {});
+          if (reg.waiting) {
+            try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+          } else if (reg.installing) {
+            await new Promise((resolve) => {
+              const worker = reg.installing;
+              if (!worker) return resolve();
+              const timer = setTimeout(resolve, 3000); // 3s safety timeout
+              worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed' || worker.state === 'activated') {
+                  if (worker.state === 'installed' && reg.waiting) {
+                    try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+                  }
+                  clearTimeout(timer);
+                  resolve();
+                }
+              });
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Updater] SW synchronization notice:', e);
+    }
+  }
+
+  // 3. Purge legacy shell cache buckets directly to prevent stale cache hits
+  if ('caches' in window) {
+    try {
+      const targetCacheName = pendingNewVersion ? `zenchat-shell-v${pendingNewVersion}` : null;
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter(k => k.startsWith('zenchat-shell-') && (!targetCacheName || k !== targetCacheName))
+          .map(k => caches.delete(k))
+      );
+    } catch (e) {
+      console.warn('[Updater] Cache purge notice:', e);
+    }
+  }
+
+  // 4. Brief grace period for storage operations to settle, then reload
+  setTimeout(() => {
+    window.location.reload();
+  }, 120);
 }
 
 /**
@@ -138,9 +219,8 @@ export async function checkVersionForUpdate(force = false, silentBanner = false)
           if (reg) reg.update().catch(() => {});
         }).catch(() => {});
       }
-      if (state.busy) {
-        pendingNewVersion = remoteVer;
-      } else if (!silentBanner) {
+      pendingNewVersion = remoteVer;
+      if (!state.busy && !silentBanner) {
         showUpdateBanner(remoteVer);
       }
       return { hasUpdate: true, remoteVersion: remoteVer, currentVersion: APP_VERSION };
