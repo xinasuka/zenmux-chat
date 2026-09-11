@@ -94,14 +94,33 @@ export const MemoryStore = {
   compileSystemPrompt() {
     if (!this.isEnabled()) return '';
     const list = this.getAll();
+    const isEn = typeof state !== 'undefined' && state.lang === 'en';
 
     if (list.length === 0) {
+      if (isEn) {
+        return `## User Persistent Long-Term Memory
+No remembered facts recorded in the memory store yet.
+- When the user naturally mentions persistent personal facts, preferences, tech stacks, or explicitly asks to "remember ...", autonomously call \`manage_memory\` (\`action: "add"\`) to record it.`;
+      }
       return `## 用户长期记忆库 (User Persistent Long-Term Memory)
 当前记忆库中暂无已记录的事实。
 - 当用户在日常对话中自然透露了持久性个人偏好、技术栈背景、项目架构或明确要求“记住...”时，请主动调用 \`manage_memory\` (\`action: "add"\`) 进行沉淀。`;
     }
 
     const itemsMarkdown = list.map((m) => `- [ID: ${m.id}] ${m.content}`).join('\n');
+
+    if (isEn) {
+      return `## User Persistent Long-Term Memory
+[HIGHEST PRIORITY TRUTH]: Below is the verified persistent memory about the current user (must be treated as ground truth):
+${itemsMarkdown}
+
+### Core Memory Principles & Directives:
+1. **Direct Reference**: The list above already contains all recorded facts. When the user asks "what do you know about me", "what are my preferences", or "do you remember me", answer directly based on the list above. Never deny existing memories and NEVER call manage_memory to read memories!
+2. **Autonomous Implicit Learning**: When the user naturally mentions persistent personal facts, tech stack, architecture, workflows, or preferences, call \`manage_memory\` (\`action: "add"\`) to persist it.
+3. **Explicit Commands**: Execute \`action: "add"\` when the user says "remember ..."; execute \`action: "update"\` when updating existing memory; execute \`action: "delete"\` when the user asks to forget something.
+4. **Merge & Update**: When new facts relate to existing memory, prefer \`action: "update"\` to avoid contradictory duplicate entries.
+5. **Discretion & Safety**: Never record transient chit-chat, error logs, or sensitive API keys/passwords.`;
+    }
 
     return `## 用户长期记忆库 (User Persistent Long-Term Memory)
 【最高优先级事实】：以下是系统中真实记录的关于当前用户的长期记忆（无论对话历史如何，必须以此记忆列表为真实基准）：
@@ -145,50 +164,51 @@ ${itemsMarkdown}
   },
 
   executeTool(args) {
+    const isEn = typeof state !== 'undefined' && state.lang === 'en';
     const action = (args && args.action) ? String(args.action).trim() : 'add';
     const content = (args && args.content) ? String(args.content).trim() : '';
     const memoryId = (args && args.memory_id) ? String(args.memory_id).trim() : '';
 
     if (action === 'add') {
-      if (!content) throw new Error('缺少要记录的记忆内容 content');
+      if (!content) throw new Error(isEn ? 'Missing memory content to record' : '缺少要记录的记忆内容 content');
       const item = this.add(content);
       return {
         success: true,
         action: 'add',
         item,
-        message: '已成功存入用户记忆库。'
+        message: isEn ? 'Successfully saved to user memory store.' : '已成功存入用户记忆库。'
       };
     }
 
     if (action === 'update') {
-      if (!memoryId) throw new Error('缺少要更新的记忆 ID (memory_id)');
-      if (!content) throw new Error('缺少更新后的记忆内容 content');
+      if (!memoryId) throw new Error(isEn ? 'Missing memory ID to update (memory_id)' : '缺少要更新的记忆 ID (memory_id)');
+      if (!content) throw new Error(isEn ? 'Missing updated memory content' : '缺少更新后的记忆内容 content');
       const item = this.update(memoryId, content);
-      if (!item) throw new Error(`未找到 ID 为 ${memoryId} 的记忆项`);
+      if (!item) throw new Error(isEn ? `Memory item with ID ${memoryId} not found` : `未找到 ID 为 ${memoryId} 的记忆项`);
       return {
         success: true,
         action: 'update',
         item,
-        message: '已成功更新用户记忆。'
+        message: isEn ? 'Successfully updated user memory.' : '已成功更新用户记忆。'
       };
     }
 
     if (action === 'delete') {
-      if (!memoryId) throw new Error('缺少要删除的记忆 ID (memory_id)');
+      if (!memoryId) throw new Error(isEn ? 'Missing memory ID to delete (memory_id)' : '缺少要删除的记忆 ID (memory_id)');
       const ok = this.delete(memoryId);
-      if (!ok) throw new Error(`未找到 ID 为 ${memoryId} 的记忆项`);
+      if (!ok) throw new Error(isEn ? `Memory item with ID ${memoryId} not found` : `未找到 ID 为 ${memoryId} 的记忆项`);
       return {
         success: true,
         action: 'delete',
         memoryId,
-        message: '已成功删除该条记忆。'
+        message: isEn ? 'Successfully deleted the memory item.' : '已成功删除该条记忆。'
       };
     }
 
     if (action === 'clear') {
-      throw new Error('模型无权执行清空所有记忆操作，全量清空必须由用户在设置中手动确认。');
+      throw new Error(isEn ? 'Model is not authorized to clear all memories. Clearing all memory must be manually confirmed by the user in settings.' : '模型无权执行清空所有记忆操作，全量清空必须由用户在设置中手动确认。');
     }
 
-    throw new Error(`不支持的记忆操作类型: ${action}`);
+    throw new Error(isEn ? `Unsupported memory action: ${action}` : `不支持的记忆操作类型: ${action}`);
   }
 };

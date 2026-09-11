@@ -13,6 +13,7 @@ import { initVersionChecker, flushPendingUpdate } from './updater.js';
 import { initVoiceDictation } from './audio.js';
 import { getVoicesForModel } from './tts.js';
 import { sileroVAD } from './vad-onnx.js';
+import { initI18n, setLanguage, t } from './i18n.js';
 
 /* ---------- Responsive Sidebar State Persistence & Resizing ---------- */
 const LS_SIDEBAR_COLLAPSED = 'zenmux_sidebar_collapsed';
@@ -168,11 +169,12 @@ function isFree(m) {
 
 export function fillModels(list) {
   if (!el.model) return;
+  state.rawModelList = list;
   el.model.innerHTML = '';
   state.modelMeta = {};
   const ph = document.createElement('option');
   ph.value = '';
-  ph.textContent = list.length ? '选择模型…' : '无可用模型';
+  ph.textContent = list.length ? t('models.selectModelPlaceholder') : t('models.noModelsAvailable');
   el.model.appendChild(ph);
 
   const imageModels = [];
@@ -188,7 +190,7 @@ export function fillModels(list) {
     if (hasImageGen(m)) {
       imageModels.push(m);
     } else {
-      const g = m.owned_by || '其他';
+      const g = m.owned_by || t('models.otherGroup');
       (textGroups[g] = textGroups[g] || []).push(m);
     }
   });
@@ -196,7 +198,7 @@ export function fillModels(list) {
   // 1. 独立专区：图像生成专区（置顶呈现，不与文本模型混杂）
   if (imageModels.length > 0) {
     const imgGroup = document.createElement('optgroup');
-    imgGroup.label = '图像生成 (Image Generation)';
+    imgGroup.label = t('models.imageGenGroup');
 
     // 依展示名称或 ID 进行自然排序
     imageModels.sort((a, b) => (a.display_name || a.id).localeCompare(b.display_name || b.id));
@@ -206,8 +208,8 @@ export function fillModels(list) {
       o.value = m.id;
       // 呈现精炼、高可读性的标签，统一附带 ·生图 标牌与免费状态
       let label = m.display_name || m.id;
-      label += ' ·生图';
-      if (isFree(m)) label += ' ·免费';
+      label += ' ·' + t('models.imageGen');
+      if (isFree(m)) label += ' ·' + t('models.free');
       o.textContent = label;
       imgGroup.appendChild(o);
     });
@@ -222,9 +224,9 @@ export function fillModels(list) {
       const o = document.createElement('option');
       o.value = m.id;
       let label = m.display_name || m.id;
-      if (hasVision(m)) label += ' ·视觉';
-      if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
-      if (isFree(m)) label += ' ·免费';
+      if (hasVision(m)) label += ' ·' + t('models.vision');
+      if (m.capabilities && m.capabilities.reasoning) label += ' ·' + t('models.reasoning');
+      if (isFree(m)) label += ' ·' + t('models.free');
       o.textContent = label;
       og.appendChild(o);
     });
@@ -271,19 +273,19 @@ function createModelPickerItem(m, isImage = false) {
   if (isImage || hasImageGen(m)) {
     const pill = document.createElement('span');
     pill.className = 'model-pill model-pill-image';
-    pill.textContent = '生图';
+    pill.textContent = t('models.imageGen');
     badges.appendChild(pill);
   } else {
     if (hasVision(m)) {
       const pill = document.createElement('span');
       pill.className = 'model-pill model-pill-vision';
-      pill.textContent = '视觉';
+      pill.textContent = t('models.vision');
       badges.appendChild(pill);
     }
     if (m.capabilities && m.capabilities.reasoning) {
       const pill = document.createElement('span');
       pill.className = 'model-pill model-pill-reasoning';
-      pill.textContent = '推理';
+      pill.textContent = t('models.reasoning');
       badges.appendChild(pill);
     }
   }
@@ -291,7 +293,7 @@ function createModelPickerItem(m, isImage = false) {
   if (isFree(m)) {
     const pill = document.createElement('span');
     pill.className = 'model-pill model-pill-free';
-    pill.textContent = '免费';
+    pill.textContent = t('models.free');
     badges.appendChild(pill);
   }
 
@@ -347,7 +349,7 @@ export function renderCustomModelPicker(imageModels, textGroups) {
   el.modelPickerList.innerHTML = '';
 
   if (imageModels.length > 0) {
-    const sec = createModelGroupSection('图像生成 (Image Generation)', imageModels, true);
+    const sec = createModelGroupSection(t('models.imageGenGroup'), imageModels, true);
     el.modelPickerList.appendChild(sec);
   }
 
@@ -378,7 +380,7 @@ export function syncModelPickerUI() {
   if (meta && meta.display_name) {
     labelText = meta.display_name;
   } else if (!currentId) {
-    labelText = '选择模型…';
+    labelText = t('models.selectModelPlaceholder');
   }
 
   if (el.modelPickerLabel) {
@@ -471,7 +473,7 @@ export function filterModelPicker(query) {
     if (!emptyEl) {
       emptyEl = document.createElement('div');
       emptyEl.className = 'model-picker-empty';
-      emptyEl.textContent = '未找到匹配的模型';
+      emptyEl.textContent = state.lang === 'en' ? 'No matching models found' : '未找到匹配的模型';
       el.modelPickerList.appendChild(emptyEl);
     }
     emptyEl.style.display = 'block';
@@ -487,8 +489,8 @@ export function syncEffort() {
   const unknown = !m;
   el.effort.disabled = !can && !unknown;
   el.effort.title = can
-    ? '推理强度：ZenMux 不传此参数时默认 medium'
-    : (unknown ? '推理强度（模型信息载入中）' : '当前模型不支持推理');
+    ? t('params.effortTitleSupported')
+    : (unknown ? t('params.effortTitleLoading') : t('params.effortTitleUnsupported'));
   syncParamPicker(el.effort);
 }
 
@@ -516,12 +518,12 @@ export function syncWorkstationMode(isImgGen, meta) {
 
   if (el.input) {
     el.input.placeholder = isImgGen
-      ? '描述你想生成的画面 (Prompt)，Enter 开始绘制…'
-      : '发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行';
+      ? t('composer.imageInputPlaceholder')
+      : t('composer.inputPlaceholder');
   }
 
   if (el.send) {
-    el.send.title = isImgGen ? '开始生图 (Enter)' : '发送';
+    el.send.title = isImgGen ? t('composer.startImageGen') : t('composer.sendTitle');
   }
 }
 
@@ -537,15 +539,15 @@ export function loadModels() {
   return fetch('/api/models', { headers: { 'X-Access-Token': state.token } })
     .then((r) => {
       if (r.status === 401) {
-        showGate('访问口令已失效或已被停用，请重新输入');
-        throw new Error('口令不正确');
+        showGate(state.lang === 'en' ? 'Access token has expired or been revoked. Please re-enter.' : '访问口令已失效或已被停用，请重新输入');
+        throw new Error(state.lang === 'en' ? 'Invalid token' : '口令不正确');
       }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     })
     .then((j) => {
       const list = (j && j.data) || [];
-      if (!list.length) throw new Error('模型列表为空');
+      if (!list.length) throw new Error(state.lang === 'en' ? 'Model list is empty' : '模型列表为空');
       fillModels(list);
       const ids = list.map((m) => m.id);
       if (!state.model || ids.indexOf(state.model) === -1) {
@@ -557,8 +559,8 @@ export function loadModels() {
       renderThread();
     })
     .catch((e) => {
-      if (e.message !== '口令不正确') {
-        toast(`模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
+      if (e.message !== '口令不正确' && e.message !== 'Invalid token') {
+        toast(state.lang === 'en' ? `Failed to load models: ${e.message} (You can enter or select manually)` : `模型列表拉取失败：${e.message}（可手动输入/选择）`, 'error');
       }
     });
 }
@@ -569,15 +571,15 @@ export function syncPluginsUI() {
   if (el.pluginsBtn) {
     if (count > 0) {
       el.pluginsBtn.classList.add('active');
-      el.pluginsBtn.title = `扩展插件与工具（已激活 ${count} 个插件，点击配置）`;
+      el.pluginsBtn.title = state.lang === 'en' ? `Plugins & Tools (${count} active, click to configure)` : `扩展插件与工具（已激活 ${count} 个插件，点击配置）`;
     } else {
       el.pluginsBtn.classList.remove('active');
-      el.pluginsBtn.title = '扩展插件与工具（当前未开启任何插件，点击配置）';
+      el.pluginsBtn.title = state.lang === 'en' ? 'Plugins & Tools (none active, click to configure)' : '扩展插件与工具（当前未开启任何插件，点击配置）';
     }
   }
   const summaryEl = document.getElementById('plugins-active-summary');
   if (summaryEl) {
-    summaryEl.textContent = count > 0 ? `已启用 ${count} 个插件` : '当前未启用任何插件';
+    summaryEl.textContent = count > 0 ? t('pluginsModal.activeSummary', { count }) : (state.lang === 'en' ? 'No plugins currently active' : '当前未启用任何插件');
   }
 }
 
@@ -590,18 +592,20 @@ export function renderPluginsModalList() {
     const isChecked = PluginRegistry.isEnabled(plugin.id);
     const card = document.createElement('div');
     card.className = `plugin-card ${isChecked ? 'active' : ''}`;
+    const name = PluginRegistry.getPluginName(plugin);
+    const desc = PluginRegistry.getPluginDescription(plugin);
     card.innerHTML = `
       <div class="plugin-card-left">
         <div class="plugin-icon-box">${plugin.icon}</div>
         <div class="plugin-info">
           <div class="plugin-title-row">
-            <span class="plugin-name">${esc(plugin.name)}</span>
+            <span class="plugin-name">${esc(name)}</span>
             <span class="plugin-provider">${esc(plugin.provider || '')}</span>
           </div>
-          <div class="plugin-desc">${esc(plugin.description || '')}</div>
+          <div class="plugin-desc">${esc(desc)}</div>
         </div>
       </div>
-      <label class="plugin-switch" title="开启/关闭此插件">
+      <label class="plugin-switch" title="${state.lang === 'en' ? 'Toggle this plugin' : '开启/关闭此插件'}">
         <input type="checkbox" data-plugin-id="${plugin.id}" ${isChecked ? 'checked' : ''}>
         <span class="plugin-switch-slider"></span>
       </label>
@@ -628,6 +632,11 @@ export function syncModalOpenState() {
   document.body.classList.toggle('has-modal-open', isOpen);
 }
 
+export function syncLangPillsUI(lang = state.lang) {
+  if (el.langPillZh) el.langPillZh.classList.toggle('active', lang === 'zh');
+  if (el.langPillEn) el.langPillEn.classList.toggle('active', lang === 'en');
+}
+
 export function openPluginsModal() {
   renderPluginsModalList();
   if (el.pluginsModalBackdrop) el.pluginsModalBackdrop.classList.remove('hide');
@@ -641,7 +650,7 @@ export function closePluginsModal() {
 
 export function updateSettingsCharCount() {
   if (el.settingsInstructions && el.settingsCharCount) {
-    el.settingsCharCount.textContent = `${el.settingsInstructions.value.length} 字符`;
+    el.settingsCharCount.textContent = t('settings.charCount', { count: el.settingsInstructions.value.length });
   }
 }
 
@@ -655,12 +664,12 @@ export function renderMemoryManagerUI() {
   state.memories = list;
 
   if (el.settingsMemoryCount) {
-    el.settingsMemoryCount.textContent = `已记住 ${list.length} 条内容 (上限 ${MAX_MEMORY_ITEMS} 条)`;
+    el.settingsMemoryCount.textContent = `${t('settings.memoryCount', { count: list.length })}${state.lang === 'en' ? ` (Max ${MAX_MEMORY_ITEMS})` : ` (上限 ${MAX_MEMORY_ITEMS} 条)`}`;
   }
 
   el.settingsMemoryList.innerHTML = '';
   if (list.length === 0) {
-    el.settingsMemoryList.innerHTML = '<div class="memory-empty-state">暂无存储的长期记忆。可在对话中告诉 AI“记住...”或在上方手动添加。</div>';
+    el.settingsMemoryList.innerHTML = `<div class="memory-empty-state">${t('settings.memoryEmpty')}</div>`;
     return;
   }
 
@@ -670,15 +679,15 @@ export function renderMemoryManagerUI() {
 
     function renderViewMode() {
       row.innerHTML = `
-        <span class="memory-item-content" title="点击直接修改">${esc(item.content)}</span>
+        <span class="memory-item-content" title="${state.lang === 'en' ? 'Click to edit directly' : '点击直接修改'}">${esc(item.content)}</span>
         <div class="memory-actions">
-          <button type="button" class="memory-edit-btn" title="修改该条记忆">
+          <button type="button" class="memory-edit-btn" title="${t('common.edit')}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
-          <button type="button" class="memory-del-btn" title="删除该条记忆">×</button>
+          <button type="button" class="memory-del-btn" title="${t('common.delete')}">×</button>
         </div>
       `;
 
@@ -692,7 +701,7 @@ export function renderMemoryManagerUI() {
         delBtn.addEventListener('click', () => {
           MemoryStore.delete(item.id);
           renderMemoryManagerUI();
-          toast('已删除该条记忆', 'info');
+          toast(t('settings.memoryDeleted'), 'info');
         });
       }
     }
@@ -701,8 +710,8 @@ export function renderMemoryManagerUI() {
       row.innerHTML = `
         <form class="memory-edit-form">
           <input type="text" class="memory-edit-input" value="${esc(item.content)}" />
-          <button type="submit" class="memory-edit-save-btn">保存</button>
-          <button type="button" class="memory-edit-cancel-btn">取消</button>
+          <button type="submit" class="memory-edit-save-btn">${t('common.save')}</button>
+          <button type="button" class="memory-edit-cancel-btn">${t('common.cancel')}</button>
         </form>
       `;
 
@@ -720,13 +729,13 @@ export function renderMemoryManagerUI() {
           e.preventDefault();
           const newVal = input ? input.value.trim() : '';
           if (!newVal) {
-            toast('记忆内容不能为空，若需删除请点击右侧删除按钮', 'info');
+            toast(t('settings.memoryEmptyWarning'), 'info');
             renderViewMode();
             return;
           }
           if (newVal !== item.content) {
             MemoryStore.update(item.id, newVal);
-            toast('已更新记忆内容', 'info');
+            toast(t('settings.memoryUpdated'), 'info');
             renderMemoryManagerUI();
           } else {
             renderViewMode();
@@ -759,7 +768,12 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
   voices.forEach((v) => {
     const opt = document.createElement('option');
     opt.value = v.id;
-    opt.textContent = v.name;
+    if (v.i18nKey) {
+      opt.setAttribute('data-i18n', v.i18nKey);
+      opt.textContent = t(v.i18nKey) || v.name;
+    } else {
+      opt.textContent = v.name;
+    }
     el.settingsTtsVoice.appendChild(opt);
   });
   const desired = targetVoiceId || state.ttsVoice || '';
@@ -768,12 +782,9 @@ export function syncSettingsTtsVoiceOptions(modelId, targetVoiceId = null) {
     el.settingsTtsVoice.value = match.id;
     state.ttsVoice = match.id;
   } else {
-    const def = voices.find((v) => v.default) || voices[0];
-    if (def) {
-      el.settingsTtsVoice.value = def.id;
-      state.ttsVoice = def.id;
-      localStorage.setItem(LS.ttsVoice, def.id);
-    }
+    const fallback = voices[0] ? voices[0].id : '';
+    el.settingsTtsVoice.value = fallback;
+    state.ttsVoice = fallback;
   }
   syncSettingsPicker(el.settingsTtsVoice);
 }
@@ -786,24 +797,35 @@ export function syncVadSettingsUI(vadEngine) {
   if (vadEngine === 'silero-onnx') {
     if (sileroVAD.isReady()) {
       el.settingsVadBadge.classList.add('vad-onnx-badge');
-      el.settingsVadStatusText.textContent = 'Silero 深度神经网络已就绪（ONNX WebAssembly · 极致抗噪 · 离线可用）';
+      el.settingsVadStatusText.textContent = state.lang === 'en'
+        ? 'Silero neural VAD ready (ONNX WebAssembly · extreme noise suppression · offline)'
+        : 'Silero 深度神经网络已就绪（ONNX WebAssembly · 极致抗噪 · 离线可用）';
     } else if (sileroVAD.status === 'loading') {
       el.settingsVadBadge.classList.add('vad-loading-badge');
-      el.settingsVadStatusText.textContent = '正在下载并编译 Silero ONNX 模型权重 (约 2.2MB)...';
+      el.settingsVadStatusText.textContent = state.lang === 'en'
+        ? 'Downloading & compiling Silero ONNX model (~2.2MB)...'
+        : '正在下载并编译 Silero ONNX 模型权重 (约 2.2MB)...';
     } else if (sileroVAD.status === 'error') {
       el.settingsVadBadge.classList.add('vad-error-badge');
-      el.settingsVadStatusText.textContent = `ONNX 模型加载异常: ${sileroVAD.errorMessage || '网络受限'}，已自动降级为能量 VAD`;
+      el.settingsVadStatusText.textContent = state.lang === 'en'
+        ? `ONNX load error: ${sileroVAD.errorMessage || 'network error'}, downgraded to Energy VAD`
+        : `ONNX 模型加载异常: ${sileroVAD.errorMessage || '网络受限'}，已自动降级为能量 VAD`;
     } else {
       el.settingsVadBadge.classList.add('vad-onnx-badge');
-      el.settingsVadStatusText.textContent = 'Silero 深度神经网络引擎（选择后将自动下载 2.2MB 模型并永久离线缓存）';
+      el.settingsVadStatusText.textContent = state.lang === 'en'
+        ? 'Silero neural VAD (downloads 2.2MB model once and permanently caches offline)'
+        : 'Silero 深度神经网络引擎（选择后将自动下载 2.2MB 模型并永久离线缓存）';
     }
   } else {
     // energy
-    el.settingsVadStatusText.textContent = '端侧能量自适应 VAD 已启用（零网络消耗 · 0ms 启动 · 智能静音切除）';
+    el.settingsVadStatusText.textContent = state.lang === 'en'
+      ? 'Client-side energy adaptive VAD active (zero network overhead · 0ms startup · silence cutting)'
+      : '端侧能量自适应 VAD 已启用（零网络消耗 · 0ms 启动 · 智能静音切除）';
   }
 }
 
 export function renderSettingsState() {
+  syncLangPillsUI(state.lang);
   if (el.settingsInstructions) {
     el.settingsInstructions.value = state.instructions || '';
   }
@@ -870,7 +892,7 @@ export function saveSettings() {
   localStorage.setItem(LS.ttsVoice, ttsVoice);
 
   closeSettingsModal();
-  toast('偏好设置已保存并应用', 'info');
+  toast(t('settings.settingsSaved') || '偏好设置已保存并应用', 'info');
 }
 
 export function renderAttachments() {
@@ -911,20 +933,20 @@ export function renderConvList() {
 
     const txt = document.createElement('span');
     txt.className = 'txt';
-    txt.textContent = c.title || '新对话';
-    txt.title = '双击可修改标题';
+    txt.textContent = c.title || t('sidebar.newChatTitle');
+    txt.title = t('sidebar.doubleClickToRename');
 
     const actions = document.createElement('span');
     actions.className = 'actions';
 
     const editBtn = document.createElement('button');
     editBtn.className = 'conv-btn edit';
-    editBtn.title = '重命名';
+    editBtn.title = t('sidebar.rename');
     editBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
 
     const delBtn = document.createElement('button');
     delBtn.className = 'conv-btn del';
-    delBtn.title = '删除对话';
+    delBtn.title = t('sidebar.deleteTooltip');
     delBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     function startEdit() {
@@ -971,8 +993,8 @@ export function renderConvList() {
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (state.busy) return;
-      const titleToDel = c.title || '此对话';
-      if (!window.confirm(`确定要删除对话「${titleToDel}」吗？此操作不可撤销。`)) return;
+      const titleToDel = c.title || t('sidebar.newChatTitle') || '此对话';
+      if (!window.confirm(t('sidebar.deleteConfirm', { title: titleToDel }))) return;
       ZenMuxDB.deleteConversation(c.id).then(() => {
         state.conversations = state.conversations.filter((x) => x.id !== c.id);
         if (state.currentId === c.id) {
@@ -989,7 +1011,7 @@ export function renderConvList() {
         }
         syncSend();
       }).catch((err) => {
-        toast(`删除失败: ${err.message}`, 'error');
+        toast(t('sidebar.deleteFailed', { error: err.message }), 'error');
       });
     });
 
@@ -1014,7 +1036,7 @@ export function renderConvList() {
 export function createNewConversation() {
   const c = {
     id: uid(),
-    title: '新对话',
+    title: t('sidebar.newChatTitle') || '新对话',
     messages: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -1047,7 +1069,7 @@ export function loadAllConversations() {
     renderConvList();
     renderThread();
   }).catch((err) => {
-    toast(`读取 IndexedDB 会话失败: ${err.message}`, 'error');
+    toast(state.lang === 'en' ? `Failed to read session from IndexedDB: ${err.message}` : `读取 IndexedDB 会话失败: ${err.message}`, 'error');
   });
 }
 
@@ -1060,7 +1082,7 @@ export function regenerateFrom(asstIndex) {
     userIndex--;
   }
   if (userIndex < 0) {
-    toast('未找到上一轮提问', 'info');
+    toast(t('chat.noPreviousUserMsg') || '未找到上一轮提问', 'info');
     return;
   }
 
@@ -1084,13 +1106,14 @@ export function renderThread() {
   if (!c || !c.messages || !c.messages.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
+    const emptyHint = state.model ? t('chat.emptyWithModel') : t('chat.emptyNoModel');
     empty.innerHTML = `
       <div class="empty-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
       </div>
-      <span>${state.model ? '开始一段对话，支持拖拽代码文件、数据表格与图片分析' : '请先在上方选择模型'}</span>
+      <span>${emptyHint}</span>
     `;
     el.threadInner.appendChild(empty);
     updateSidebarFooter();
@@ -1119,7 +1142,7 @@ export function send() {
   const atts = state.pendingAttachments.slice();
   if ((!text && !atts.length) || state.busy) return;
   if (!state.model) {
-    toast('请先选择模型', 'info');
+    toast(t('chat.selectModelFirst') || '请先选择模型', 'info');
     if (el.modelPickerBtn) {
       el.modelPickerBtn.focus();
       openModelPicker();
@@ -1134,7 +1157,7 @@ export function send() {
 
   const meta = state.modelMeta[state.model];
   if (images.length && meta && !hasVision(meta)) {
-    toast('当前模型不支持图片输入，请切换至支持视觉的模型', 'info');
+    toast(t('chat.noVisionSupport') || '当前模型不支持图片输入，请切换至支持视觉的模型', 'info');
     return;
   }
 
@@ -1158,10 +1181,13 @@ export function send() {
   if (files.length) {
     const fileContextBlocks = files.map((f) => {
       const lang = f.ext || 'text';
-      return `--- 附件文件: ${f.name} (${formatSize(f.size)}${f.lines ? `, ${f.lines}行` : ''}) ---\n\`\`\`${lang}\n${f.text}\n\`\`\`\n--- 附件结束 ---`;
+      const linesInfo = f.lines ? (state.lang === 'en' ? `, ${f.lines} lines` : `, ${f.lines}行`) : '';
+      const header = state.lang === 'en' ? `--- Attached File: ${f.name} (${formatSize(f.size)}${linesInfo}) ---` : `--- 附件文件: ${f.name} (${formatSize(f.size)}${linesInfo}) ---`;
+      const footer = state.lang === 'en' ? '--- End of Attachment ---' : '--- 附件结束 ---';
+      return `${header}\n\`\`\`${lang}\n${f.text}\n\`\`\`\n${footer}`;
     }).join('\n\n');
 
-    fullPrompt = fileContextBlocks + (text ? '\n\n' + text : '\n\n请分析以上文件内容。');
+    fullPrompt = fileContextBlocks + (text ? '\n\n' + text : (state.lang === 'en' ? '\n\nPlease analyze the uploaded file contents above.' : '\n\n请分析以上文件内容。'));
   }
 
   if (first && !c.customTitle) {
@@ -1215,7 +1241,7 @@ export function showGate(err = '', isLoading = false) {
   }
   if (el.gateGo) {
     el.gateGo.disabled = isLoading;
-    el.gateGo.textContent = isLoading ? '正在验证…' : '验证并进入';
+    el.gateGo.textContent = isLoading ? (state.lang === 'en' ? 'Verifying...' : '正在验证…') : (t('gate.btn') || '验证并进入');
   }
   if (!isLoading && el.gateInput) {
     setTimeout(() => { if (el.gateInput) el.gateInput.focus(); }, 40);
@@ -1275,15 +1301,15 @@ export async function submitGate() {
   if (!el.gateInput) return;
   const v = el.gateInput.value.trim();
   if (!v) {
-    showGate('请输入访问口令');
+    showGate(t('gate.emptyToken') || '请输入访问口令');
     return;
   }
   showGate('', true);
 
   try {
     const res = await fetch('/api/models', { headers: { 'X-Access-Token': v } });
-    if (res.status === 401) throw new Error('访问口令无效或已被管理员停用');
-    if (!res.ok) throw new Error(`服务端异常 (HTTP ${res.status})`);
+    if (res.status === 401) throw new Error(t('errors.unauthorized') || '访问口令无效或已被管理员停用');
+    if (!res.ok) throw new Error(state.lang === 'en' ? `Server error (HTTP ${res.status})` : `服务端异常 (HTTP ${res.status})`);
     const data = await res.json();
     const modelsList = (data && data.data) || [];
 
@@ -1542,12 +1568,12 @@ function initEventListeners() {
         }).then(() => {
           if (state.vadEngine === 'silero-onnx') {
             syncVadSettingsUI('silero-onnx');
-            toast('Silero ONNX 深度学习 VAD 模型已就绪', 'info');
+            toast(state.lang === 'en' ? 'Silero ONNX neural VAD model is ready' : 'Silero ONNX 深度学习 VAD 模型已就绪', 'info');
           }
         }).catch((err) => {
           if (state.vadEngine === 'silero-onnx') {
             syncVadSettingsUI('silero-onnx');
-            toast(`Silero ONNX 加载失败: ${err.message || err}`, 'error');
+            toast(state.lang === 'en' ? `Silero ONNX failed to load: ${err.message || err}` : `Silero ONNX 加载失败: ${err.message || err}`, 'error');
           }
         });
       }
@@ -1559,7 +1585,7 @@ function initEventListeners() {
     el.settingsMemoryToggle.addEventListener('change', (e) => {
       state.memoryEnabled = e.target.checked;
       localStorage.setItem(LS.memoryEnabled, String(e.target.checked));
-      toast(e.target.checked ? '已开启长程记忆功能' : '已关闭长程记忆功能', 'info');
+      toast(e.target.checked ? t('settings.memoryToggleToastOn') : t('settings.memoryToggleToastOff'), 'info');
     });
   }
 
@@ -1570,7 +1596,7 @@ function initEventListeners() {
     MemoryStore.add(text);
     el.settingsMemoryInput.value = '';
     renderMemoryManagerUI();
-    toast('已添加新记忆', 'info');
+    toast(t('settings.memoryAdded'), 'info');
   }
 
   if (el.settingsMemoryAddBtn) {
@@ -1589,10 +1615,10 @@ function initEventListeners() {
     el.settingsMemoryClearBtn.addEventListener('click', () => {
       const count = MemoryStore.getAll().length;
       if (count === 0) return;
-      if (confirm(`确定要清空全部 ${count} 条长期记忆吗？此操作不可恢复。`)) {
+      if (confirm(t('settings.memoryClearConfirm', { count }))) {
         MemoryStore.clear();
         renderMemoryManagerUI();
-        toast('已清空所有长期记忆', 'info');
+        toast(t('settings.memoryCleared'), 'info');
       }
     });
   }
@@ -1602,6 +1628,10 @@ function initEventListeners() {
     renderMemoryManagerUI();
   });
 
+  // Language Pills in Settings Modal
+  if (el.langPillZh) el.langPillZh.addEventListener('click', () => setLanguage('zh'));
+  if (el.langPillEn) el.langPillEn.addEventListener('click', () => setLanguage('en'));
+
   // Theme Pills in Settings Modal
   if (el.themePillDark) el.themePillDark.addEventListener('click', () => applyTheme('dark'));
   if (el.themePillLight) el.themePillLight.addEventListener('click', () => applyTheme('light'));
@@ -1610,7 +1640,14 @@ function initEventListeners() {
   // Prompt Preset Chips in Settings Modal
   document.querySelectorAll('.prompt-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      const promptText = chip.getAttribute('data-prompt') || '';
+      const presetKey = chip.getAttribute('data-preset');
+      let promptText = '';
+      if (presetKey === 'engineer') promptText = t('settings.presetEngineerPrompt');
+      else if (presetKey === 'scholar') promptText = t('settings.presetScholarPrompt');
+      else if (presetKey === 'minimal') promptText = t('settings.presetMinimalPrompt');
+      else if (presetKey === 'translator') promptText = t('settings.presetTranslatorPrompt');
+      else promptText = chip.getAttribute('data-prompt') || '';
+
       if (el.settingsInstructions) {
         el.settingsInstructions.value = promptText;
         updateSettingsCharCount();
@@ -1618,6 +1655,23 @@ function initEventListeners() {
         el.settingsInstructions.focus();
       }
     });
+  });
+
+  // Hot zero-reload language change listener
+  window.addEventListener('languagechange', () => {
+    syncLangPillsUI();
+    syncPluginsUI();
+    renderPluginsModalList();
+    renderMemoryManagerUI();
+    updateSettingsCharCount();
+    updateSidebarFooter();
+    renderThread();
+    if (state.rawModelList && state.rawModelList.length) {
+      fillModels(state.rawModelList);
+    } else {
+      syncModelPickerUI();
+    }
+    syncModelCapabilities();
   });
 
   // Lightbox close listeners
@@ -1691,6 +1745,9 @@ function initEventListeners() {
 
 /* ---------- Bootstrap Application Lifecycle ---------- */
 export async function initApp() {
+  initI18n();
+  syncLangPillsUI();
+
   document.querySelectorAll('.app-version-badge').forEach((badge) => {
     badge.textContent = 'v' + APP_VERSION;
   });
@@ -1723,8 +1780,8 @@ export async function initApp() {
 
     try {
       const res = await fetch('/api/models', { headers: { 'X-Access-Token': savedToken } });
-      if (res.status === 401) throw new Error('访问口令已失效或未授权，请重新输入');
-      if (!res.ok) throw new Error(`服务端验证异常 (HTTP ${res.status})`);
+      if (res.status === 401) throw new Error(t('errors.unauthorized') || (state.lang === 'en' ? 'Access token has expired or is unauthorized. Please re-enter.' : '访问口令已失效或未授权，请重新输入'));
+      if (!res.ok) throw new Error(state.lang === 'en' ? `Server verification error (HTTP ${res.status})` : `服务端验证异常 (HTTP ${res.status})`);
       const data = await res.json();
       const modelsList = (data && data.data) || [];
 
