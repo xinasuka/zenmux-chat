@@ -457,13 +457,13 @@
           <div class="settings-asr-container">
             <select id="settings-asr-model" class="settings-select">
               <optgroup label="推荐中文大模型 (高精度 · 强抗噪 · 极致性价比)" data-i18n-label="settings.asrOptgroupChinese">
-                <option value="bytedance/doubao-seed-asr-2.0">火山引擎 豆包大模型 ASR (Doubao-Seed-ASR-2.0) · 推荐</option>
-                <option value="qwen/qwen3-asr-flash">阿里 Qwen3 ASR Flash (非自回归毫秒级秒出)</option>
-                <option value="xiaomi/mimo-v2.5-asr">小米 MiMo-V2.5-ASR (中英双语 · 方言抗噪)</option>
+                <option value="bytedance/doubao-seed-asr-2.0" data-i18n="settings.asrDoubao">火山引擎 豆包大模型 ASR (Doubao-Seed-ASR-2.0) · 推荐</option>
+                <option value="qwen/qwen3-asr-flash" data-i18n="settings.asrQwen">阿里 Qwen3 ASR Flash (非自回归毫秒级秒出)</option>
+                <option value="xiaomi/mimo-v2.5-asr" data-i18n="settings.asrMimo">小米 MiMo-V2.5-ASR (中英双语 · 方言抗噪)</option>
               </optgroup>
               <optgroup label="国际通用与多语言大模型" data-i18n-label="settings.asrOptgroupGlobal">
-                <option value="x-ai/grok-voice-stt-1.0">xAI Grok Voice STT 1.0 (词级时间戳 · 超高性价比)</option>
-                <option value="openai/gpt-transcribe">OpenAI GPT Transcribe (高精度多语种转写 · 标点纠错)</option>
+                <option value="x-ai/grok-voice-stt-1.0" data-i18n="settings.asrGrok">xAI Grok Voice STT 1.0 (词级时间戳 · 超高性价比)</option>
+                <option value="openai/gpt-transcribe" data-i18n="settings.asrGpt">OpenAI GPT Transcribe (高精度多语种转写 · 标点纠错)</option>
               </optgroup>
             </select>
             <div class="settings-subrow">
@@ -492,9 +492,9 @@
           <div class="settings-tts-container">
             <select id="settings-tts-model" class="settings-select">
               <optgroup label="推荐云端大模型 (超自然音色 · 细腻拟真)" data-i18n-label="settings.ttsOptgroupCloud">
-                <option value="google/gemini-3.1-flash-tts-preview">Google Gemini 3.1 Flash TTS Preview (70+ 多语言 · 细腻情感) · 推荐</option>
-                <option value="qwen/qwen-audio-3.0-tts-plus">阿里通义千问 Qwen-Audio-3.0-TTS-Plus (顶级中文与方言)</option>
-                <option value="x-ai/grok-voice-tts-1.0">xAI Grok Voice TTS 1.0 (拟真语调 · 动态表达)</option>
+                <option value="google/gemini-3.1-flash-tts-preview" data-i18n="settings.ttsGemini">Google Gemini 3.1 Flash TTS Preview (70+ 多语言 · 细腻情感) · 推荐</option>
+                <option value="qwen/qwen-audio-3.0-tts-plus" data-i18n="settings.ttsQwen">阿里通义千问 Qwen-Audio-3.0-TTS-Plus (顶级中文与方言)</option>
+                <option value="x-ai/grok-voice-tts-1.0" data-i18n="settings.ttsGrok">xAI Grok Voice TTS 1.0 (拟真语调 · 动态表达)</option>
               </optgroup>
               <optgroup label="本地设备原生引擎 (零网络消耗 · 离线可用)" data-i18n-label="settings.ttsOptgroupLocal">
                 <option value="browser" data-i18n="settings.ttsBrowserOption" selected>浏览器本地原生语音 (Web Speech API)</option>
@@ -503,25 +503,25 @@
             <div id="settings-tts-voice-row" class="settings-subrow" style="display: none;">
               <label for="settings-tts-voice" class="settings-sublabel" data-i18n="settings.ttsVoiceLabel">发音音色 (Voice):</label>
               <select id="settings-tts-voice" class="settings-select settings-subselect">
-                <optgroup label="Google 拟真音色 (Gemini)">
-                  <option value="Kore" selected>Kore (知性自然女声 · 推荐)</option>
-                  <option value="Puck">Puck (活力生动男声)</option>
-                  <option value="Aoede">Aoede (温和优雅女声)</option>
-                  <option value="Fenrir">Fenrir (沉稳磁性男声)</option>
-                  <option value="Charon">Charon (深沉专业男声)</option>
+                <optgroup label="Google 拟真音色 (Gemini)" data-i18n-label="settings.ttsVoiceOptgroupGoogle">
+                  <option value="Kore" data-i18n="settings.ttsVoiceKore" selected>Kore (知性自然女声 · 推荐)</option>
+                  <option value="Puck" data-i18n="settings.ttsVoicePuck">Puck (活力生动男声)</option>
+                  <option value="Aoede" data-i18n="settings.ttsVoiceAoede">Aoede (温和优雅女声)</option>
+                  <option value="Fenrir" data-i18n="settings.ttsVoiceFenrir">Fenrir (沉稳磁性男声)</option>
+                  <option value="Charon" data-i18n="settings.ttsVoiceCharon">Charon (深沉专业男声)</option>
                 </optgroup>
-                <optgroup label="xAI 拟真音色 (Grok)">
-                  <option value="Ara">Ara (亲切温暖女声 · 推荐)</option>
-                  <option value="Eve">Eve (活力明快女声)</option>
-                  <option value="Leo">Leo (沉稳权威男声)</option>
-                  <option value="Rex">Rex (自信清晰男声)</option>
-                  <option value="Sal">Sal (平衡自然男声)</option>
+                <optgroup label="xAI 拟真音色 (Grok)" data-i18n-label="settings.ttsVoiceOptgroupXai">
+                  <option value="Ara" data-i18n="settings.ttsVoiceAra">Ara (亲切温暖女声 · 推荐)</option>
+                  <option value="Eve" data-i18n="settings.ttsVoiceEve">Eve (活力明快女声)</option>
+                  <option value="Leo" data-i18n="settings.ttsVoiceLeo">Leo (沉稳权威男声)</option>
+                  <option value="Rex" data-i18n="settings.ttsVoiceRex">Rex (自信清晰男声)</option>
+                  <option value="Sal" data-i18n="settings.ttsVoiceSal">Sal (平衡自然男声)</option>
                 </optgroup>
-                <optgroup label="阿里通义音色 (Qwen)">
-                  <option value="longanlingxin">灵心 (温暖亲切女声 · 推荐)</option>
-                  <option value="longanlufeng">陆峰 (阳光明快男声)</option>
-                  <option value="loongalexanderhubase">Alexander (沉稳从容男声)</option>
-                  <option value="loongivyhubase">Ivy (知性干练女声)</option>
+                <optgroup label="阿里通义音色 (Qwen)" data-i18n-label="settings.ttsVoiceOptgroupQwen">
+                  <option value="longanlingxin" data-i18n="settings.ttsVoiceLingxin">灵心 (温暖亲切女声 · 推荐)</option>
+                  <option value="longanlufeng" data-i18n="settings.ttsVoiceLufeng">陆峰 (阳光明快男声)</option>
+                  <option value="loongalexanderhubase" data-i18n="settings.ttsVoiceAlexander">Alexander (沉稳从容男声)</option>
+                  <option value="loongivyhubase" data-i18n="settings.ttsVoiceIvy">Ivy (知性干练女声)</option>
                 </optgroup>
               </select>
             </div>

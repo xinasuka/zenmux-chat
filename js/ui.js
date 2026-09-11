@@ -901,12 +901,12 @@ export function initSettingsPickers() {
       const secTitle = sel.closest('.settings-section')?.querySelector('.settings-section-title');
       derivedTitle = secTitle ? secTitle.textContent.trim() : '';
     }
-    sheetTitle.textContent = derivedTitle || '选择配置项';
+    sheetTitle.textContent = derivedTitle || t('settings.selectOption');
 
     const sheetClose = document.createElement('button');
     sheetClose.className = 'settings-picker-sheet-close';
     sheetClose.type = 'button';
-    sheetClose.setAttribute('aria-label', '关闭');
+    sheetClose.setAttribute('aria-label', t('common.close'));
     sheetClose.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     sheetClose.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -936,7 +936,15 @@ export function initSettingsPickers() {
     function syncUI() {
       btn.disabled = !!sel.disabled;
       const activeOpt = Array.from(sel.options).find((o) => o.value === sel.value) || sel.options[0];
-      label.textContent = activeOpt ? activeOpt.textContent : '';
+      let activeText = activeOpt ? activeOpt.textContent : '';
+      if (activeText.includes('· 推荐') || activeText.includes('· Recommended')) {
+        const badgeWord = state.lang === 'en' ? 'Recommended' : '推荐';
+        activeText = activeText.replace(/\s*·\s*(?:推荐|Recommended)(?=\)?)/i, '') + ' · ' + badgeWord;
+      } else if (activeText.includes('· 默认') || activeText.includes('· Default')) {
+        const badgeWord = state.lang === 'en' ? 'Default' : '默认';
+        activeText = activeText.replace(/\s*·\s*(?:默认|Default)(?=\)?)/i, '') + ' · ' + badgeWord;
+      }
+      label.textContent = activeText;
 
       panel.querySelectorAll('.settings-picker-item').forEach((item) => {
         const isMatch = item.getAttribute('data-value') === sel.value;
@@ -1016,6 +1024,18 @@ export function initSettingsPickers() {
     }
 
     function renderOptions() {
+      let currentTitle = '';
+      if (isSubselect) {
+        const sublabel = sel.closest('.settings-subrow')?.querySelector('.settings-sublabel');
+        currentTitle = sublabel ? sublabel.textContent.replace(/[:：]/g, '').trim() : '';
+      }
+      if (!currentTitle) {
+        const secTitle = sel.closest('.settings-section')?.querySelector('.settings-section-title');
+        currentTitle = secTitle ? secTitle.textContent.trim() : '';
+      }
+      sheetTitle.textContent = currentTitle || t('settings.selectOption');
+      sheetClose.setAttribute('aria-label', t('common.close'));
+
       listContainer.innerHTML = '';
       const children = Array.from(sel.children);
       const hasOptgroups = children.some((c) => c.tagName === 'OPTGROUP');

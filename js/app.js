@@ -169,11 +169,12 @@ function isFree(m) {
 
 export function fillModels(list) {
   if (!el.model) return;
+  state.rawModelList = list;
   el.model.innerHTML = '';
   state.modelMeta = {};
   const ph = document.createElement('option');
   ph.value = '';
-  ph.textContent = list.length ? '选择模型…' : '无可用模型';
+  ph.textContent = list.length ? t('models.selectModelPlaceholder') : t('models.noModelsAvailable');
   el.model.appendChild(ph);
 
   const imageModels = [];
@@ -189,7 +190,7 @@ export function fillModels(list) {
     if (hasImageGen(m)) {
       imageModels.push(m);
     } else {
-      const g = m.owned_by || '其他';
+      const g = m.owned_by || t('models.otherGroup');
       (textGroups[g] = textGroups[g] || []).push(m);
     }
   });
@@ -197,7 +198,7 @@ export function fillModels(list) {
   // 1. 独立专区：图像生成专区（置顶呈现，不与文本模型混杂）
   if (imageModels.length > 0) {
     const imgGroup = document.createElement('optgroup');
-    imgGroup.label = '图像生成 (Image Generation)';
+    imgGroup.label = t('models.imageGenGroup');
 
     // 依展示名称或 ID 进行自然排序
     imageModels.sort((a, b) => (a.display_name || a.id).localeCompare(b.display_name || b.id));
@@ -207,8 +208,8 @@ export function fillModels(list) {
       o.value = m.id;
       // 呈现精炼、高可读性的标签，统一附带 ·生图 标牌与免费状态
       let label = m.display_name || m.id;
-      label += ' ·生图';
-      if (isFree(m)) label += ' ·免费';
+      label += ' ·' + t('models.imageGen');
+      if (isFree(m)) label += ' ·' + t('models.free');
       o.textContent = label;
       imgGroup.appendChild(o);
     });
@@ -223,9 +224,9 @@ export function fillModels(list) {
       const o = document.createElement('option');
       o.value = m.id;
       let label = m.display_name || m.id;
-      if (hasVision(m)) label += ' ·视觉';
-      if (m.capabilities && m.capabilities.reasoning) label += ' ·推理';
-      if (isFree(m)) label += ' ·免费';
+      if (hasVision(m)) label += ' ·' + t('models.vision');
+      if (m.capabilities && m.capabilities.reasoning) label += ' ·' + t('models.reasoning');
+      if (isFree(m)) label += ' ·' + t('models.free');
       o.textContent = label;
       og.appendChild(o);
     });
@@ -272,19 +273,19 @@ function createModelPickerItem(m, isImage = false) {
   if (isImage || hasImageGen(m)) {
     const pill = document.createElement('span');
     pill.className = 'model-pill model-pill-image';
-    pill.textContent = '生图';
+    pill.textContent = t('models.imageGen');
     badges.appendChild(pill);
   } else {
     if (hasVision(m)) {
       const pill = document.createElement('span');
       pill.className = 'model-pill model-pill-vision';
-      pill.textContent = '视觉';
+      pill.textContent = t('models.vision');
       badges.appendChild(pill);
     }
     if (m.capabilities && m.capabilities.reasoning) {
       const pill = document.createElement('span');
       pill.className = 'model-pill model-pill-reasoning';
-      pill.textContent = '推理';
+      pill.textContent = t('models.reasoning');
       badges.appendChild(pill);
     }
   }
@@ -292,7 +293,7 @@ function createModelPickerItem(m, isImage = false) {
   if (isFree(m)) {
     const pill = document.createElement('span');
     pill.className = 'model-pill model-pill-free';
-    pill.textContent = '免费';
+    pill.textContent = t('models.free');
     badges.appendChild(pill);
   }
 
@@ -348,7 +349,7 @@ export function renderCustomModelPicker(imageModels, textGroups) {
   el.modelPickerList.innerHTML = '';
 
   if (imageModels.length > 0) {
-    const sec = createModelGroupSection('图像生成 (Image Generation)', imageModels, true);
+    const sec = createModelGroupSection(t('models.imageGenGroup'), imageModels, true);
     el.modelPickerList.appendChild(sec);
   }
 
@@ -379,7 +380,7 @@ export function syncModelPickerUI() {
   if (meta && meta.display_name) {
     labelText = meta.display_name;
   } else if (!currentId) {
-    labelText = '选择模型…';
+    labelText = t('models.selectModelPlaceholder');
   }
 
   if (el.modelPickerLabel) {
@@ -1657,7 +1658,11 @@ function initEventListeners() {
     updateSettingsCharCount();
     updateSidebarFooter();
     renderThread();
-    syncModelPickerUI();
+    if (state.rawModelList && state.rawModelList.length) {
+      fillModels(state.rawModelList);
+    } else {
+      syncModelPickerUI();
+    }
   });
 
   // Lightbox close listeners
