@@ -2097,6 +2097,9 @@
   .theme-segmented-group{
     display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:2px;
   }
+  .lang-segmented-group{
+    grid-template-columns:repeat(2,1fr);
+  }
   .theme-pill{
     display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;
     background:var(--bg-elev);border:1px solid var(--line);border-radius:9px;

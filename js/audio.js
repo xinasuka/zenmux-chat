@@ -7,6 +7,7 @@
 
 import { state, el, LS } from './state.js';
 import { sileroVAD } from './vad-onnx.js';
+import { t } from './i18n.js';
 
 /**
  * 将任意输入采样率的高精度 Float32Array 缓冲区线性下采样至 16,000 Hz 单声道
@@ -802,7 +803,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         el.voiceTimer.style.background = '';
       }
       if (el.voiceStatus) {
-        el.voiceStatus.textContent = '正在聆听…';
+        el.voiceStatus.textContent = t('composer.voiceListening') || '正在聆听…';
         el.voiceStatus.style.color = '';
       }
       clearInterval(voiceTimerInterval);
@@ -820,14 +821,14 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         if (secondsElapsed >= 6 && (!rec.speechStarted || rec.validSpeechFramesCount < 6)) {
           clearInterval(voiceTimerInterval);
           rec.cancel();
-          toast('未检测到有效声音输入', 'info');
+          toast(t('composer.voiceNoAudio') || '未检测到有效声音输入', 'info');
           return;
         }
 
         // 临近 60 秒上限时（剩余 10 秒以内）给予视觉倒数预警
         if (remaining <= 10 && remaining > 0) {
           if (el.voiceStatus) {
-            el.voiceStatus.textContent = `即将达到上限 (还剩 ${remaining}秒)`;
+            el.voiceStatus.textContent = t('composer.voiceApproachingLimit', { remaining });
             el.voiceStatus.style.color = '#ff6b6b';
           }
           if (el.voiceTimer) {
@@ -836,7 +837,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
           }
         } else if (remaining <= 0) {
           clearInterval(voiceTimerInterval);
-          if (el.voiceStatus) el.voiceStatus.textContent = '已达上限，正在转录…';
+          if (el.voiceStatus) el.voiceStatus.textContent = t('composer.voiceLimitReached') || '已达上限，正在转录…';
           const rec = ensureRecorder();
           if (rec.state === 'listening') {
             rec.stop();
@@ -848,14 +849,14 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // 1. Button indicates transcribing
       el.voiceBtn.classList.add('transcribing');
       el.voiceBtn.innerHTML = SPINNER_ICON_SVG;
-      el.voiceBtn.title = '正在转录文本...';
+      el.voiceBtn.title = t('composer.voiceTranscribing') || '正在转录文本...';
 
       // 2. Stop timer and update prompt area status
       clearInterval(voiceTimerInterval);
       overlay.style.display = 'flex';
       overlay.classList.add('is-transcribing');
       if (el.voiceStatus) {
-        el.voiceStatus.textContent = '正在转录文本...';
+        el.voiceStatus.textContent = t('composer.voiceTranscribing') || '正在转录文本...';
         el.voiceStatus.style.color = '';
       }
       if (el.voiceTimer) {
@@ -868,7 +869,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       // Idle / Finished
       clearInterval(voiceTimerInterval);
       el.voiceBtn.innerHTML = MIC_ICON_SVG;
-      el.voiceBtn.title = '语音输入（VAD 智能切除静音，云端大模型高精度识别）';
+      el.voiceBtn.title = t('composer.voiceTitle') || '语音输入';
 
       // Restore textarea prompt area
       overlay.style.display = 'none';
@@ -905,7 +906,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
             autoGrow();
             syncSend();
           }
-          toast('语音识别完成', 'info');
+          toast(t('composer.voiceCompleted') || '语音识别完成', 'info');
         },
         onNotice: (msg) => {
           updateVoiceUI('idle');

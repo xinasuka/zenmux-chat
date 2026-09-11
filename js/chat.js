@@ -4,6 +4,7 @@ import { PluginRegistry } from './plugins.js';
 import { MemoryStore } from './memory.js';
 import { renderMd, renderParts } from './markdown.js';
 import { appendBubble, createSourcesElement, createActionsToolbar, createImageCard, TitleExtractor, toast, updateSidebarFooter } from './ui.js';
+import { t } from './i18n.js';
 
 export function explainError(raw, status) {
   let outer = {}, inner = {};
@@ -13,25 +14,25 @@ export function explainError(raw, status) {
   const type = inner.type || '';
 
   if (status === 402 || type === 'reject_no_credit') {
-    return '该模型要求账户余额大于 0（ZenMux 的防滥用策略，不是扣费）。充一点余额即可解锁。';
+    return t('errors.noCredit');
   }
   if (status === 429 || type === 'rate_limit') {
-    return '该模型当前访问量过大被限流，稍后重试或换一个模型。';
+    return t('errors.rateLimit');
   }
-  if (status === 401) return '访问口令不正确，请点右上角退出后重新输入。';
-  if (status === 400) return '请求被上游拒绝：' + (upMsg || '参数格式不被该模型支持');
+  if (status === 401) return t('errors.unauthorized');
+  if (status === 400) return t('errors.rejected', { message: upMsg || t('errors.unsupportedFormat') });
   if (status === 504 || (typeof raw === 'string' && (raw.includes('CLOUD_FUNCTION_INVOCATION_TIMEOUT') || raw.includes('504')))) {
-    return '生图超时 (HTTP 504)：上游模型渲染耗时过长，超出了边缘函数执行时限。建议稍后重试或尝试切换其他生图模型。';
+    return t('errors.imageTimeout');
   }
   if (status === 502) {
-    if (outer.error) return `网关异常 (HTTP 502)：${outer.error}`;
-    return '边缘节点连接 ZenMux 失败，稍后重试。';
+    if (outer.error) return t('errors.gateway502', { error: outer.error });
+    return t('errors.edgeFail');
   }
   if (status === 500 && /ZENMUX_API_KEY/.test(raw)) {
-    return '服务端未配置 ZENMUX_API_KEY，请到 EdgeOne 控制台补上环境变量并重新部署。';
+    return t('errors.missingApiKey');
   }
   if (typeof raw === 'string' && (raw.includes('<html') || raw.includes('<!doctype html'))) {
-    return `边缘网关返回异常状态 (HTTP ${status || 500})，服务暂时不可用，请稍后重试。`;
+    return t('errors.serviceUnavailable', { status: status || 500 });
   }
 }
 
@@ -283,11 +284,11 @@ export async function executeAssistantStream(userMsg, options = {}) {
     })
       .then((res) => {
         if (!res.ok) {
-          return res.text().then((t) => {
-            throw new Error(explainError(t, res.status));
+          return res.text().then((errTxt) => {
+            throw new Error(explainError(errTxt, res.status));
           });
         }
-        if (!res.body) throw new Error('服务端未返回流，反代可能不支持 SSE');
+        if (!res.body) throw new Error(t('errors.noStreamBody'));
 
         return pump(res, (cDelta, rDelta, done, lastUsage) => {
           if (rDelta) reasonAcc += rDelta;
@@ -552,7 +553,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
 
     if (!res.ok) {
       const errText = await res.text();
-      let msg = explainError(errText, res.status) || `生图失败 (HTTP ${res.status}): ${errText}`;
+      let msg = explainError(errText, res.status) || t('errors.imageGenFailed', { status: res.status, detail: errText });
       throw new Error(msg);
     }
 
@@ -579,7 +580,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
             const elapsed = Math.max(1, Math.round((Date.now() - startTime) / 1000));
             const tipEl = skeletonCard.querySelector('.img-card-skeleton-text') || skeletonCard.querySelector('.image-card-tip');
             if (tipEl) {
-              tipEl.textContent = `正在调度生图引擎渲染画面 (${elapsed}s)...`;
+              tipEl.textContent = t('chat.imageRenderingProgress', { elapsed });
             }
             continue;
           }
@@ -602,9 +603,9 @@ export async function executeImageGeneration(userMsg, options = {}) {
             } catch (_) {
               parsedErr = { error: rawData };
             }
-            const errDetail = parsedErr.error || parsedErr.message || '图像生成服务异常';
+            const errDetail = parsedErr.error || parsedErr.message || t('errors.imageServiceError');
             const status = parsedErr.status || 500;
-            const explained = explainError(errDetail, status) || `生图失败 (HTTP ${status}): ${errDetail}`;
+            const explained = explainError(errDetail, status) || t('errors.imageGenFailed', { status, detail: errDetail });
             throw new Error(explained);
           }
         }
@@ -639,7 +640,7 @@ export async function executeImageGeneration(userMsg, options = {}) {
     const rawB64 = item && (item.b64_json || item.bytesBase64Encoded || item.imageBytes);
     const b64Data = rawB64 ? String(rawB64).replace(/^data:image\/[a-z]+;base64,/i, '').replace(/\s+/g, '') : '';
     if (!item || (!b64Data && !item.url)) {
-      throw new Error((data && data.error) || '上游未返回有效的图像数据');
+      throw new Error((data && data.error) || t('errors.noValidImageData'));
     }
 
     let blob = null;
@@ -728,10 +729,10 @@ export async function executeImageGeneration(userMsg, options = {}) {
 
   } catch (err) {
     if (err.name === 'AbortError') {
-      skeletonCard.innerHTML = '<div class="msg-text" style="color:var(--fg-dim);padding:8px">已取消图像生成。</div>';
+      skeletonCard.innerHTML = `<div class="msg-text" style="color:var(--fg-dim);padding:8px">${t('chat.imageCancelled')}</div>`;
     } else {
       toast(err.message || String(err), 'error');
-      skeletonCard.innerHTML = `<div class="msg-text" style="color:var(--danger);padding:8px">图像生成失败：${esc(err.message)}</div>`;
+      skeletonCard.innerHTML = `<div class="msg-text" style="color:var(--danger);padding:8px">${t('chat.imageFailed', { message: esc(err.message) })}</div>`;
     }
   } finally {
     state.busy = false;

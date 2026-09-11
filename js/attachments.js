@@ -2,6 +2,7 @@
 // Client-side Canvas image resampler, text/code extractor, PDF parser, and attachment tray rendering.
 
 import { uid, formatSize } from './state.js';
+import { t } from './i18n.js';
 
 export const ImageProcessor = {
   MAX_DIMENSION: 1600,
@@ -11,10 +12,10 @@ export const ImageProcessor = {
   processFile(file) {
     return new Promise((resolve, reject) => {
       if (!file || !file.type || file.type.indexOf('image/') !== 0) {
-        return reject(new Error('所选文件不是有效的图片格式'));
+        return reject(new Error(t('attachments.invalidImageFormat')));
       }
       if (file.size > this.MAX_FILE_SIZE_MB * 1024 * 1024) {
-        return reject(new Error(`图片大小超过 ${this.MAX_FILE_SIZE_MB}MB 上限`));
+        return reject(new Error(t('attachments.imageTooLarge', { max: this.MAX_FILE_SIZE_MB })));
       }
 
       const reader = new FileReader();
@@ -67,10 +68,10 @@ export const ImageProcessor = {
             size: compSize,
           });
         };
-        img.onerror = () => reject(new Error('无法解码该图片文件'));
+        img.onerror = () => reject(new Error(t('attachments.imageDecodeError')));
         img.src = e.target.result;
       };
-      reader.onerror = () => reject(new Error('读取图片文件失败'));
+      reader.onerror = () => reject(new Error(t('attachments.imageReadError')));
       reader.readAsDataURL(file);
     });
   },
@@ -89,7 +90,7 @@ export const FileTextExtractor = {
   processFile(file) {
     const ext = (file.name || '').split('.').pop().toLowerCase();
     if (file.size > this.MAX_FILE_SIZE_MB * 1024 * 1024) {
-      return Promise.reject(new Error(`文件超过 ${this.MAX_FILE_SIZE_MB}MB 上限`));
+      return Promise.reject(new Error(t('attachments.fileTooLarge', { max: this.MAX_FILE_SIZE_MB })));
     }
     if (ext === 'pdf') {
       return this.extractPdf(file);
@@ -104,7 +105,7 @@ export const FileTextExtractor = {
         let raw = e.target.result || '';
         let isTruncated = false;
         if (raw.length > this.MAX_CHARS) {
-          raw = raw.slice(0, this.MAX_CHARS) + `\n\n[... 文件过长，已自动截取前 ${this.MAX_CHARS.toLocaleString()} 字符 ...]`;
+          raw = raw.slice(0, this.MAX_CHARS) + '\n\n' + t('attachments.truncatedText', { max: this.MAX_CHARS.toLocaleString() });
           isTruncated = true;
         }
         const lines = raw.split('\n').length;
@@ -120,7 +121,7 @@ export const FileTextExtractor = {
           truncated: isTruncated,
         });
       };
-      reader.onerror = () => reject(new Error('读取文件失败'));
+      reader.onerror = () => reject(new Error(t('attachments.fileReadError')));
       reader.readAsText(file, 'utf-8');
     });
   },
@@ -142,9 +143,9 @@ export const FileTextExtractor = {
               }));
             }
             Promise.all(pagePromises).then((pagesText) => {
-              let fullText = pagesText.map((t, idx) => `--- 第 ${idx + 1} 页 ---\n${t}`).join('\n\n');
+              let fullText = pagesText.map((tText, idx) => `${t('attachments.pdfPageHeader', { page: idx + 1 })}\n${tText}`).join('\n\n');
               if (fullText.length > this.MAX_CHARS) {
-                fullText = fullText.slice(0, this.MAX_CHARS) + `\n\n[... PDF 内容过长，已自动截取前 ${this.MAX_CHARS.toLocaleString()} 字符 ...]`;
+                fullText = fullText.slice(0, this.MAX_CHARS) + '\n\n' + t('attachments.truncatedPdf', { max: this.MAX_CHARS.toLocaleString() });
               }
               resolve({
                 id: uid(),
@@ -160,7 +161,7 @@ export const FileTextExtractor = {
             }).catch(reject);
           }).catch(reject);
         };
-        reader.onerror = () => reject(new Error('读取 PDF 失败'));
+        reader.onerror = () => reject(new Error(t('attachments.pdfReadError')));
         reader.readAsArrayBuffer(file);
       };
 
@@ -173,7 +174,7 @@ export const FileTextExtractor = {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
           doParse(window.pdfjsLib);
         };
-        s.onerror = () => reject(new Error('无法动态载入 PDF.js 模块，请检查网络'));
+        s.onerror = () => reject(new Error(t('attachments.pdfJsError')));
         document.head.appendChild(s);
       }
     });
@@ -214,7 +215,7 @@ export function renderAttachmentsTray(pendingAttachments, trayEl, onRemove, onOp
 
       const sizeSpan = document.createElement('span');
       sizeSpan.className = 'file-size-text';
-      sizeSpan.textContent = formatSize(att.size) + (att.lines ? ` · ${att.lines}行` : '');
+      sizeSpan.textContent = formatSize(att.size) + (att.lines ? ` · ${t('chat.linesCount', { count: att.lines })}` : '');
 
       metaCol.appendChild(nameSpan);
       metaCol.appendChild(sizeSpan);
@@ -225,7 +226,7 @@ export function renderAttachmentsTray(pendingAttachments, trayEl, onRemove, onOp
     const del = document.createElement('button');
     del.className = 'attachment-del';
     del.textContent = '×';
-    del.title = '移除此附件';
+    del.title = t('attachments.removeTooltip');
     del.addEventListener('click', (e) => {
       e.stopPropagation();
       if (typeof onRemove === 'function') onRemove(idx);
@@ -241,23 +242,23 @@ export function processIncomingFiles(fileList, currentAttachments, canVision, on
   let files = Array.prototype.slice.call(fileList);
 
   if (currentAttachments.length + files.length > 8) {
-    if (onToast) onToast('单次提问最多附加 8 个附件', 'info');
+    if (onToast) onToast(t('attachments.maxFiles'), 'info');
     files = files.slice(0, 8 - currentAttachments.length);
   }
 
   const tasks = files.map((file) => {
     if (FileTextExtractor.isImageFile(file)) {
       if (!canVision) {
-        if (onToast) onToast(`当前模型不支持图片，已忽略 "${file.name}"`, 'info');
+        if (onToast) onToast(t('attachments.unsupportedImage', { name: file.name }), 'info');
         return Promise.resolve(null);
       }
       return ImageProcessor.processFile(file).catch((err) => {
-        if (onToast) onToast(`处理图片 "${file.name}" 失败: ${err.message}`, 'error');
+        if (onToast) onToast(t('attachments.imageFail', { name: file.name, error: err.message }), 'error');
         return null;
       });
     } else {
       return FileTextExtractor.processFile(file).catch((err) => {
-        if (onToast) onToast(`读取文件 "${file.name}" 失败: ${err.message}`, 'error');
+        if (onToast) onToast(t('attachments.fileFail', { name: file.name, error: err.message }), 'error');
         return null;
       });
     }

@@ -5,6 +5,7 @@
 // 3. 本地引擎：完全保留 0 费用、离线可用的浏览器原生 SpeechSynthesis 管道。
 
 import { state, LS } from './state.js';
+import { t } from './i18n.js';
 
 export const CLOUD_TTS_MODELS = [
   {
@@ -379,11 +380,11 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   const playerDrawer = document.createElement('div');
   playerDrawer.className = 'msg-tts-player';
 
-  const engineLabel = isCloudTTS ? '云端拟真' : '本地原生';
+  const engineLabel = isCloudTTS ? (state.lang === 'en' ? 'Cloud AI' : '云端拟真') : (state.lang === 'en' ? 'Local' : '本地原生');
 
   playerDrawer.innerHTML = `
     <div class="tts-main-row">
-      <button class="tts-play-btn" title="播放 / 暂停">
+      <button class="tts-play-btn" title="${t('tts.play')} / ${t('tts.pause')}">
         ${PLAY_ICON_SVG}
       </button>
       <div class="tts-progress-wrap">
@@ -391,16 +392,16 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
         <input type="range" class="tts-slider" min="0" max="100" value="0" step="0.1">
         <span class="tts-time tts-dur-time">00:00</span>
       </div>
-      <span class="tts-engine-badge" title="当前发音引擎">${engineLabel}</span>
-      <button class="tts-close-btn" title="关闭播放器">${CLOSE_ICON_SVG}</button>
+      <span class="tts-engine-badge" title="${state.lang === 'en' ? 'Current Speech Engine' : '当前发音引擎'}">${engineLabel}</span>
+      <button class="tts-close-btn" title="${t('common.close')}">${CLOSE_ICON_SVG}</button>
     </div>
     <div class="tts-controls-row">
       <div class="tts-ctrl-group">
-        <span>音色:</span>
-        <select class="tts-voice-select"><option value="">载入音色中…</option></select>
+        <span>${state.lang === 'en' ? 'Voice:' : '音色:'}</span>
+        <select class="tts-voice-select"><option value="">${t('tts.loadingVoice') || '载入音色中…'}</option></select>
       </div>
       <div class="tts-ctrl-group">
-        <span>倍速:</span>
+        <span>${t('tts.speed') || '倍速:'}</span>
         <button class="tts-speed-btn" data-speed="0.75">0.75x</button>
         <button class="tts-speed-btn active" data-speed="1.0">1.0x</button>
         <button class="tts-speed-btn" data-speed="1.25">1.25x</button>
@@ -439,17 +440,17 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
   function updatePlayIcon(playing) {
     if (isBuffering) {
       playBtn.innerHTML = SPINNER_ICON_SVG;
-      playBtn.title = '正在加载音频…';
+      playBtn.title = t('tts.loadingAudio') || '正在加载音频…';
       playBtn.classList.add('loading');
       playBtn.classList.remove('playing');
     } else if (playing) {
       playBtn.innerHTML = PAUSE_ICON_SVG;
-      playBtn.title = '暂停';
+      playBtn.title = t('tts.pause') || '暂停';
       playBtn.classList.remove('loading');
       playBtn.classList.add('playing');
     } else {
       playBtn.innerHTML = PLAY_ICON_SVG;
-      playBtn.title = '播放';
+      playBtn.title = t('tts.play') || '播放';
       playBtn.classList.remove('loading');
       playBtn.classList.remove('playing');
     }
@@ -513,7 +514,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
 
   async function startCloudSpeech() {
     if (!fullText) {
-      if (onToast) onToast('回复内容为空，无法朗读', 'info');
+      if (onToast) onToast(t('tts.emptyContent') || '回复内容为空，无法朗读', 'info');
       return;
     }
 
@@ -596,7 +597,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
 
       htmlAudio.addEventListener('error', (e) => {
         console.warn('[TTS] Audio playback error:', e);
-        if (onToast) onToast('云端音频播放异常', 'error');
+        if (onToast) onToast(t('tts.error') || '云端音频播放异常', 'error');
         stopCloudSpeech();
       });
 
@@ -660,14 +661,14 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
 
   function startLocalSpeech(startIndex) {
     if (!('speechSynthesis' in window)) {
-      if (onToast) onToast('当前浏览器不支持 Web Speech API', 'error');
+      if (onToast) onToast(t('tts.notSupported') || '当前浏览器不支持 Web Speech API', 'error');
       return;
     }
     window.speechSynthesis.cancel();
     clearInterval(localProgressTimer);
 
     if (!fullText) {
-      if (onToast) onToast('回复内容为空，无法朗读', 'info');
+      if (onToast) onToast(t('tts.emptyContent') || '回复内容为空，无法朗读', 'info');
       return;
     }
 
@@ -719,7 +720,7 @@ export function createAudioPlayerDrawer(msg, onClose, onToast) {
     localUtterance.onend = () => stopLocalSpeech();
     localUtterance.onerror = (e) => {
       if (e && e.error !== 'canceled' && e.error !== 'interrupted') {
-        if (onToast) onToast('朗读已停止', 'info');
+        if (onToast) onToast(t('tts.stopped') || '朗读已停止', 'info');
       }
       stopLocalSpeech();
     };

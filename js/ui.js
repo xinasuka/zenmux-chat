@@ -4,6 +4,7 @@
 import { el, state, esc, formatSize, getHostname, calculateSessionTokens } from './state.js';
 import { renderMd, renderParts } from './markdown.js';
 import { createAudioPlayerDrawer, stopGlobalAudio } from './tts.js';
+import { t } from './i18n.js';
 
 let toastTimer = null;
 export function toast(msg, type) {
@@ -26,9 +27,9 @@ export function fallbackCopy(text) {
   ta.select();
   try {
     document.execCommand('copy');
-    toast('已复制到剪贴板', 'info');
+    toast(t('common.copied') || '已复制到剪贴板', 'info');
   } catch (e) {
-    toast('复制失败，请手动长按复制', 'error');
+    toast(t('common.copyFailed') || '复制失败，请手动长按复制', 'error');
   }
   document.body.removeChild(ta);
 }
@@ -97,9 +98,9 @@ export function updateSidebarFooter() {
   if (!el.sidebarFooterText) return;
   const total = calculateSessionTokens(state.currentConv);
   if (total > 0) {
-    el.sidebarFooterText.textContent = `会话仅存于本机 · 消耗 ${total.toLocaleString()} Tokens`;
+    el.sidebarFooterText.textContent = t('sidebar.localTokens', { total: total.toLocaleString() });
   } else {
-    el.sidebarFooterText.textContent = '会话仅存于本机浏览器';
+    el.sidebarFooterText.textContent = t('sidebar.localOnly');
   }
 }
 
@@ -108,7 +109,8 @@ export function createSourcesElement(sources) {
   const srcBox = document.createElement('details');
   srcBox.className = 'msg-sources';
   const srcSummary = document.createElement('summary');
-  srcSummary.innerHTML = `<span class="source-icon">✦</span> <strong>参考来源</strong> (${sources.length} 个网页)`;
+  const titleText = t('chat.sourcesTitle', { count: sources.length });
+  srcSummary.innerHTML = `<span class="source-icon">✦</span> <strong>${titleText}</strong>`;
 
   const list = document.createElement('div');
   list.className = 'sources-list';
@@ -153,14 +155,14 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   // 1. 复制按钮
   const copyBtn = document.createElement('button');
   copyBtn.className = 'msg-action-btn copy';
-  copyBtn.title = '复制回复内容';
-  copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 复制';
+  copyBtn.title = t('chat.copyResponseTooltip');
+  copyBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> ${t('chat.copyResponse')}`;
   copyBtn.addEventListener('click', () => {
     const textToCopy = msg.content || '';
     if (!textToCopy) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(textToCopy).then(() => {
-        toast('已复制到剪贴板', 'info');
+        toast(t('common.copied') || '已复制到剪贴板', 'info');
       }).catch(() => fallbackCopy(textToCopy));
     } else {
       fallbackCopy(textToCopy);
@@ -171,11 +173,11 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   // 2. 重新生成按钮
   const regenBtn = document.createElement('button');
   regenBtn.className = 'msg-action-btn regen';
-  regenBtn.title = '使用当前模型重新生成回答';
-  regenBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> 重新生成';
+  regenBtn.title = t('chat.regenerateTooltip');
+  regenBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> ${t('chat.regenerate')}`;
   regenBtn.addEventListener('click', () => {
     if (state.busy) {
-      toast('AI 正在回答中，请稍候…', 'info');
+      toast(t('chat.busyWaiting') || 'AI 正在回答中，请稍候…', 'info');
       return;
     }
     if (typeof onRegenerate === 'function') {
@@ -189,7 +191,7 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
     const u = msg.usage;
     const infoBtn = document.createElement('button');
     infoBtn.className = 'msg-action-btn info-btn';
-    infoBtn.title = '展开/折叠 Token 消耗与模型详情';
+    infoBtn.title = t('chat.usageBtnTooltip');
     infoBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> ${u.total_tokens.toLocaleString()} Tokens`;
 
     const usageCard = document.createElement('div');
@@ -199,7 +201,7 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
       const isHidden = usageCard.classList.contains('hide');
       if (isHidden) {
         const sessTotal = calculateSessionTokens(state.currentConv);
-        const modelName = msg.model || state.model || '大模型';
+        const modelName = msg.model || state.model || (state.lang === 'en' ? 'Model' : '大模型');
         const promptT = (u.prompt_tokens || 0).toLocaleString();
         const compT = (u.completion_tokens || 0).toLocaleString();
         const totalT = (u.total_tokens || 0).toLocaleString();
@@ -207,12 +209,12 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
 
         usageCard.innerHTML = `
           <div class="usage-grid">
-            <div class="usage-item"><span class="usage-lbl">输入</span><span class="usage-val">${promptT}</span></div>
-            <div class="usage-item"><span class="usage-lbl">输出</span><span class="usage-val">${compT}</span></div>
-            <div class="usage-item highlight"><span class="usage-lbl">本轮总计</span><span class="usage-val">${totalT}</span></div>
-            <div class="usage-item"><span class="usage-lbl">会话累计</span><span class="usage-val">${sessT}</span></div>
+            <div class="usage-item"><span class="usage-lbl">${t('chat.usageInput')}</span><span class="usage-val">${promptT}</span></div>
+            <div class="usage-item"><span class="usage-lbl">${t('chat.usageOutput')}</span><span class="usage-val">${compT}</span></div>
+            <div class="usage-item highlight"><span class="usage-lbl">${t('chat.usageTurnTotal')}</span><span class="usage-val">${totalT}</span></div>
+            <div class="usage-item"><span class="usage-lbl">${t('chat.usageSessionTotal')}</span><span class="usage-val">${sessT}</span></div>
           </div>
-          <div class="usage-model-tag">响应模型: ${esc(modelName)}</div>
+          <div class="usage-model-tag">${t('chat.usageModel', { model: esc(modelName) })}</div>
         `;
         usageCard.classList.remove('hide');
         infoBtn.classList.add('active');
@@ -229,8 +231,8 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   // 4. 语音朗读按钮
   const ttsBtn = document.createElement('button');
   ttsBtn.className = 'msg-action-btn tts-btn';
-  ttsBtn.title = '展开语音朗读播放器';
-  ttsBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg> 朗读';
+  ttsBtn.title = t('chat.readAloudTooltip');
+  ttsBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg> ${t('chat.readAloud')}`;
 
   let activePlayerDrawer = null;
   ttsBtn.addEventListener('click', () => {
@@ -367,7 +369,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
 
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
-  avatar.textContent = role === 'user' ? '我' : 'AI';
+  avatar.textContent = role === 'user' ? (state.lang === 'en' ? 'Me' : '我') : 'AI';
 
   const col = document.createElement('div');
   col.className = 'body';
@@ -546,7 +548,7 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
       const rDetails = document.createElement('details');
       rDetails.className = 'reasoning';
       rDetails.open = true;
-      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>思考过程</span></summary><div class="reasoning-body">${renderMd(reasoning)}</div>`;
+      rDetails.innerHTML = `<summary><span class="reasoning-sparkle">✦</span> <span>${t('chat.thinkingProcess')}</span></summary><div class="reasoning-body">${renderMd(reasoning)}</div>`;
       col.appendChild(rDetails);
     }
 
@@ -762,7 +764,19 @@ export function initParamPickers() {
 
     renderOptions();
     sel._syncParamPicker = syncUI;
+    sel._renderParamOptions = renderOptions;
   });
+
+  if (!document._paramPickerLanguageListener) {
+    document._paramPickerLanguageListener = true;
+    window.addEventListener('languagechange', () => {
+      selects.forEach((sel) => {
+        if (typeof sel._renderParamOptions === 'function') {
+          sel._renderParamOptions();
+        }
+      });
+    });
+  }
 
   // Global dismissal listeners (delegated once)
   if (!document._paramPickerGlobalListeners) {
@@ -946,12 +960,12 @@ export function initSettingsPickers() {
 
       let rawText = (opt.textContent || '').trim();
       let badgeText = '';
-      if (rawText.includes('· 推荐')) {
-        badgeText = '推荐';
-        rawText = rawText.replace(/\s*·\s*推荐(?=\)?)/, '');
-      } else if (rawText.includes('· 默认')) {
-        badgeText = '默认';
-        rawText = rawText.replace(/\s*·\s*默认(?=\)?)/, '');
+      if (rawText.includes('· 推荐') || rawText.includes('· Recommended')) {
+        badgeText = state.lang === 'en' ? 'Recommended' : '推荐';
+        rawText = rawText.replace(/\s*·\s*(?:推荐|Recommended)(?=\)?)/i, '');
+      } else if (rawText.includes('· 默认') || rawText.includes('· Default')) {
+        badgeText = state.lang === 'en' ? 'Default' : '默认';
+        rawText = rawText.replace(/\s*·\s*(?:默认|Default)(?=\)?)/i, '');
       }
 
       textSpan.textContent = rawText;
@@ -1134,6 +1148,13 @@ export function initSettingsPickers() {
         }
       }, { passive: true });
     }
+    window.addEventListener('languagechange', () => {
+      selects.forEach((sel) => {
+        if (typeof sel._syncSettingsPicker === 'function') {
+          sel._syncSettingsPicker();
+        }
+      });
+    });
   }
 }
 

@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.20.29';
+export const APP_VERSION = '2.21.0';
 
 export const LS = {
   cur: 'zm.current',
@@ -28,6 +28,7 @@ export const LS = {
   vadEngine: 'zm.vad.engine',
   ttsModel: 'zm.tts.model',
   ttsVoice: 'zm.tts.voice',
+  lang: 'zm.lang',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -124,6 +125,8 @@ export const el = {
   themePillDark: $('theme-pill-dark'),
   themePillLight: $('theme-pill-light'),
   themePillAuto: $('theme-pill-auto'),
+  langPillZh: $('lang-pill-zh'),
+  langPillEn: $('lang-pill-en'),
 
   lightbox: $('lightbox'),
   lightboxImg: $('lightbox-img'),
@@ -163,6 +166,7 @@ export const state = {
   vadEngine: getStorageItem(LS.vadEngine) || 'energy',
   ttsModel: getStorageItem(LS.ttsModel) || 'browser',
   ttsVoice: getStorageItem(LS.ttsVoice) || 'Kore',
+  lang: getStorageItem('zm.lang') || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('zh') ? 'zh' : 'en'),
   imageSize: getStorageItem(LS.imageSize) || 'auto',
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',
