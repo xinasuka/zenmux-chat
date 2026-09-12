@@ -10,7 +10,9 @@ import os
 from PIL import Image, ImageDraw
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ICON_SRC = os.path.join(ROOT_DIR, "icon.png")
+ICON_SRC = os.path.join(ROOT_DIR, "src", "assets", "icon.png")
+if not os.path.exists(ICON_SRC):
+    ICON_SRC = os.path.join(ROOT_DIR, "icon.png")
 RES_DIR = os.path.join(ROOT_DIR, "android", "app", "src", "main", "res")
 
 BG_COLOR = (255, 255, 255, 255)  # Pure White #FFFFFF

@@ -24,8 +24,8 @@ Every feature, refactor, bugfix, or documentation update must be accompanied by 
 ### 2.1 Single Source of Truth (SSOT) Versioning
 Version management is centralized in `package.json` as the canonical Single Source of Truth (SSOT):
 - Execute the version bump utility: `npm run bump patch`, `npm run bump minor`, or `node scripts/bump.js <target_version>`.
-- The script automatically synchronizes `package.json` and `js/state.js` (`APP_VERSION`).
-- `index.html` dynamically hydrates all `.app-version-badge` elements at runtime via `initApp()` in `js/app.js`. **Do not manually edit `index.html` for version increments.**
+- The script automatically synchronizes `package.json` and `src/js/state.js` (`APP_VERSION`).
+- `src/index.html` dynamically hydrates all `.app-version-badge` elements at runtime via `initApp()` in `src/js/app.js`. **Do not manually edit `src/index.html` for version increments.**
 
 ### 2.2 Version Badge UI Styling Rule
 - The version badge in the sidebar header must remain minimalist and clean: compact font size, subtle text color, and **no background pill color**.
@@ -51,12 +51,12 @@ Every commit message must follow Conventional Commits and explicitly contain the
 - `scratch/` is ignored in `.gitignore` and must never be committed to Git.
 
 ### 3.2 Pre-Implementation Simulation
-- Before modifying production files in `edge-functions/` or `js/`, write and run a standalone simulation script in `scratch/` to verify upstream API response schemas, status codes, and edge-case behaviors against real payloads.
+- Before modifying production files in `edge-functions/` or `src/js/`, write and run a standalone simulation script in `scratch/` to verify upstream API response schemas, status codes, and edge-case behaviors against real payloads.
 
 ### 3.3 Syntax Verification Gate
 - Run `node --check` across all modified JavaScript and Edge Function files before staging:
   ```bash
-  node --check js/app.js && node --check js/chat.js && node --check js/plugins.js && node --check js/state.js && node --check edge-functions/api/plugins/*.js
+  node --check src/js/app.js && node --check src/js/chat.js && node --check src/js/plugins.js && node --check src/js/state.js && node --check edge-functions/api/plugins/*.js
   ```
 
 ---
@@ -64,8 +64,8 @@ Every commit message must follow Conventional Commits and explicitly contain the
 ## 4. Architecture & Plugin System Best Practices
 
 ### 4.1 Single Source of Truth for Tools
-- `js/plugins.js` is the sole module defining client-side tool calling schemas, CoT reasoning markers, result formatters, and reference source card extractors.
-- `js/chat.js` must remain completely generic, delegating all tool execution to `PluginRegistry`.
+- `src/js/plugins.js` is the sole module defining client-side tool calling schemas, CoT reasoning markers, result formatters, and reference source card extractors.
+- `src/js/chat.js` must remain completely generic, delegating all tool execution to `PluginRegistry`.
 
 ### 4.2 Serverless Edge Functions (`edge-functions/api/plugins/`)
 - **Master Exception Boundary**: Wrap entire request handling in `try / catch (fatalErr)` blocks to guarantee the function returns clean `{ error, detail }` JSON and never triggers Tencent Cloud EdgeOne `HTTP 545` worker crashes.

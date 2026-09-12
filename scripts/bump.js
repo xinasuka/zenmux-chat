@@ -12,10 +12,11 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const pkgPath = path.join(rootDir, 'package.json');
-const statePath = path.join(rootDir, 'js', 'state.js');
-const swPath = path.join(rootDir, 'sw.js');
-const htmlPath = path.join(rootDir, 'index.html');
-const versionJsonPath = path.join(rootDir, 'version.json');
+const srcDir = path.join(rootDir, 'src');
+const statePath = path.join(srcDir, 'js', 'state.js');
+const swPath = path.join(srcDir, 'sw.js');
+const htmlPath = path.join(srcDir, 'index.html');
+const versionJsonPath = path.join(srcDir, 'version.json');
 
 function parseSemver(v) {
   const clean = (v || '').replace(/^v/, '').trim();

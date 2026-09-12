@@ -12,6 +12,7 @@ import * as esbuild from 'esbuild';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+const srcDir = path.join(rootDir, 'src');
 const distDir = path.join(rootDir, 'dist');
 
 async function build() {
@@ -28,7 +29,7 @@ async function build() {
   console.log('Compiling JavaScript modules...');
   await Promise.all([
     esbuild.build({
-      entryPoints: [path.join(rootDir, 'js', 'app.js')],
+      entryPoints: [path.join(srcDir, 'js', 'app.js')],
       bundle: true,
       minify: true,
       format: 'esm',
@@ -38,7 +39,7 @@ async function build() {
       sourcemap: false
     }),
     esbuild.build({
-      entryPoints: [path.join(rootDir, 'js', 'admin.js')],
+      entryPoints: [path.join(srcDir, 'js', 'admin.js')],
       bundle: true,
       minify: true,
       format: 'esm',
@@ -53,12 +54,12 @@ async function build() {
   console.log('Compiling stylesheets...');
   await Promise.all([
     esbuild.build({
-      entryPoints: [path.join(rootDir, 'styles.css')],
+      entryPoints: [path.join(srcDir, 'styles.css')],
       minify: true,
       outfile: path.join(distDir, 'styles.css')
     }),
     esbuild.build({
-      entryPoints: [path.join(rootDir, 'admin.css')],
+      entryPoints: [path.join(srcDir, 'admin.css')],
       minify: true,
       outfile: path.join(distDir, 'admin.css')
     })
@@ -69,17 +70,13 @@ async function build() {
   const staticFiles = [
     'index.html',
     'admin.html',
-    'favicon.ico',
-    'icon.png',
-    'icon-192.png',
-    'icon-512.png',
     'manifest.webmanifest',
     'sw.js',
     'version.json'
   ];
 
   for (const file of staticFiles) {
-    const src = path.join(rootDir, file);
+    const src = path.join(srcDir, file);
     const dest = path.join(distDir, file);
     if (fs.existsSync(src)) {
       fs.copyFileSync(src, dest);
@@ -88,12 +85,22 @@ async function build() {
     }
   }
 
-  // 4.1 Transfer optional assets directory (ONNX models, WASM runtimes)
-  const assetsSrc = path.join(rootDir, 'assets');
+  // 4.1 Transfer assets directory (ONNX models, WASM runtimes, icons)
+  const assetsSrc = path.join(srcDir, 'assets');
   const assetsDest = path.join(distDir, 'assets');
   if (fs.existsSync(assetsSrc)) {
     console.log('Synchronizing assets directory to ./dist/assets/...');
     fs.cpSync(assetsSrc, assetsDest, { recursive: true });
+
+    // Also project root icons to dist/ root for W3C /favicon.ico and PWA canonical resolution
+    const rootIcons = ['favicon.ico', 'icon.png', 'icon-192.png', 'icon-512.png'];
+    for (const icon of rootIcons) {
+      const iconSrc = path.join(assetsSrc, icon);
+      const iconDest = path.join(distDir, icon);
+      if (fs.existsSync(iconSrc)) {
+        fs.copyFileSync(iconSrc, iconDest);
+      }
+    }
   }
 
   const duration = (performance.now() - startTime).toFixed(1);

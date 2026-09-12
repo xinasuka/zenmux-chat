@@ -140,7 +140,8 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 
 ## 5. Universal Client Runtime
 
-### 5.1 Technology Stack & Architectural Elegance
+### 5.1 Technology Stack & Source Sequestration (`src/` Architecture)
+- **Source Sequestration**: All client-side code (`src/index.html`, `src/styles.css`, `src/js/`, `src/assets/`) is cleanly sequestered under `src/`. The build orchestrator (`scripts/build.js`) compiles and projects this tree into the production distribution directory (`dist/`), which is consumed identically by EdgeOne Pages, Android WebView, and GitHub Pages.
 - **Core**: Vanilla HTML5 and ECMAScript Modules (ESM). Zero third-party Virtual-DOM libraries.
 - **Styling**: Vanilla CSS utilizing custom properties for light (Claude-inspired warm palette) and dark (charcoal and lilac) themes.
 - **Ergonomic Design**:

@@ -10,4 +10,5 @@ previews/
 *.keystore
 *.jks
 release.keystore
-
+__pycache__/
+*.pyc
