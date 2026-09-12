@@ -1110,15 +1110,15 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
       try {
         if (type === 'start') {
-          navigator.vibrate([150, 50, 150]); // Potent dual-pulse phone shake on hold (350ms total)
+          navigator.vibrate(100); // 100ms balanced, crisp tactile pulse on hold
         } else if (type === 'cancel') {
-          navigator.vibrate([100, 60, 120]); // Heavy warning alert for cancellation
+          navigator.vibrate([40, 40, 40]); // Double-pulse alert for cancellation
         } else if (type === 'drag-cancel') {
-          navigator.vibrate(60); // Distinctive heavy tick when sliding into cancel zone
+          navigator.vibrate(30); // Subtle tick when sliding into cancel zone
         } else if (type === 'drag-back') {
-          navigator.vibrate(40); // Reassuring tick when returning to record zone
+          navigator.vibrate(20); // Reassuring tick when returning to record zone
         } else if (type === 'finish') {
-          navigator.vibrate(80); // Solid confirmation tick on send
+          navigator.vibrate(40); // Clean confirmation tick on send
         }
       } catch (_) {}
     }
@@ -1128,18 +1128,18 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         const Haptics = window.Capacitor.Plugins.Haptics;
         if (type === 'start') {
           if (typeof Haptics.vibrate === 'function') {
-            Haptics.vibrate({ duration: 300 }).catch(() => {
+            Haptics.vibrate({ duration: 110 }).catch(() => {
               Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
             });
           } else {
             Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
           }
         } else if (type === 'cancel') {
-          Haptics.notification?.({ type: 'Error' }).catch(() => {});
+          Haptics.notification?.({ type: 'Warning' }).catch(() => {});
         } else if (type === 'drag-cancel') {
-          Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
-        } else if (type === 'finish' || type === 'drag-back') {
           Haptics.impact?.({ style: 'Medium' }).catch(() => {});
+        } else if (type === 'finish' || type === 'drag-back') {
+          Haptics.impact?.({ style: 'Light' }).catch(() => {});
         }
       } catch (_) {}
     }
