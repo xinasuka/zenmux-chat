@@ -169,10 +169,10 @@ export class AudioRecorder {
     this.frameCount = 0;
 
     // 回调事件
-    this.onStateChange = options.onStateChange || (() => {});
-    this.onVolume = options.onVolume || (() => {});
-    this.onTranscript = options.onTranscript || (() => {});
-    this.onError = options.onError || (() => {});
+    this.onStateChange = options.onStateChange || (() => { });
+    this.onVolume = options.onVolume || (() => { });
+    this.onTranscript = options.onTranscript || (() => { });
+    this.onError = options.onError || (() => { });
     this.onNotice = options.onNotice || ((msg) => this.onError(msg));
   }
 
@@ -582,29 +582,29 @@ export class AudioRecorder {
         }
         this.processorNode.onaudioprocess = null;
         this.processorNode.disconnect();
-      } catch (_) {}
+      } catch (_) { }
       this.processorNode = null;
     }
     if (this.filterNode) {
-      try { this.filterNode.disconnect(); } catch (_) {}
+      try { this.filterNode.disconnect(); } catch (_) { }
       this.filterNode = null;
     }
     if (this.sourceNode) {
-      try { this.sourceNode.disconnect(); } catch (_) {}
+      try { this.sourceNode.disconnect(); } catch (_) { }
       this.sourceNode = null;
     }
     if (this.gainNode) {
-      try { this.gainNode.disconnect(); } catch (_) {}
+      try { this.gainNode.disconnect(); } catch (_) { }
       this.gainNode = null;
     }
     if (this.audioCtx) {
-      try { this.audioCtx.close(); } catch (_) {}
+      try { this.audioCtx.close(); } catch (_) { }
       this.audioCtx = null;
     }
     if (this.stream) {
       try {
         this.stream.getTracks().forEach((track) => track.stop());
-      } catch (_) {}
+      } catch (_) { }
       this.stream = null;
     }
     this.recordedChunks = [];
@@ -613,7 +613,7 @@ export class AudioRecorder {
 }
 
 /* ---------- Voice Dictation UI & Waveform Visualizer Controller ---------- */
-export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, syncSend = () => {} } = {}) {
+export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, syncSend = () => { } } = {}) {
   let recorder = null;
   let voiceTimerInterval = null;
   let secondsElapsed = 0;
@@ -1112,31 +1112,31 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         const Haptics = window.Capacitor.Plugins.Haptics;
         if (type === 'start') {
           if (typeof Haptics.vibrate === 'function') {
-            Haptics.vibrate({ duration: 110 }).catch(() => {
-              Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
+            Haptics.vibrate({ duration: 120 }).catch(() => {
+              Haptics.impact?.({ style: 'Heavy' }).catch(() => { });
             });
           } else {
-            Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
+            Haptics.impact?.({ style: 'Heavy' }).catch(() => { });
           }
           return;
         } else if (type === 'cancel') {
-          Haptics.notification?.({ type: 'Warning' }).catch(() => {});
+          Haptics.notification?.({ type: 'Warning' }).catch(() => { });
           return;
         } else if (type === 'drag-cancel') {
-          Haptics.impact?.({ style: 'Medium' }).catch(() => {});
+          Haptics.impact?.({ style: 'Medium' }).catch(() => { });
           return;
         } else if (type === 'finish' || type === 'drag-back') {
-          Haptics.impact?.({ style: 'Light' }).catch(() => {});
+          Haptics.impact?.({ style: 'Light' }).catch(() => { });
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. Fallback to W3C Vibration API for standard web browsers & PWA
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
       try {
         if (type === 'start') {
-          navigator.vibrate(100); // 100ms balanced, crisp tactile pulse on hold
+          navigator.vibrate(110); // 100ms balanced, crisp tactile pulse on hold
         } else if (type === 'cancel') {
           navigator.vibrate([40, 40, 40]); // Double-pulse alert for cancellation
         } else if (type === 'drag-cancel') {
@@ -1146,7 +1146,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         } else if (type === 'finish') {
           navigator.vibrate(40); // Clean confirmation tick on send
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -1174,7 +1174,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
     try {
       overlay.setPointerCapture(activePointerId);
-    } catch (_) {}
+    } catch (_) { }
 
     // Immediate visual touch feedback: button visually depresses on touch
     overlay.classList.add('is-touch-down');
@@ -1253,7 +1253,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       if (activePointerId !== null) {
         overlay.releasePointerCapture(activePointerId);
       }
-    } catch (_) {}
+    } catch (_) { }
     activePointerId = null;
 
     // Case 1: Released BEFORE hold threshold (i.e. click/tap only)
@@ -1315,7 +1315,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
     try {
       if (activePointerId !== null) overlay.releasePointerCapture(activePointerId);
-    } catch (_) {}
+    } catch (_) { }
     activePointerId = null;
 
     if (hasHoldTriggered) {
