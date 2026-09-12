@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.15';
+export const APP_VERSION = '2.21.16';
 
 export const LS = {
   cur: 'zm.current',

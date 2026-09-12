@@ -1106,7 +1106,33 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
   // Tactile Haptic Vibration Engine
   function triggerHaptic(type = 'start') {
-    // 1. W3C Vibration API (Standard Android Browsers & WebView)
+    // 1. Prioritize Capacitor Native Haptics if running in native app
+    if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+      try {
+        const Haptics = window.Capacitor.Plugins.Haptics;
+        if (type === 'start') {
+          if (typeof Haptics.vibrate === 'function') {
+            Haptics.vibrate({ duration: 110 }).catch(() => {
+              Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
+            });
+          } else {
+            Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
+          }
+          return;
+        } else if (type === 'cancel') {
+          Haptics.notification?.({ type: 'Warning' }).catch(() => {});
+          return;
+        } else if (type === 'drag-cancel') {
+          Haptics.impact?.({ style: 'Medium' }).catch(() => {});
+          return;
+        } else if (type === 'finish' || type === 'drag-back') {
+          Haptics.impact?.({ style: 'Light' }).catch(() => {});
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fallback to W3C Vibration API for standard web browsers & PWA
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
       try {
         if (type === 'start') {
@@ -1119,27 +1145,6 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
           navigator.vibrate(20); // Reassuring tick when returning to record zone
         } else if (type === 'finish') {
           navigator.vibrate(40); // Clean confirmation tick on send
-        }
-      } catch (_) {}
-    }
-    // 2. Capacitor Native Haptics (Native Android & iOS Vibration Engine)
-    if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
-      try {
-        const Haptics = window.Capacitor.Plugins.Haptics;
-        if (type === 'start') {
-          if (typeof Haptics.vibrate === 'function') {
-            Haptics.vibrate({ duration: 110 }).catch(() => {
-              Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
-            });
-          } else {
-            Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
-          }
-        } else if (type === 'cancel') {
-          Haptics.notification?.({ type: 'Warning' }).catch(() => {});
-        } else if (type === 'drag-cancel') {
-          Haptics.impact?.({ style: 'Medium' }).catch(() => {});
-        } else if (type === 'finish' || type === 'drag-back') {
-          Haptics.impact?.({ style: 'Light' }).catch(() => {});
         }
       } catch (_) {}
     }
@@ -1157,6 +1162,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
   overlay.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (isPointerDown) return; // Prevent secondary finger touch from duplicate triggering
     const rec = ensureRecorder();
     if (rec.state === 'transcribing') return;
 
