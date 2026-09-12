@@ -1106,28 +1106,29 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
   // Tactile Haptic Vibration Engine
   function triggerHaptic(type = 'start') {
+    // 1. W3C Vibration API (Standard Android Browsers & WebView)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
       try {
         if (type === 'start') {
-          navigator.vibrate(80); // 80ms strong tactile vibration pulse on hold
+          navigator.vibrate([150, 50, 150]); // Potent dual-pulse phone shake on hold (350ms total)
         } else if (type === 'cancel') {
-          navigator.vibrate([40, 50, 60]); // Distinctive double-pulse alert for cancellation
+          navigator.vibrate([100, 60, 120]); // Heavy warning alert for cancellation
         } else if (type === 'drag-cancel') {
-          navigator.vibrate(35); // Firm tick when sliding into cancel zone
+          navigator.vibrate(60); // Distinctive heavy tick when sliding into cancel zone
         } else if (type === 'drag-back') {
-          navigator.vibrate(25); // Reassuring tick when returning to record zone
+          navigator.vibrate(40); // Reassuring tick when returning to record zone
         } else if (type === 'finish') {
-          navigator.vibrate(45); // Clean, solid confirmation tick on send
+          navigator.vibrate(80); // Solid confirmation tick on send
         }
       } catch (_) {}
     }
-    // Capacitor Native Haptics (Android & iOS native runtime)
+    // 2. Capacitor Native Haptics (Native Android & iOS Vibration Engine)
     if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
       try {
         const Haptics = window.Capacitor.Plugins.Haptics;
         if (type === 'start') {
           if (typeof Haptics.vibrate === 'function') {
-            Haptics.vibrate({ duration: 80 }).catch(() => {
+            Haptics.vibrate({ duration: 300 }).catch(() => {
               Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
             });
           } else {
@@ -1136,7 +1137,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         } else if (type === 'cancel') {
           Haptics.notification?.({ type: 'Error' }).catch(() => {});
         } else if (type === 'drag-cancel') {
-          Haptics.impact?.({ style: 'Medium' }).catch(() => {});
+          Haptics.impact?.({ style: 'Heavy' }).catch(() => {});
         } else if (type === 'finish' || type === 'drag-back') {
           Haptics.impact?.({ style: 'Medium' }).catch(() => {});
         }

@@ -108,15 +108,7 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 
 ### 4.2 Acoustic Speech Transcription & Dual Voice Paradigms (ASR & Silero ONNX VAD)
 - **Dual Voice Capture Paradigms**:
-  - **Mode A: Tactile Push-to-Talk (Default)**: Engineered for mobile touch ergonomics with unified Pointer Events (`pointerdown`, `pointermove`, `pointerup`).
-    - **Ergonomic Sizing**: On mobile viewports ($\le 640\text{px}$), the Push-to-Talk bar expands to full composer width with an elevated height of $56\text{px}$ and $16\text{px}$ corner radius, creating a reliable, expansive landing area for thumb resting and holding.
-    - **Hold-to-Speak Debounce Threshold ($\Delta t \ge 200\text{ms}$)**: Prevents accidental taps from activating audio recording or flashing HUD telemetry. Releasing before $200\text{ms}$ triggers a gentle shake animation (`shake-hint`) and educational toast without initializing microphone hardware.
-    - **Tactile Haptic Feedback Engine**: Integrates multi-pattern physical vibration via W3C `navigator.vibrate` and Capacitor Native Haptics:
-      - Start Hold: $80\text{ms}$ decisive tactile vibration pulse upon passing the $200\text{ms}$ threshold (with Capacitor `Heavy` impact fallback).
-      - Boundary Crossings: $35\text{ms}$ firm tick when sliding into the $45\text{px}$ cancel zone; $25\text{ms}$ tick when sliding back into recording.
-      - Cancel / Abort: Multi-pulse alert ($[40, 50, 60]\text{ms}$).
-      - Complete & Dispatch: $45\text{ms}$ solid confirmation tick.
-    - **Floating Glassmorphic HUD Island**: Visual telemetry is elevated to an unobstructed HUD (`.voice-hud-capsule`) positioned $14\text{px}$ above the composer to eliminate thumb occlusion. Supports vertical slide-up gesture ($\ge 45\text{px}$) to cancel.
+  - **Mode A: Tactile Push-to-Talk (Default)**: Pointer-event driven recording state machine with hold-to-speak threshold filtering, dynamic gesture cancellation, and multisensory feedback (haptic vibration engine and an elevated floating HUD island to prevent thumb occlusion).
   - **Mode B: Hands-Free Neural VAD**: Integrates Silero VAD v5 ONNX WebAssembly (`silero_vad.onnx`, 2.2MB) with WebAssembly SIMD acceleration, computing real-time speech probabilities across 512-sample Float32 frames with autonomous energy fallback.
 - **Upstream Gateway**: Encodes 16kHz mono WAV audio with 85Hz highpass filtering and DC detrending, forwarding payloads via `edge-functions/api/audio.js` to ZenMux Whisper transcription (`/v1/audio/transcriptions`).
 
