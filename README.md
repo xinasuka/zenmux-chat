@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./icon.png" width="96" height="96" alt="ZenMux Chat Logo" style="border-radius: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">
+  <img src="./src/assets/icon.png" width="96" height="96" alt="ZenMux Chat Logo" style="border-radius: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">
   <h1>ZenMux Chat</h1>
   <p><b>A fast, elegant, and private AI chat workstation powered by ZenMux & Tencent Cloud EdgeOne</b></p>
   <p>
