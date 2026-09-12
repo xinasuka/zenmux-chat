@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.17';
+export const APP_VERSION = '2.21.18';
 
 export const LS = {
   cur: 'zm.current',
@@ -136,6 +136,8 @@ export const el = {
   gateInput: $('gate-input'),
   gateGo: $('gate-go'),
   gateErr: $('gate-err'),
+  gateLangZh: $('gate-lang-zh'),
+  gateLangEn: $('gate-lang-en'),
 
   updateBanner: $('update-banner'),
   updateText: $('update-text'),

@@ -1746,6 +1746,7 @@
   }
 
   #gate-box {
+    position: relative;
     width: 100%;
     max-width: 380px;
     background: var(--bg-elev, rgba(18, 20, 29, 0.92));
@@ -1757,6 +1758,45 @@
     -webkit-backdrop-filter: blur(24px);
     text-align: center;
     animation: gateBoxPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .gate-lang-picker {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-card, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+    border-radius: 9999px;
+    padding: 2px;
+    gap: 2px;
+    z-index: 2;
+  }
+
+  .gate-lang-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-dim, #94a3b8);
+    transition: all 0.15s ease;
+    line-height: 1.2;
+  }
+
+  .gate-lang-btn:hover {
+    color: var(--fg, #f8fafc);
+  }
+
+  .gate-lang-btn.active {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 
   @keyframes gateBoxPop {
@@ -1900,6 +1940,20 @@
     background: rgba(217, 56, 56, 0.08);
     border-color: rgba(217, 56, 56, 0.22);
     color: var(--danger);
+  }
+  [data-theme="light"] .gate-lang-picker {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="light"] .gate-lang-btn {
+    color: var(--fg-dim, #64748b);
+  }
+  [data-theme="light"] .gate-lang-btn:hover {
+    color: var(--fg, #0f172a);
+  }
+  [data-theme="light"] .gate-lang-btn.active {
+    background: var(--accent, #cc785c);
+    color: #fff;
   }
 
   /* ---------- SPA Version Update Notification Banner ---------- */

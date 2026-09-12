@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="AyRtHuAf5LYMYfxjCYjT7k">
+<html lang="en" data-page-node-id="AyRtHuAf5LYMYfxjCYjT7k">
 
 <head data-page-node-id="pZVM8Lkp8xUknu4z3F1ABf">
   <meta charset="UTF-8" data-page-node-id="gYGX4hkJcdPzFwHoJGIceR">
@@ -45,7 +45,7 @@
         <span class="sidebar-brand-title">ZenChat</span>
         <span class="app-version-badge"></span>
       </div>
-      <button id="sidebar-toggle" class="sidebar-icon-btn" title="收起侧边栏" data-i18n-title="sidebar.collapse">
+      <button id="sidebar-toggle" class="sidebar-icon-btn" title="Collapse sidebar" data-i18n-title="sidebar.collapse">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -54,10 +54,10 @@
       </button>
     </div>
     <header data-page-node-id="hBYLlvINt5pv0MiQJ1cPEN"><button class="btn" id="new-chat"
-        data-page-node-id="Lgi6x3df4rNO4bC6bK9tu7" data-i18n="sidebar.newChat">＋　新建对话</button></header>
+        data-page-node-id="Lgi6x3df4rNO4bC6bK9tu7" data-i18n="sidebar.newChat">+ New Chat</button></header>
     <div id="conv-list" data-page-node-id="oKl0Mao8kSXfpESlq6ujsD"></div>
-    <footer data-page-node-id="Dt5fow2SxN0hBDUyfUP0iq"><span id="sidebar-footer-text" data-i18n="sidebar.localOnly">会话仅存于本机浏览器</span></footer>
-    <div id="sidebar-resizer" class="sidebar-resizer" title="左右拖动调整侧边栏宽度，双击恢复默认" data-i18n-title="sidebar.resizeTitle"></div>
+    <footer data-page-node-id="Dt5fow2SxN0hBDUyfUP0iq"><span id="sidebar-footer-text" data-i18n="sidebar.localOnly">Chats stored locally in browser</span></footer>
+    <div id="sidebar-resizer" class="sidebar-resizer" title="Drag to resize sidebar width, double-click to reset" data-i18n-title="sidebar.resizeTitle"></div>
   </aside>
   <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
@@ -68,18 +68,18 @@
           <span class="update-pulse-ring"></span>
           <span class="update-pulse-core"></span>
         </div>
-        <span id="update-text" class="update-text" data-i18n="updateBanner.title">发现新版本</span>
+        <span id="update-text" class="update-text" data-i18n="updateBanner.title">New version available</span>
         <div class="update-actions">
-          <button id="update-reload-btn" class="update-btn update-btn-primary" type="button" data-i18n="updateBanner.reloadBtn">立即更新</button>
+          <button id="update-reload-btn" class="update-btn update-btn-primary" type="button" data-i18n="updateBanner.reloadBtn">Update Now</button>
           <button id="update-later-btn" class="update-btn update-btn-secondary" type="button"
-            title="2小时后再次提醒" data-i18n="updateBanner.laterBtn" data-i18n-title="updateBanner.laterTooltip">稍后</button>
+            title="Remind me in 2 hours" data-i18n="updateBanner.laterBtn" data-i18n-title="updateBanner.laterTooltip">Later</button>
         </div>
-        <button id="update-close-btn" class="update-close-btn" type="button" title="关闭 (稍后提醒)"
-          data-i18n-title="updateBanner.closeTooltip" aria-label="关闭" data-i18n-aria="common.close">×</button>
+        <button id="update-close-btn" class="update-close-btn" type="button" title="Close (remind later)"
+          data-i18n-title="updateBanner.closeTooltip" aria-label="Close" data-i18n-aria="common.close">×</button>
       </div>
     </div>
     <div id="topbar" data-page-node-id="XbJMlK4TvZUK5SlExdqJzL">
-      <button id="burger" class="icon-btn" title="展开侧边栏" data-i18n-title="sidebar.expand" data-page-node-id="wSvAzU5fe1bE673sCsfAYn">
+      <button id="burger" class="icon-btn" title="Expand sidebar" data-i18n-title="sidebar.expand" data-page-node-id="wSvAzU5fe1bE673sCsfAYn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -88,19 +88,19 @@
       </button>
       <div id="model-picker-wrap" class="model-picker-wrap">
         <button id="model-picker-btn" class="model-picker-btn" type="button" aria-haspopup="listbox"
-          aria-expanded="false" title="选择模型" data-i18n-title="topbar.modelPickerTitle">
-          <span id="model-picker-label" class="model-picker-label" data-i18n="topbar.modelLoading">载入模型中…</span>
+          aria-expanded="false" title="Select Model" data-i18n-title="topbar.modelPickerTitle">
+          <span id="model-picker-label" class="model-picker-label" data-i18n="topbar.modelLoading">Loading models...</span>
           <svg class="model-picker-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
         <div id="model-picker-backdrop" class="model-picker-backdrop"></div>
-        <div id="model-picker-panel" class="model-picker-panel" role="dialog" aria-label="选择模型" data-i18n-aria="topbar.modelPickerTitle">
+        <div id="model-picker-panel" class="model-picker-panel" role="dialog" aria-label="Select Model" data-i18n-aria="topbar.modelPickerTitle">
           <div class="model-picker-header">
             <div class="model-sheet-handle"></div>
-            <div class="model-picker-title" data-i18n="topbar.modelPickerTitle">选择模型</div>
-            <button id="model-picker-close" class="model-picker-close-btn" type="button" aria-label="关闭" data-i18n-aria="common.close">
+            <div class="model-picker-title" data-i18n="topbar.modelPickerTitle">Select Model</div>
+            <button id="model-picker-close" class="model-picker-close-btn" type="button" aria-label="Close" data-i18n-aria="common.close">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -114,9 +114,9 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="model-search-input" class="model-search-input" placeholder="搜索模型或厂商..."
+            <input type="text" id="model-search-input" class="model-search-input" placeholder="Search models or providers..."
               data-i18n-placeholder="topbar.modelSearchPlaceholder" autocomplete="off" spellcheck="false" />
-            <button id="model-search-clear" class="model-search-clear hide" type="button" aria-label="清除搜索" data-i18n-aria="topbar.modelSearchClear">
+            <button id="model-search-clear" class="model-search-clear hide" type="button" aria-label="Clear search" data-i18n-aria="topbar.modelSearchClear">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -126,61 +126,61 @@
           <div id="model-picker-list" class="model-picker-list" role="listbox"></div>
         </div>
       </div>
-      <select id="model" class="sr-only-select" title="选择模型" data-i18n-title="topbar.modelPickerTitle" tabindex="-1" aria-hidden="true">
-        <option value="" data-i18n="topbar.modelLoading">载入模型中…</option>
+      <select id="model" class="sr-only-select" title="Select Model" data-i18n-title="topbar.modelPickerTitle" tabindex="-1" aria-hidden="true">
+        <option value="" data-i18n="topbar.modelLoading">Loading models...</option>
       </select>
       <div id="topbar-params">
         <div id="chat-params-group" class="chat-params-group">
-          <select id="effort" class="mini-sel" title="推理强度：仅对支持推理的模型生效" data-i18n-title="params.effortTitle" data-page-node-id="Keko3APNkL6UvQYoOD6iGH">
-            <option value="" data-i18n="params.effortDefault" data-page-node-id="qF9tqF0DJTIS6GdDDYouwN">推理 默认</option>
-            <option value="minimal" data-i18n="params.effortMinimal" data-page-node-id="Ljwk1WxkRVNeWwKlK83Sn9">推理 最低</option>
-            <option value="low" data-i18n="params.effortLow" data-page-node-id="ctmvOc5ls1MSYrDkD4Deor">推理 低</option>
-            <option value="medium" data-i18n="params.effortMedium" data-page-node-id="qOwJelW5GOKsGMSGUBUW6G">推理 中</option>
-            <option value="high" data-i18n="params.effortHigh" data-page-node-id="Z908yTzxkFHEHwByZulPkF">推理 高</option>
-            <option value="off" data-i18n="params.effortOff" data-page-node-id="cllAylE3b7XDBoJmiifFdJ">推理 关闭</option>
+          <select id="effort" class="mini-sel" title="Reasoning Effort: Only applies to reasoning models" data-i18n-title="params.effortTitle" data-page-node-id="Keko3APNkL6UvQYoOD6iGH">
+            <option value="" data-i18n="params.effortDefault" data-page-node-id="qF9tqF0DJTIS6GdDDYouwN">Reasoning Default</option>
+            <option value="minimal" data-i18n="params.effortMinimal" data-page-node-id="Ljwk1WxkRVNeWwKlK83Sn9">Reasoning Minimal</option>
+            <option value="low" data-i18n="params.effortLow" data-page-node-id="ctmvOc5ls1MSYrDkD4Deor">Reasoning Low</option>
+            <option value="medium" data-i18n="params.effortMedium" data-page-node-id="qOwJelW5GOKsGMSGUBUW6G">Reasoning Medium</option>
+            <option value="high" data-i18n="params.effortHigh" data-page-node-id="Z908yTzxkFHEHwByZulPkF">Reasoning High</option>
+            <option value="off" data-i18n="params.effortOff" data-page-node-id="cllAylE3b7XDBoJmiifFdJ">Reasoning Off</option>
           </select>
-          <select id="search-depth" class="mini-sel" title="联网搜索检索深度：精炼、标准、深度或全面" data-i18n-title="params.searchDepthTitle">
-            <option value="standard" data-i18n="params.searchDepthStandard">搜索 标准</option>
-            <option value="quick" data-i18n="params.searchDepthQuick">搜索 精炼</option>
-            <option value="deep" data-i18n="params.searchDepthDeep">搜索 深度</option>
-            <option value="pro" data-i18n="params.searchDepthPro">搜索 全面</option>
+          <select id="search-depth" class="mini-sel" title="Web Search Depth: Quick, Standard, Deep, or Pro" data-i18n-title="params.searchDepthTitle">
+            <option value="standard" data-i18n="params.searchDepthStandard">Search Standard</option>
+            <option value="quick" data-i18n="params.searchDepthQuick">Search Quick</option>
+            <option value="deep" data-i18n="params.searchDepthDeep">Search Deep</option>
+            <option value="pro" data-i18n="params.searchDepthPro">Search Pro</option>
           </select>
-          <select id="tool-turns" class="mini-sel" title="单轮工具最大调用次数：默认20次、深度50次、全面100次或无限制" data-i18n-title="params.toolTurnsTitle">
-            <option value="20" data-i18n="params.toolTurns20">工具 20次</option>
-            <option value="50" data-i18n="params.toolTurns50">工具 50次</option>
-            <option value="100" data-i18n="params.toolTurns100">工具 100次</option>
-            <option value="0" data-i18n="params.toolTurnsUnlimited">工具 不限</option>
+          <select id="tool-turns" class="mini-sel" title="Max Tool Turns: Default 20, Deep 50, Pro 100, or Unlimited" data-i18n-title="params.toolTurnsTitle">
+            <option value="20" data-i18n="params.toolTurns20">Tools 20</option>
+            <option value="50" data-i18n="params.toolTurns50">Tools 50</option>
+            <option value="100" data-i18n="params.toolTurns100">Tools 100</option>
+            <option value="0" data-i18n="params.toolTurnsUnlimited">Tools Unlimited</option>
           </select>
-          <select id="ctx" class="mini-sel" title="对话历史记忆长度：简洁、标准、较长或完整" data-i18n-title="params.ctxTitle" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
-            <option value="10" data-i18n="params.ctx10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">上下文 简洁</option>
-            <option value="20" data-i18n="params.ctx20" data-page-node-id="keiOmwFkrVWiWZtbR4w7bn">上下文 标准</option>
-            <option value="40" data-i18n="params.ctx40" data-page-node-id="PNHjQJubaEeJyznuZM5GEl">上下文 较长</option>
-            <option value="0" data-i18n="params.ctx0" data-page-node-id="CRurP9qDThQztl86X1tU4t">上下文 完整</option>
+          <select id="ctx" class="mini-sel" title="Context Length: Compact, Standard, Long, or Full" data-i18n-title="params.ctxTitle" data-page-node-id="CPXMId9mE3ArVPDBwhoEyG">
+            <option value="10" data-i18n="params.ctx10" data-page-node-id="25UPVGiBiDIuEPYN6fs3wS">Context Compact</option>
+            <option value="20" data-i18n="params.ctx20" data-page-node-id="keiOmwFkrVWiWZtbR4w7bn">Context Standard</option>
+            <option value="40" data-i18n="params.ctx40" data-page-node-id="PNHjQJubaEeJyznuZM5GEl">Context Long</option>
+            <option value="0" data-i18n="params.ctx0" data-page-node-id="CRurP9qDThQztl86X1tU4t">Context Full</option>
           </select>
         </div>
         <div id="image-params-group" class="image-params-group hide">
-          <select id="image-size" class="mini-sel" title="图像生成尺寸与纵横比" data-i18n-title="params.imageSizeTitle">
-            <option value="auto" data-i18n="params.imageSizeAuto">尺寸 自适应</option>
-            <option value="1024x1024" data-i18n="params.imageSize1024">尺寸 1:1 正方 (1K)</option>
-            <option value="1536x1024" data-i18n="params.imageSize1536x1024">尺寸 3:2 横屏</option>
-            <option value="1024x1536" data-i18n="params.imageSize1024x1536">尺寸 2:3 竖屏</option>
-            <option value="2k" data-i18n="params.imageSize2k">尺寸 2K 超清</option>
+          <select id="image-size" class="mini-sel" title="Image Size and Aspect Ratio" data-i18n-title="params.imageSizeTitle">
+            <option value="auto" data-i18n="params.imageSizeAuto">Size Auto</option>
+            <option value="1024x1024" data-i18n="params.imageSize1024">Size 1:1 Square (1K)</option>
+            <option value="1536x1024" data-i18n="params.imageSize1536x1024">Size 3:2 Landscape</option>
+            <option value="1024x1536" data-i18n="params.imageSize1024x1536">Size 2:3 Portrait</option>
+            <option value="2k" data-i18n="params.imageSize2k">Size 2K Ultra</option>
           </select>
-          <select id="image-quality" class="mini-sel" title="图像精度与画质" data-i18n-title="params.imageQualityTitle">
-            <option value="auto" data-i18n="params.imageQualityAuto">画质 自动</option>
-            <option value="high" data-i18n="params.imageQualityHigh">画质 高清</option>
-            <option value="medium" data-i18n="params.imageQualityMedium">画质 标准</option>
-            <option value="low" data-i18n="params.imageQualityLow">画质 极速</option>
+          <select id="image-quality" class="mini-sel" title="Image Quality and Fidelity" data-i18n-title="params.imageQualityTitle">
+            <option value="auto" data-i18n="params.imageQualityAuto">Quality Auto</option>
+            <option value="high" data-i18n="params.imageQualityHigh">Quality High</option>
+            <option value="medium" data-i18n="params.imageQualityMedium">Quality Standard</option>
+            <option value="low" data-i18n="params.imageQualityLow">Quality Fast</option>
           </select>
-          <select id="image-bg" class="mini-sel" title="背景透明度设置" data-i18n-title="params.imageBgTitle">
-            <option value="auto" data-i18n="params.imageBgAuto">背景 默认</option>
-            <option value="transparent" data-i18n="params.imageBgTransparent">背景 透明(PNG)</option>
-            <option value="opaque" data-i18n="params.imageBgOpaque">背景 实心</option>
+          <select id="image-bg" class="mini-sel" title="Background Transparency" data-i18n-title="params.imageBgTitle">
+            <option value="auto" data-i18n="params.imageBgAuto">Background Default</option>
+            <option value="transparent" data-i18n="params.imageBgTransparent">Background Transparent (PNG)</option>
+            <option value="opaque" data-i18n="params.imageBgOpaque">Background Opaque</option>
           </select>
         </div>
       </div>
       <div class="spacer" data-page-node-id="188psDF9zupSFc3dpDJDTJ"></div>
-      <button class="icon-btn" id="settings-btn" title="偏好与系统指令设置" data-i18n-title="topbar.settingsTitle">
+      <button class="icon-btn" id="settings-btn" title="Preferences and System Instructions" data-i18n-title="topbar.settingsTitle">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
           stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
@@ -189,7 +189,7 @@
           </path>
         </svg>
       </button>
-      <button class="icon-btn" id="logout" data-page-node-id="n3QEetVbJGBPpwzDOGX3fm" data-i18n="topbar.logout">退出</button>
+      <button class="icon-btn" id="logout" data-page-node-id="n3QEetVbJGBPpwzDOGX3fm" data-i18n="topbar.logout">Log out</button>
     </div>
     <div id="thread" data-page-node-id="vdRCThaM6lrCnMeNZ6ZdVv">
       <div id="thread-inner" data-page-node-id="6mB71lyu8YYe1S2ndu6jmp"></div>
@@ -202,7 +202,7 @@
           <div class="hud-top-row">
             <div class="hud-beacon-group">
               <span class="hud-pulse-dot"></span>
-              <span id="hud-status-text" class="hud-status-text" data-i18n="composer.voiceRecording">正在录音</span>
+              <span id="hud-status-text" class="hud-status-text" data-i18n="composer.voiceRecording">Recording</span>
             </div>
             <div class="hud-timer-group">
               <span id="hud-timer" class="hud-timer">00:00</span>
@@ -228,11 +228,11 @@
             <span class="hud-bar"></span>
           </div>
           <div class="hud-bottom-row">
-            <span id="hud-gesture-hint" class="hud-gesture-hint" data-i18n="composer.voiceSlideToCancel">▲ 上滑取消 · 松开发送</span>
+            <span id="hud-gesture-hint" class="hud-gesture-hint" data-i18n="composer.voiceSlideToCancel">▲ Slide up to cancel · Release to send</span>
           </div>
         </div>
         <div id="composer-toolbar" class="composer-toolbar">
-          <button id="attach-btn" class="composer-icon-btn" title="添加图片或文件（支持代码、文本、数据表格、PDF等）" data-i18n-title="composer.attachTitle">
+          <button id="attach-btn" class="composer-icon-btn" title="Attach images or files (code, text, spreadsheets, PDF, etc.)" data-i18n-title="composer.attachTitle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
               <path
@@ -240,15 +240,15 @@
               </path>
             </svg>
           </button>
-          <button id="plugins-btn" class="composer-pill-btn" title="扩展插件与智能工具库" data-i18n-title="composer.pluginsTitle">
+          <button id="plugins-btn" class="composer-pill-btn" title="Extensions and Smart Tools" data-i18n-title="composer.pluginsTitle">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <span class="btn-text" data-i18n="composer.pluginsText">插件</span>
+            <span class="btn-text" data-i18n="composer.pluginsText">Plugins</span>
             <span id="plugins-badge" class="plugin-count-badge">2</span>
           </button>
-          <button id="voice-btn" class="composer-icon-btn" title="语音输入（点击说话，实时转为文字）" data-i18n-title="composer.voiceTitle">
+          <button id="voice-btn" class="composer-icon-btn" title="Voice input (click to speak, real-time speech-to-text)" data-i18n-title="composer.voiceTitle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -259,8 +259,8 @@
           </button>
         </div>
         <div id="composer-main-row" class="composer-main-row">
-          <textarea id="input" rows="1" placeholder="发消息或粘贴/拖拽文件、图片，Enter 发送，Shift+Enter 换行" data-i18n-placeholder="composer.inputPlaceholder"></textarea>
-          <div id="composer-voice-overlay" class="composer-voice-overlay" style="display:none;" role="button" tabindex="0" aria-live="polite" aria-label="按住说话" data-i18n-aria="composer.voiceHoldToSpeak">
+          <textarea id="input" rows="1" placeholder="Type a message or drop files/images. Enter to send" data-i18n-placeholder="composer.inputPlaceholder"></textarea>
+          <div id="composer-voice-overlay" class="composer-voice-overlay" style="display:none;" role="button" tabindex="0" aria-live="polite" aria-label="Hold to Speak" data-i18n-aria="composer.voiceHoldToSpeak">
             <div class="voice-overlay-resting">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="voice-bar-mic-icon">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -268,14 +268,14 @@
                 <line x1="12" y1="19" x2="12" y2="23"></line>
                 <line x1="8" y1="23" x2="16" y2="23"></line>
               </svg>
-              <span id="voice-bar-prompt" class="voice-bar-prompt" data-i18n="composer.voiceHoldToSpeak">按住 说话</span>
+              <span id="voice-bar-prompt" class="voice-bar-prompt" data-i18n="composer.voiceHoldToSpeak">Hold to Speak</span>
             </div>
             <div class="voice-overlay-active">
-              <span id="voice-overlay-status" class="voice-overlay-status" data-i18n="composer.voiceReleaseToSend">松开 结束</span>
+              <span id="voice-overlay-status" class="voice-overlay-status" data-i18n="composer.voiceReleaseToSend">Release to Finish</span>
             </div>
           </div>
-          <button id="stop" title="停止" data-i18n-title="composer.stopTitle" data-page-node-id="mPg8sygomFKpxexZkzYZK0">■</button>
-          <button id="send" title="发送" data-i18n-title="composer.sendTitle" data-page-node-id="DiBFl6NPkhFZqRePnLQIVR">
+          <button id="stop" title="Stop" data-i18n-title="composer.stopTitle" data-page-node-id="mPg8sygomFKpxexZkzYZK0">■</button>
+          <button id="send" title="Send" data-i18n-title="composer.sendTitle" data-page-node-id="DiBFl6NPkhFZqRePnLQIVR">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
               data-page-node-id="r2S07dnQvhJQtDH3XZ6DLR">
               <path d="M2 8l12-6-4.5 6L14 14 2 8z" data-page-node-id="xjSljhsLNoNpqJjfWF3BJV" />
@@ -294,7 +294,7 @@
         <polyline points="17 8 12 3 7 8"></polyline>
         <line x1="12" y1="3" x2="12" y2="15"></line>
       </svg>
-      <span data-i18n="composer.dropHint">松开鼠标添加图片或文件</span>
+      <span data-i18n="composer.dropHint">Drop files or images here</span>
     </div>
   </div>
 
@@ -307,9 +307,9 @@
             stroke-linecap="round" stroke-linejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
-          <span data-i18n="pluginsModal.title">扩展插件与智能工具</span>
+          <span data-i18n="pluginsModal.title">Extensions & Smart Tools</span>
         </div>
-        <button id="plugins-close" class="modal-close-btn" title="关闭 (Esc)" data-i18n-title="pluginsModal.closeTooltip">
+        <button id="plugins-close" class="modal-close-btn" title="Close (Esc)" data-i18n-title="pluginsModal.closeTooltip">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -318,14 +318,14 @@
         </button>
       </div>
       <div class="plugins-modal-desc" data-i18n="pluginsModal.desc">
-        开启的插件将注入模型决策流，模型在思考时可自主调度并执行。
+        Active plugins are injected into model decision flows, enabling autonomous execution during reasoning.
       </div>
       <div class="plugins-quick-bar">
-        <span id="plugins-active-summary">已启用 2 个插件</span>
+        <span id="plugins-active-summary">2 plugins active</span>
         <div class="plugins-quick-actions">
-          <button id="plugins-enable-all" class="quick-link-btn" data-i18n="pluginsModal.enableAll">全部启用</button>
+          <button id="plugins-enable-all" class="quick-link-btn" data-i18n="pluginsModal.enableAll">Enable All</button>
           <span class="sep">·</span>
-          <button id="plugins-disable-all" class="quick-link-btn" data-i18n="pluginsModal.disableAll">全部关闭</button>
+          <button id="plugins-disable-all" class="quick-link-btn" data-i18n="pluginsModal.disableAll">Disable All</button>
         </div>
       </div>
       <div id="plugins-list" class="plugins-list"></div>
@@ -344,9 +344,9 @@
               d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
             </path>
           </svg>
-          <span data-i18n="settings.title">偏好设置</span>
+          <span data-i18n="settings.title">Preferences</span>
         </div>
-        <button id="settings-close" class="modal-close-btn" title="关闭 (Esc)" data-i18n-title="settings.closeTooltip">
+        <button id="settings-close" class="modal-close-btn" title="Close (Esc)" data-i18n-title="settings.closeTooltip">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -359,8 +359,8 @@
         <!-- Section: Interface Language -->
         <div class="settings-section">
           <div class="settings-section-header">
-            <label class="settings-section-title" data-i18n="settings.languageTitle">界面语言</label>
-            <span class="settings-section-hint" data-i18n="settings.languageHint">选择界面显示语言</span>
+            <label class="settings-section-title" data-i18n="settings.languageTitle">Interface Language</label>
+            <span class="settings-section-hint" data-i18n="settings.languageHint">Select interface display language</span>
           </div>
           <div class="theme-segmented-group lang-segmented-group">
             <button type="button" id="lang-pill-zh" class="theme-pill" data-lang="zh">
@@ -375,8 +375,8 @@
         <!-- Section 1: Appearance -->
         <div class="settings-section">
           <div class="settings-section-header">
-            <label class="settings-section-title" data-i18n="settings.appearanceTitle">界面外观</label>
-            <span class="settings-section-hint" data-i18n="settings.appearanceHint">选择适合你的显示主题</span>
+            <label class="settings-section-title" data-i18n="settings.appearanceTitle">Appearance</label>
+            <span class="settings-section-hint" data-i18n="settings.appearanceHint">Choose your preferred display theme</span>
           </div>
           <div class="theme-segmented-group">
             <button type="button" id="theme-pill-dark" class="theme-pill" data-theme="dark">
@@ -384,7 +384,7 @@
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
               </svg>
-              <span data-i18n="settings.themeDark">深色模式</span>
+              <span data-i18n="settings.themeDark">Dark Mode</span>
             </button>
             <button type="button" id="theme-pill-light" class="theme-pill" data-theme="light">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -399,7 +399,7 @@
                 <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
                 <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
               </svg>
-              <span data-i18n="settings.themeLight">浅色模式</span>
+              <span data-i18n="settings.themeLight">Light Mode</span>
             </button>
             <button type="button" id="theme-pill-auto" class="theme-pill" data-theme="auto">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -408,7 +408,7 @@
                 <line x1="8" y1="21" x2="16" y2="21"></line>
                 <line x1="12" y1="17" x2="12" y2="21"></line>
               </svg>
-              <span data-i18n="settings.themeAuto">跟随系统</span>
+              <span data-i18n="settings.themeAuto">System</span>
             </button>
           </div>
         </div>
@@ -417,32 +417,32 @@
         <div class="settings-section">
           <div class="settings-section-header">
             <div class="settings-title-row">
-              <label for="settings-instructions" class="settings-section-title" data-i18n="settings.instructionsTitle">定制你的专属 AI (个性化设定)</label>
+              <label for="settings-instructions" class="settings-section-title" data-i18n="settings.instructionsTitle">Custom Instructions</label>
               <div class="settings-toggle-wrap">
                 <input type="checkbox" id="settings-instructions-toggle" class="custom-toggle-input">
-                <label for="settings-instructions-toggle" class="custom-toggle-label" title="开启或暂停个性化设定" data-i18n-title="settings.instructionsToggleTitle"></label>
+                <label for="settings-instructions-toggle" class="custom-toggle-label" title="Enable or pause custom instructions" data-i18n-title="settings.instructionsToggleTitle"></label>
               </div>
             </div>
-            <span class="settings-section-hint" data-i18n="settings.instructionsHint">告诉 AI 你的身份背景或期望的回答风格，AI 在每次对话中都会记住并遵循。</span>
+            <span class="settings-section-hint" data-i18n="settings.instructionsHint">Tell the AI your background or desired style to follow in every conversation.</span>
           </div>
 
           <div class="prompt-chips">
-            <span class="prompt-chips-label" data-i18n="settings.presetsLabel">常用预设：</span>
+            <span class="prompt-chips-label" data-i18n="settings.presetsLabel">Presets:</span>
             <button type="button" class="prompt-chip" data-preset="engineer" data-i18n="settings.presetEngineer"
-              data-prompt="你是一位资深全栈工程师。回答时请遵循最佳实践，给出精炼、无赘述的高质量代码与清晰要点解析。">资深工程师</button>
+              data-prompt="You are a senior full-stack engineer. Follow best practices, providing clean, concise code with clear explanations.">Senior Engineer</button>
             <button type="button" class="prompt-chip" data-preset="scholar" data-i18n="settings.presetScholar"
-              data-prompt="请以严谨、客观、论据充分的学者口吻回答，注重逻辑推演与结构化表达。">严谨学者</button>
+              data-prompt="Answer with a rigorous, objective academic tone, focusing on logical deduction and structured analysis.">Rigorous Scholar</button>
             <button type="button" class="prompt-chip" data-preset="minimal" data-i18n="settings.presetMinimal"
-              data-prompt="回答务必言简意赅、直奔重点，去除一切客套寒暄，优先使用分点列表和表格呈现结论。">极简要点</button>
+              data-prompt="Be concise and straight to the point without pleasantries. Prioritize bullet points and tables for clarity.">Concise Bullets</button>
             <button type="button" class="prompt-chip" data-preset="translator" data-i18n="settings.presetTranslator"
-              data-prompt="你是一位专业的中英双语翻译专家。请准确、地道、优雅地翻译内容，并附带关键术语对照。">专业翻译</button>
+              data-prompt="You are a professional bilingual translator. Translate accurately and elegantly with key technical terminology glossaries.">Translator</button>
           </div>
 
           <textarea id="settings-instructions" class="settings-textarea" rows="4"
-            placeholder="例如：我是一名全栈开发者。回答时请直接给出清晰的代码与核心结论，不需要客套寒暄..." data-i18n-placeholder="settings.instructionsPlaceholder"></textarea>
+            placeholder="e.g., I am a full-stack developer. Provide clear code and core conclusions directly without pleasantries..." data-i18n-placeholder="settings.instructionsPlaceholder"></textarea>
 
           <div class="settings-textarea-footer">
-            <span id="settings-char-count" class="char-count">0 字符</span>
+            <span id="settings-char-count" class="char-count">0 characters</span>
           </div>
         </div>
 
@@ -450,20 +450,20 @@
         <div class="settings-section">
           <div class="settings-section-header">
             <div class="settings-title-row">
-              <label for="settings-memory-toggle" class="settings-section-title" data-i18n="settings.memoryTitle">长期记忆 (Memory)</label>
+              <label for="settings-memory-toggle" class="settings-section-title" data-i18n="settings.memoryTitle">Long-Term Memory</label>
               <div class="settings-toggle-wrap">
                 <input type="checkbox" id="settings-memory-toggle" class="custom-toggle-input">
-                <label for="settings-memory-toggle" class="custom-toggle-label" title="开启或关闭长期记忆" data-i18n-title="settings.memoryToggleTitle"></label>
+                <label for="settings-memory-toggle" class="custom-toggle-label" title="Enable or disable long-term memory" data-i18n-title="settings.memoryToggleTitle"></label>
               </div>
             </div>
-            <span class="settings-section-hint" data-i18n="settings.memoryHint">开启后，AI 会在聊天中自动记住关于你的重要偏好和背景。点击任意内容即可直接修改，数据仅保存在你的本地浏览器中。</span>
+            <span class="settings-section-hint" data-i18n="settings.memoryHint">When enabled, the AI remembers your key preferences across chats. Click any item to edit. Data is saved only in your local browser.</span>
           </div>
 
           <div class="memory-manager-box">
             <div class="memory-add-row">
               <input type="text" id="settings-memory-input" class="memory-input"
-                placeholder="输入一条想让 AI 记住的事（例如：回答时多用中文、平时常用 Python）" data-i18n-placeholder="settings.memoryPlaceholder">
-              <button type="button" id="settings-memory-add-btn" class="memory-add-btn" data-i18n="settings.memoryAddBtn">＋ 添加</button>
+                placeholder="Enter something for AI to remember (e.g. prefer concise answers, use Python)..." data-i18n-placeholder="settings.memoryPlaceholder">
+              <button type="button" id="settings-memory-add-btn" class="memory-add-btn" data-i18n="settings.memoryAddBtn">+ Add</button>
             </div>
 
             <div id="settings-memory-list" class="memory-list">
@@ -471,8 +471,8 @@
             </div>
 
             <div class="memory-footer-bar">
-              <span id="settings-memory-count" class="memory-count-text">已记住 0 条内容</span>
-              <button type="button" id="settings-memory-clear-btn" class="memory-clear-btn" data-i18n="settings.memoryClearAll">清空所有记忆</button>
+              <span id="settings-memory-count" class="memory-count-text">0 memories saved</span>
+              <button type="button" id="settings-memory-clear-btn" class="memory-clear-btn" data-i18n="settings.memoryClearAll">Clear All Memories</button>
             </div>
           </div>
         </div>
@@ -480,26 +480,26 @@
         <!-- Section: Speech-to-Text ASR -->
         <div class="settings-section">
           <div class="settings-section-header">
-            <label for="settings-asr-model" class="settings-section-title" data-i18n="settings.asrTitle">语音识别模型 (ASR)</label>
-            <span class="settings-section-hint" data-i18n="settings.asrHint">点击输入框麦克风时，强制启用端侧 VAD 智能降噪并调度高精度云端 ASR。</span>
+            <label for="settings-asr-model" class="settings-section-title" data-i18n="settings.asrTitle">Speech Recognition (ASR)</label>
+            <span class="settings-section-hint" data-i18n="settings.asrHint">Triggers on-device VAD noise suppression and high-accuracy cloud ASR when clicking the microphone.</span>
           </div>
           <div class="settings-asr-container">
             <select id="settings-asr-model" class="settings-select">
-              <optgroup label="推荐中文大模型 (高精度 · 强抗噪 · 极致性价比)" data-i18n-label="settings.asrOptgroupChinese">
-                <option value="bytedance/doubao-seed-asr-2.0" data-i18n="settings.asrDoubao">火山引擎 豆包大模型 ASR (Doubao-Seed-ASR-2.0) · 推荐</option>
-                <option value="qwen/qwen3-asr-flash" data-i18n="settings.asrQwen">阿里 Qwen3 ASR Flash (非自回归毫秒级秒出)</option>
-                <option value="xiaomi/mimo-v2.5-asr" data-i18n="settings.asrMimo">小米 MiMo-V2.5-ASR (中英双语 · 方言抗噪)</option>
+              <optgroup label="Recommended Chinese Models (High Accuracy · Robust · Cost-Effective)" data-i18n-label="settings.asrOptgroupChinese">
+                <option value="bytedance/doubao-seed-asr-2.0" data-i18n="settings.asrDoubao">ByteDance Doubao ASR (Doubao-Seed-ASR-2.0) · Recommended</option>
+                <option value="qwen/qwen3-asr-flash" data-i18n="settings.asrQwen">Alibaba Qwen3 ASR Flash (Non-autoregressive ms latency)</option>
+                <option value="xiaomi/mimo-v2.5-asr" data-i18n="settings.asrMimo">Xiaomi MiMo-V2.5-ASR (Bilingual CN/EN · Noise-robust)</option>
               </optgroup>
-              <optgroup label="国际通用与多语言大模型" data-i18n-label="settings.asrOptgroupGlobal">
-                <option value="x-ai/grok-voice-stt-1.0" data-i18n="settings.asrGrok">xAI Grok Voice STT 1.0 (词级时间戳 · 超高性价比)</option>
-                <option value="openai/gpt-transcribe" data-i18n="settings.asrGpt">OpenAI GPT Transcribe (高精度多语种转写 · 标点纠错)</option>
+              <optgroup label="Global & Multilingual Models" data-i18n-label="settings.asrOptgroupGlobal">
+                <option value="x-ai/grok-voice-stt-1.0" data-i18n="settings.asrGrok">xAI Grok Voice STT 1.0 (Word timestamps · High cost-performance)</option>
+                <option value="openai/gpt-transcribe" data-i18n="settings.asrGpt">OpenAI GPT Transcribe (High accuracy multilingual · Punctuation)</option>
               </optgroup>
             </select>
             <div class="settings-subrow">
-              <label for="settings-vad-engine" class="settings-sublabel" data-i18n="settings.vadEngineLabel">端侧切音 (VAD):</label>
+              <label for="settings-vad-engine" class="settings-sublabel" data-i18n="settings.vadEngineLabel">On-Device VAD:</label>
               <select id="settings-vad-engine" class="settings-select settings-subselect">
-                <option value="energy" data-i18n="settings.vadEngineEnergy">端侧能量自适应引擎 (内置 · 零消耗 · 秒开) · 默认</option>
-                <option value="silero-onnx" data-i18n="settings.vadEngineSilero">Silero 深度神经网络引擎 (ONNX · 极致抗噪 · 深度学习)</option>
+                <option value="energy" data-i18n="settings.vadEngineEnergy">On-Device Energy Adaptive (Built-in · Zero Cost · Instant) · Default</option>
+                <option value="silero-onnx" data-i18n="settings.vadEngineSilero">Silero Neural Network Engine (ONNX · Superior Noise Rejection · Deep Learning)</option>
               </select>
             </div>
             <div id="settings-vad-badge" class="settings-vad-badge">
@@ -507,7 +507,7 @@
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span id="settings-vad-status-text" data-i18n="settings.vadStatusText">端侧 VAD 智能静音切除已强制启用（自动滤除环境杂音与死寂停顿，大幅降低调用时长并根除幻觉）</span>
+              <span id="settings-vad-status-text" data-i18n="settings.vadStatusText">On-device VAD silence trimming active (cuts ambient noise and dead pauses to lower latency and prevent hallucinations)</span>
             </div>
           </div>
         </div>
@@ -515,42 +515,42 @@
         <!-- Section: TTS Voice Output Model -->
         <div class="settings-section">
           <div class="settings-section-header">
-            <label for="settings-tts-model" class="settings-section-title" data-i18n="settings.ttsTitle">语音朗读模型 (TTS)</label>
-            <span class="settings-section-hint" data-i18n="settings.ttsHint">AI 回复朗读时的发音引擎，支持超自然拟真云端模型与免消耗本地引擎。</span>
+            <label for="settings-tts-model" class="settings-section-title" data-i18n="settings.ttsTitle">Speech Synthesis (TTS)</label>
+            <span class="settings-section-hint" data-i18n="settings.ttsHint">Voice engine for reading responses aloud, supporting neural cloud voices and local engines.</span>
           </div>
           <div class="settings-tts-container">
             <select id="settings-tts-model" class="settings-select">
-              <optgroup label="推荐云端大模型 (超自然音色 · 细腻拟真)" data-i18n-label="settings.ttsOptgroupCloud">
-                <option value="google/gemini-3.1-flash-tts-preview" data-i18n="settings.ttsGemini">Google Gemini 3.1 Flash TTS Preview (70+ 多语言 · 细腻情感) · 推荐</option>
-                <option value="qwen/qwen-audio-3.0-tts-plus" data-i18n="settings.ttsQwen">阿里通义千问 Qwen-Audio-3.0-TTS-Plus (顶级中文与方言)</option>
-                <option value="x-ai/grok-voice-tts-1.0" data-i18n="settings.ttsGrok">xAI Grok Voice TTS 1.0 (拟真语调 · 动态表达)</option>
+              <optgroup label="Recommended Cloud Models (Ultra-Natural · Expressive)" data-i18n-label="settings.ttsOptgroupCloud">
+                <option value="google/gemini-3.1-flash-tts-preview" data-i18n="settings.ttsGemini">Google Gemini 3.1 Flash TTS Preview (70+ Languages · Expressive) · Recommended</option>
+                <option value="qwen/qwen-audio-3.0-tts-plus" data-i18n="settings.ttsQwen">Alibaba Qwen-Audio-3.0-TTS-Plus (Premium Chinese & Dialects)</option>
+                <option value="x-ai/grok-voice-tts-1.0" data-i18n="settings.ttsGrok">xAI Grok Voice TTS 1.0 (Lifelike prosody · Dynamic expression)</option>
               </optgroup>
-              <optgroup label="本地设备原生引擎 (零网络消耗 · 离线可用)" data-i18n-label="settings.ttsOptgroupLocal">
-                <option value="browser" data-i18n="settings.ttsBrowserOption" selected>浏览器本地原生语音 (Web Speech API)</option>
+              <optgroup label="On-Device Native Engine (Zero Network Cost · Offline)" data-i18n-label="settings.ttsOptgroupLocal">
+                <option value="browser" data-i18n="settings.ttsBrowserOption" selected>Native Browser Speech (Web Speech API)</option>
               </optgroup>
             </select>
             <div id="settings-tts-voice-row" class="settings-subrow" style="display: none;">
-              <label for="settings-tts-voice" class="settings-sublabel" data-i18n="settings.ttsVoiceLabel">发音音色 (Voice):</label>
+              <label for="settings-tts-voice" class="settings-sublabel" data-i18n="settings.ttsVoiceLabel">Voice Tone:</label>
               <select id="settings-tts-voice" class="settings-select settings-subselect">
-                <optgroup label="Google 拟真音色 (Gemini)" data-i18n-label="settings.ttsVoiceOptgroupGoogle">
-                  <option value="Kore" data-i18n="settings.ttsVoiceKore" selected>Kore (知性自然女声 · 推荐)</option>
-                  <option value="Puck" data-i18n="settings.ttsVoicePuck">Puck (活力生动男声)</option>
-                  <option value="Aoede" data-i18n="settings.ttsVoiceAoede">Aoede (温和优雅女声)</option>
-                  <option value="Fenrir" data-i18n="settings.ttsVoiceFenrir">Fenrir (沉稳磁性男声)</option>
-                  <option value="Charon" data-i18n="settings.ttsVoiceCharon">Charon (深沉专业男声)</option>
+                <optgroup label="Google Neural Voices (Gemini)" data-i18n-label="settings.ttsVoiceOptgroupGoogle">
+                  <option value="Kore" data-i18n="settings.ttsVoiceKore" selected>Kore (Natural & Warm Female · Recommended)</option>
+                  <option value="Puck" data-i18n="settings.ttsVoicePuck">Puck (Energetic & Vivid Male)</option>
+                  <option value="Aoede" data-i18n="settings.ttsVoiceAoede">Aoede (Gentle & Elegant Female)</option>
+                  <option value="Fenrir" data-i18n="settings.ttsVoiceFenrir">Fenrir (Deep & Resonant Male)</option>
+                  <option value="Charon" data-i18n="settings.ttsVoiceCharon">Charon (Authoritative Professional Male)</option>
                 </optgroup>
-                <optgroup label="xAI 拟真音色 (Grok)" data-i18n-label="settings.ttsVoiceOptgroupXai">
-                  <option value="Ara" data-i18n="settings.ttsVoiceAra">Ara (亲切温暖女声 · 推荐)</option>
-                  <option value="Eve" data-i18n="settings.ttsVoiceEve">Eve (活力明快女声)</option>
-                  <option value="Leo" data-i18n="settings.ttsVoiceLeo">Leo (沉稳权威男声)</option>
-                  <option value="Rex" data-i18n="settings.ttsVoiceRex">Rex (自信清晰男声)</option>
-                  <option value="Sal" data-i18n="settings.ttsVoiceSal">Sal (平衡自然男声)</option>
+                <optgroup label="xAI Neural Voices (Grok)" data-i18n-label="settings.ttsVoiceOptgroupXai">
+                  <option value="Ara" data-i18n="settings.ttsVoiceAra">Ara (Friendly & Warm Female · Recommended)</option>
+                  <option value="Eve" data-i18n="settings.ttsVoiceEve">Eve (Lively & Crisp Female)</option>
+                  <option value="Leo" data-i18n="settings.ttsVoiceLeo">Leo (Calm & Authoritative Male)</option>
+                  <option value="Rex" data-i18n="settings.ttsVoiceRex">Rex (Confident & Articulate Male)</option>
+                  <option value="Sal" data-i18n="settings.ttsVoiceSal">Sal (Balanced & Natural Male)</option>
                 </optgroup>
-                <optgroup label="阿里通义音色 (Qwen)" data-i18n-label="settings.ttsVoiceOptgroupQwen">
-                  <option value="longanlingxin" data-i18n="settings.ttsVoiceLingxin">灵心 (温暖亲切女声 · 推荐)</option>
-                  <option value="longanlufeng" data-i18n="settings.ttsVoiceLufeng">陆峰 (阳光明快男声)</option>
-                  <option value="loongalexanderhubase" data-i18n="settings.ttsVoiceAlexander">Alexander (沉稳从容男声)</option>
-                  <option value="loongivyhubase" data-i18n="settings.ttsVoiceIvy">Ivy (知性干练女声)</option>
+                <optgroup label="Alibaba Qwen Voices" data-i18n-label="settings.ttsVoiceOptgroupQwen">
+                  <option value="longanlingxin" data-i18n="settings.ttsVoiceLingxin">Lingxin (Warm & Affectionate Female · Recommended)</option>
+                  <option value="longanlufeng" data-i18n="settings.ttsVoiceLufeng">Lufeng (Sunny & Cheerful Male)</option>
+                  <option value="loongalexanderhubase" data-i18n="settings.ttsVoiceAlexander">Alexander (Composed & Steady Male)</option>
+                  <option value="loongivyhubase" data-i18n="settings.ttsVoiceIvy">Ivy (Intellectual & Capable Female)</option>
                 </optgroup>
               </select>
             </div>
@@ -560,7 +560,7 @@
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
               </svg>
-              <span data-i18n="settings.ttsBadge">默认启用本地原生语音引擎（零 Token 计费）；选择云端大模型可体验细腻拟真音色。</span>
+              <span data-i18n="settings.ttsBadge">Local speech engine enabled by default (zero token cost). Select cloud models for expressive voices.</span>
             </div>
           </div>
         </div>
@@ -568,8 +568,8 @@
         <!-- Section 4: System & Version Updates -->
         <div class="settings-section">
           <div class="settings-section-header">
-            <label class="settings-section-title" data-i18n="settings.versionTitle">系统与版本</label>
-            <span class="settings-section-hint" data-i18n="settings.versionHint">检查版本更新</span>
+            <label class="settings-section-title" data-i18n="settings.versionTitle">System & Version</label>
+            <span class="settings-section-hint" data-i18n="settings.versionHint">Check for version updates</span>
           </div>
           <div class="settings-version-card">
             <div class="version-info-left">
@@ -577,50 +577,54 @@
                 <span>ZenChat</span>
                 <span class="app-version-badge"></span>
               </div>
-              <div id="settings-update-status" class="version-status-text" data-i18n="settings.versionLatest">当前已是最新版本</div>
+              <div id="settings-update-status" class="version-status-text" data-i18n="settings.versionLatest">Up to date</div>
             </div>
             <button type="button" id="settings-check-update-btn" class="btn-check-update">
               <svg class="check-update-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
               </svg>
-              <span class="check-update-label" data-i18n="settings.versionCheckBtn">检查更新</span>
+              <span class="check-update-label" data-i18n="settings.versionCheckBtn">Check for Updates</span>
             </button>
           </div>
         </div>
       </div>
 
       <div class="settings-modal-footer">
-        <button type="button" id="settings-clear-btn" class="btn-ghost" data-i18n="settings.resetSettings">清空设定</button>
+        <button type="button" id="settings-clear-btn" class="btn-ghost" data-i18n="settings.resetSettings">Reset All</button>
         <div class="footer-right-actions">
-          <button type="button" id="settings-save-btn" class="btn-primary" data-i18n="settings.saveSettings">保存并应用</button>
+          <button type="button" id="settings-save-btn" class="btn-primary" data-i18n="settings.saveSettings">Save & Apply</button>
         </div>
       </div>
     </div>
   </div>
 
   <div id="lightbox" class="lightbox hide">
-    <button id="lightbox-close" class="lightbox-close" title="关闭 (Esc)" data-i18n-title="common.close">×</button>
+    <button id="lightbox-close" class="lightbox-close" title="Close" data-i18n-title="common.close">×</button>
     <div class="lightbox-content">
-      <img id="lightbox-img" src="" alt="预览大图" data-i18n-alt="chat.imageAlt">
+      <img id="lightbox-img" src="" alt="Image" data-i18n-alt="chat.imageAlt">
     </div>
   </div>
 
   <div id="gate" data-page-node-id="3RnzGpSr4STVNxFOqkxUDl">
     <div id="gate-box" data-page-node-id="4QaGa55sm8Sj358xR8iCSA">
+      <div class="gate-lang-picker">
+        <button id="gate-lang-zh" class="gate-lang-btn" type="button">中</button>
+        <button id="gate-lang-en" class="gate-lang-btn" type="button">EN</button>
+      </div>
       <div class="gate-brand-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
       </div>
-      <h2 data-page-node-id="kXn3sLRhenARrsyM9PdBCO" data-i18n="gate.title">工作台身份验证</h2>
-      <p data-page-node-id="SIHXPRHvy6BVFQHE50FOr6" data-i18n="gate.desc">请输入管理员分配的访问口令 (Access Token) 以解锁个人 AI 工作台</p>
+      <h2 data-page-node-id="kXn3sLRhenARrsyM9PdBCO" data-i18n="gate.title">Workspace Authentication</h2>
+      <p data-page-node-id="SIHXPRHvy6BVFQHE50FOr6" data-i18n="gate.desc">Please enter your assigned Access Token to unlock your AI workspace</p>
       <div class="gate-form-group">
-        <input id="gate-input" type="password" autocomplete="current-password" placeholder="输入访问口令…"
+        <input id="gate-input" type="password" autocomplete="current-password" placeholder="Enter access token..."
           data-i18n-placeholder="gate.placeholder" data-page-node-id="5pQiupAVFWi5shCMXos2zR" spellcheck="false">
       </div>
-      <button id="gate-go" data-page-node-id="xy5SJwKqNjMdJkvUpF7LVQ" data-i18n="gate.btn">验证并进入</button>
+      <button id="gate-go" data-page-node-id="xy5SJwKqNjMdJkvUpF7LVQ" data-i18n="gate.btn">Verify & Enter</button>
       <div id="gate-err" data-page-node-id="AyyzGwOMvOuqejWvVif1h7"></div>
     </div>
   </div>

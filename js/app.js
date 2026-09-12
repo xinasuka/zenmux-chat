@@ -635,6 +635,8 @@ export function syncModalOpenState() {
 export function syncLangPillsUI(lang = state.lang) {
   if (el.langPillZh) el.langPillZh.classList.toggle('active', lang === 'zh');
   if (el.langPillEn) el.langPillEn.classList.toggle('active', lang === 'en');
+  if (el.gateLangZh) el.gateLangZh.classList.toggle('active', lang === 'zh');
+  if (el.gateLangEn) el.gateLangEn.classList.toggle('active', lang === 'en');
 }
 
 export function openPluginsModal() {
@@ -1626,9 +1628,11 @@ function initEventListeners() {
     renderMemoryManagerUI();
   });
 
-  // Language Pills in Settings Modal
+  // Language Pills in Settings Modal & Gate
   if (el.langPillZh) el.langPillZh.addEventListener('click', () => setLanguage('zh'));
   if (el.langPillEn) el.langPillEn.addEventListener('click', () => setLanguage('en'));
+  if (el.gateLangZh) el.gateLangZh.addEventListener('click', () => setLanguage('zh'));
+  if (el.gateLangEn) el.gateLangEn.addEventListener('click', () => setLanguage('en'));
 
   // Theme Pills in Settings Modal
   if (el.themePillDark) el.themePillDark.addEventListener('click', () => applyTheme('dark'));

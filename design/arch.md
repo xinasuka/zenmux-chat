@@ -166,7 +166,7 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 
 ### 5.4 Zero-Reload Bilingual Internationalization (`js/i18n.js`)
 - **Micro-Engine Architecture**: Zero-dependency, sub-10KB reactive localization engine supporting real-time runtime toggling between Simplified Chinese (`zh-CN`) and English (`en-US`).
-- **Declarative DOM Hydration**: Directives (`data-i18n`, `data-i18n-placeholder`, `data-i18n-title`, `data-i18n-aria`, `data-i18n-label`, `data-i18n-alt`) update in-place without page reload, preserving active conversational context and streaming tokens.
+- **Declarative DOM Hydration & English Baseline**: Directives (`data-i18n*`) update in-place without page reload. Static HTML maintains an English compile-time baseline with pre-login Gate localization to eliminate untranslated flash (FOUC).
 - **Strict Tool Contract Invariance**: Programmatic LLM tool calling schemas (`PluginRegistry.getAll()`) remain strictly 100% English to preserve model reasoning reliability, while UI indicators and citations adapt dynamically via `languagechange` events.
 - **Symmetric Key Parity Gate**: Enforces 100% parity across all 293 keys validated by `scratch/test_i18n.js`.
 
