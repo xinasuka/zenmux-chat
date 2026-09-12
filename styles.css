@@ -775,6 +775,27 @@
     .composer-main-row{
       width:100%;display:flex;align-items:flex-end;gap:8px;
     }
+    #composer.in-voice-mode{
+      padding:7px 10px 10px 12px;
+    }
+    #composer.in-voice-mode .composer-main-row{
+      align-items:center;
+    }
+    #composer.in-voice-mode .composer-main-row #send,
+    #composer.in-voice-mode .composer-main-row #stop{
+      display:none !important;
+    }
+    .composer-voice-overlay{
+      min-height:56px;height:56px;border-radius:16px;padding:0 20px;
+      box-shadow:0 3px 12px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .composer-voice-overlay .voice-bar-mic-icon{
+      width:20px;height:20px;
+    }
+    .composer-voice-overlay .voice-bar-prompt,
+    .composer-voice-overlay .voice-overlay-status{
+      font-size:15.5px;font-weight:600;letter-spacing:.4px;
+    }
     #input{
       flex:1;min-width:0;
     }
@@ -1426,34 +1447,45 @@
   }
 
   /* ---------- Composer Voice Dictation Bar (Push-to-Talk) ---------- */
+  #composer.in-voice-mode .composer-main-row #send,
+  #composer.in-voice-mode .composer-main-row #stop{
+    display:none !important;
+  }
+  #composer.in-voice-mode .composer-main-row{
+    align-items:center;
+  }
   .composer-voice-overlay{
-    flex:1 1 auto;min-width:0;width:100%;min-height:36px;height:36px;display:flex;align-items:center;justify-content:center;
-    background:rgba(255,255,255,.05);border:1px solid var(--line);
-    border-radius:9px;padding:0 14px;box-sizing:border-box;transition:all .18s ease;
+    flex:1 1 auto;min-width:0;width:100%;min-height:48px;height:48px;display:flex;align-items:center;justify-content:center;
+    background:var(--bg-elev, rgba(255,255,255,.05));border:1px solid var(--line, rgba(255,255,255,.12));
+    border-radius:12px;padding:0 16px;box-sizing:border-box;transition:all .18s cubic-bezier(0.16, 1, 0.3, 1);
     cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.06);
   }
   .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing){
     background:rgba(255,255,255,.08);border-color:var(--accent);
   }
+  .composer-voice-overlay.is-touch-down{
+    background:rgba(127,119,221,.1);border-color:var(--accent);transform:scale(.99);
+  }
   .composer-voice-overlay.is-pressing{
-    background:rgba(255,74,74,.12);border-color:rgba(255,74,74,.6);
-    box-shadow:0 0 16px rgba(255,74,74,.25);transform:scale(.99);
+    background:rgba(255,74,74,.16);border-color:rgba(255,74,74,.7);
+    box-shadow:0 0 22px rgba(255,74,74,.35), inset 0 2px 4px rgba(0,0,0,.3);transform:scale(.985);
   }
   .composer-voice-overlay.is-cancelling{
-    background:rgba(255,74,74,.22);border-color:#ff4a4a;
-    box-shadow:0 0 20px rgba(255,74,74,.4);
+    background:rgba(255,74,74,.28);border-color:#ff4a4a;
+    box-shadow:0 0 26px rgba(255,74,74,.55), inset 0 2px 4px rgba(0,0,0,.35);
   }
   .composer-voice-overlay.is-transcribing{
-    border-color:rgba(127,119,221,.5);background:rgba(127,119,221,.1);cursor:wait;
+    border-color:rgba(127,119,221,.6);background:rgba(127,119,221,.12);cursor:wait;
   }
   .voice-overlay-resting,
   .voice-overlay-active{
-    display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;
-    font-weight:500;color:var(--fg);pointer-events:none;letter-spacing:.3px;
+    display:flex;align-items:center;justify-content:center;gap:9px;font-size:14.5px;
+    font-weight:550;color:var(--fg);pointer-events:none;letter-spacing:.3px;
     width:100%;text-align:center;
   }
   .voice-bar-mic-icon{
-    color:var(--accent);transition:transform .15s;flex-shrink:0;
+    color:var(--accent);transition:transform .15s;flex-shrink:0;width:18px;height:18px;
   }
   .composer-voice-overlay:hover .voice-bar-mic-icon{
     transform:scale(1.12);
@@ -1470,14 +1502,53 @@
     display:flex;
   }
   .voice-overlay-status{
-    font-size:13px;color:var(--fg);font-weight:500;letter-spacing:.2px;text-align:center;
+    font-size:14.5px;color:var(--fg);font-weight:600;letter-spacing:.2px;text-align:center;
     transition:color .15s;
   }
   .composer-voice-overlay.is-cancelling .voice-overlay-status{
-    color:#ff4a4a;font-weight:600;
+    color:#ff4a4a;font-weight:700;
   }
   .composer-voice-overlay.is-transcribing .voice-overlay-status{
     color:var(--accent);
+  }
+  @keyframes voice-btn-shake{
+    0%,100%{transform:translateX(0)}
+    20%,60%{transform:translateX(-5px)}
+    40%,80%{transform:translateX(5px)}
+  }
+  .composer-voice-overlay.shake-hint{
+    animation:voice-btn-shake .32s ease-in-out;
+    border-color:var(--accent)!important;
+  }
+
+  /* Light Theme Overrides for Voice Overlay */
+  [data-theme="light"] .composer-voice-overlay{
+    background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+    border:1px solid #cbd5e1;box-shadow:0 2px 6px rgba(0,0,0,.05), inset 0 1px 0 #ffffff;
+    color:#0f172a;
+  }
+  [data-theme="light"] .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing){
+    background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%);
+    border-color:var(--accent);color:#0f172a;
+  }
+  [data-theme="light"] .composer-voice-overlay.is-touch-down{
+    background:#f1f5f9;border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.06);
+  }
+  [data-theme="light"] .composer-voice-overlay.is-pressing{
+    background:linear-gradient(180deg,#fee2e2 0%,#fecaca 100%);
+    border-color:#ef4444;box-shadow:0 0 18px rgba(239,68,68,.25), inset 0 2px 4px rgba(0,0,0,.06);
+    color:#991b1b;
+  }
+  [data-theme="light"] .composer-voice-overlay.is-pressing .voice-overlay-status{
+    color:#991b1b;font-weight:600;
+  }
+  [data-theme="light"] .composer-voice-overlay.is-cancelling{
+    background:linear-gradient(180deg,#fecaca 0%,#fca5a5 100%);
+    border-color:#dc2626;box-shadow:0 0 22px rgba(220,38,38,.4), inset 0 2px 4px rgba(0,0,0,.1);
+    color:#7f1d1d;
+  }
+  [data-theme="light"] .composer-voice-overlay.is-cancelling .voice-overlay-status{
+    color:#7f1d1d;font-weight:700;
   }
 
   .composer-icon-btn:disabled,.composer-icon-btn.disabled{

@@ -657,73 +657,89 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     const style = document.createElement('style');
     style.id = 'zen-voice-overlay-styles';
     style.textContent = `
+      #composer.in-voice-mode .composer-main-row #send,
+      #composer.in-voice-mode .composer-main-row #stop {
+        display: none !important;
+      }
+      #composer.in-voice-mode .composer-main-row {
+        align-items: center;
+      }
       .composer-voice-overlay {
         flex: 1 1 auto;
         min-width: 0;
         width: 100%;
-        min-height: 36px;
-        height: 36px;
+        min-height: 48px;
+        height: 48px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 9px;
-        padding: 0 14px;
+        background: var(--bg-elev, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: 12px;
+        padding: 0 16px;
         box-sizing: border-box;
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
         touch-action: none;
-        transition: all 0.18s ease;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+      @media (max-width: 640px) {
+        #composer.in-voice-mode {
+          padding: 7px 10px 10px 12px;
+        }
+        .composer-voice-overlay {
+          min-height: 56px;
+          height: 56px;
+          border-radius: 16px;
+          padding: 0 20px;
+          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        .composer-voice-overlay .voice-bar-mic-icon {
+          width: 20px;
+          height: 20px;
+        }
+        .composer-voice-overlay .voice-bar-prompt,
+        .composer-voice-overlay .voice-overlay-status {
+          font-size: 15.5px;
+          font-weight: 600;
+          letter-spacing: 0.4px;
+        }
       }
       .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing) {
         background: rgba(255, 255, 255, 0.08);
         border-color: var(--accent, #7f77dd);
       }
-      .composer-voice-overlay.is-pressing {
-        background: rgba(255, 74, 74, 0.12);
-        border-color: rgba(255, 74, 74, 0.6);
-        box-shadow: 0 0 16px rgba(255, 74, 74, 0.25);
+      .composer-voice-overlay.is-touch-down {
+        background: rgba(127, 119, 221, 0.1);
+        border-color: var(--accent, #7f77dd);
         transform: scale(0.99);
       }
+      .composer-voice-overlay.is-pressing {
+        background: rgba(255, 74, 74, 0.16);
+        border-color: rgba(255, 74, 74, 0.7);
+        box-shadow: 0 0 22px rgba(255, 74, 74, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        transform: scale(0.985);
+      }
       .composer-voice-overlay.is-cancelling {
-        background: rgba(255, 74, 74, 0.22);
+        background: rgba(255, 74, 74, 0.28);
         border-color: #ff4a4a;
-        box-shadow: 0 0 20px rgba(255, 74, 74, 0.4);
+        box-shadow: 0 0 26px rgba(255, 74, 74, 0.55), inset 0 2px 4px rgba(0, 0, 0, 0.35);
       }
       .composer-voice-overlay.is-transcribing {
-        border-color: rgba(127, 119, 221, 0.5);
-        background: rgba(127, 119, 221, 0.1);
+        border-color: rgba(127, 119, 221, 0.6);
+        background: rgba(127, 119, 221, 0.12);
         cursor: wait;
-      }
-      .voice-overlay-resting {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--fg, #eee);
-        pointer-events: none;
-        letter-spacing: 0.3px;
-      }
-      .voice-bar-mic-icon {
-        color: var(--accent, #7f77dd);
-        transition: transform 0.15s;
-        flex-shrink: 0;
-      }
-      .composer-voice-overlay:hover .voice-bar-mic-icon {
-        transform: scale(1.12);
       }
       .voice-overlay-resting,
       .voice-overlay-active {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        font-size: 13px;
-        font-weight: 500;
+        gap: 9px;
+        font-size: 14.5px;
+        font-weight: 550;
         color: var(--fg, #eee);
         pointer-events: none;
         letter-spacing: 0.3px;
@@ -734,6 +750,8 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         color: var(--accent, #7f77dd);
         transition: transform 0.15s;
         flex-shrink: 0;
+        width: 18px;
+        height: 18px;
       }
       .composer-voice-overlay:hover .voice-bar-mic-icon {
         transform: scale(1.12);
@@ -750,18 +768,28 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         display: flex;
       }
       .voice-overlay-status {
-        font-size: 13px;
+        font-size: 14.5px;
         color: var(--fg, #eee);
-        font-weight: 500;
-        letter-spacing: 0.3px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
         text-align: center;
+        transition: color 0.15s;
       }
       .composer-voice-overlay.is-cancelling .voice-overlay-status {
         color: #ff4a4a;
-        font-weight: 600;
+        font-weight: 700;
       }
       .composer-voice-overlay.is-transcribing .voice-overlay-status {
         color: var(--accent, #7f77dd);
+      }
+      @keyframes voice-btn-shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-5px); }
+        40%, 80% { transform: translateX(5px); }
+      }
+      .composer-voice-overlay.shake-hint {
+        animation: voice-btn-shake 0.32s ease-in-out;
+        border-color: var(--accent, #7f77dd) !important;
       }
       .composer-icon-btn.mode-voice {
         color: var(--accent, #7f77dd);
@@ -786,7 +814,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
       overlay.setAttribute('aria-label', t('composer.voiceHoldToSpeak') || (state.lang === 'en' ? 'Hold to Speak' : '按住 说话'));
       overlay.innerHTML = `
         <div class="voice-overlay-resting">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-bar-mic-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="voice-bar-mic-icon">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
             <line x1="12" y1="19" x2="12" y2="23"></line>
@@ -866,10 +894,12 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
   function switchToVoiceMode() {
     composerVoiceMode = true;
+    const composer = document.getElementById('composer');
+    if (composer) composer.classList.add('in-voice-mode');
     const overlay = ensureVoiceOverlay();
     if (el.input) el.input.style.display = 'none';
     overlay.style.display = 'flex';
-    overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    overlay.classList.remove('is-touch-down', 'is-pressing', 'is-cancelling', 'is-transcribing', 'shake-hint');
     ensureVoiceHud();
     if (hudCapsuleEl) {
       hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
@@ -888,9 +918,11 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
 
   function switchToTextMode() {
     composerVoiceMode = false;
+    const composer = document.getElementById('composer');
+    if (composer) composer.classList.remove('in-voice-mode');
     const overlay = ensureVoiceOverlay();
     overlay.style.display = 'none';
-    overlay.classList.remove('is-pressing', 'is-cancelling', 'is-transcribing');
+    overlay.classList.remove('is-touch-down', 'is-pressing', 'is-cancelling', 'is-transcribing', 'shake-hint');
     ensureVoiceHud();
     if (hudCapsuleEl) {
       hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
@@ -1011,7 +1043,7 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     } else {
       // Idle / Finished
       clearInterval(voiceTimerInterval);
-      overlay.classList.remove('is-pressing', 'is-transcribing', 'is-cancelling');
+      overlay.classList.remove('is-touch-down', 'is-pressing', 'is-transcribing', 'is-cancelling', 'shake-hint');
       if (hudCapsuleEl) {
         hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
         if (hudCountdownEl) hudCountdownEl.style.display = 'none';
@@ -1072,35 +1104,93 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     return recorder;
   }
 
+  // Tactile Haptic Vibration Engine
+  function triggerHaptic(type = 'start') {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      try {
+        if (type === 'start') {
+          navigator.vibrate(40); // 40ms firm tactile vibration pulse on hold
+        } else if (type === 'cancel') {
+          navigator.vibrate([25, 40, 25]); // Double-pulse alert for cancellation
+        } else if (type === 'drag-cancel') {
+          navigator.vibrate(20); // Subtle tick when sliding into cancel zone
+        } else if (type === 'drag-back') {
+          navigator.vibrate(15); // Reassuring tick when returning to record zone
+        } else if (type === 'finish') {
+          navigator.vibrate(25); // Clean confirmation tick on send
+        }
+      } catch (_) {}
+    }
+    // Capacitor Native Haptics (Android & iOS native runtime)
+    if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+      try {
+        const Haptics = window.Capacitor.Plugins.Haptics;
+        if (type === 'start') {
+          Haptics.impact({ style: 'Medium' }).catch(() => {});
+        } else if (type === 'cancel' || type === 'drag-cancel') {
+          Haptics.notification({ type: 'Warning' }).catch(() => {});
+        } else if (type === 'finish' || type === 'drag-back') {
+          Haptics.impact({ style: 'Light' }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+  }
+
   // W3C Pointer Events Binding for Push-to-Talk (Hold-to-Speak)
   const overlay = ensureVoiceOverlay();
-  let isPressing = false;
+  const HOLD_THRESHOLD_MS = 200; // Must hold for at least 200ms to engage recording
+  let isPointerDown = false;
+  let hasHoldTriggered = false;
+  let holdTimer = null;
   let pressStartTime = 0;
   let activePointerId = null;
+  let wasInCancelZone = false;
 
-  overlay.addEventListener('pointerdown', async (e) => {
+  overlay.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const rec = ensureRecorder();
     if (rec.state === 'transcribing') return;
 
     e.preventDefault();
-    isPressing = true;
-    pressStartTime = Date.now();
+    isPointerDown = true;
+    hasHoldTriggered = false;
+    wasInCancelZone = false;
     activePointerId = e.pointerId;
 
     try {
       overlay.setPointerCapture(activePointerId);
     } catch (_) {}
 
-    await rec.start();
+    // Immediate visual touch feedback: button visually depresses on touch
+    overlay.classList.add('is-touch-down');
+
+    // Start hold threshold timer: user must hold for >= 200ms to trigger recording
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(async () => {
+      if (!isPointerDown) return;
+      hasHoldTriggered = true;
+      overlay.classList.remove('is-touch-down');
+
+      // 1. Tactile Phone Shake (Haptics)
+      triggerHaptic('start');
+
+      // 2. Start recording engine & display HUD
+      pressStartTime = Date.now();
+      await rec.start();
+    }, HOLD_THRESHOLD_MS);
   });
 
   overlay.addEventListener('pointermove', (e) => {
-    if (!isPressing) return;
+    if (!isPointerDown || !hasHoldTriggered) return;
     const rect = overlay.getBoundingClientRect();
     const isCancelArea = e.clientY < rect.top - 45;
     ensureVoiceHud();
+
     if (isCancelArea) {
+      if (!wasInCancelZone) {
+        triggerHaptic('drag-cancel');
+        wasInCancelZone = true;
+      }
       overlay.classList.add('is-cancelling');
       if (hudCapsuleEl) hudCapsuleEl.classList.add('cancelling');
       if (el.voiceStatus) {
@@ -1114,6 +1204,10 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
         hudGestureHintEl.textContent = t('composer.voiceReleaseToCancel') || (state.lang === 'en' ? '✕ Release to cancel' : '✕ 松开手指，取消发送');
       }
     } else {
+      if (wasInCancelZone) {
+        triggerHaptic('drag-back');
+        wasInCancelZone = false;
+      }
       overlay.classList.remove('is-cancelling');
       if (hudCapsuleEl) hudCapsuleEl.classList.remove('cancelling');
       if (el.voiceStatus) {
@@ -1130,15 +1224,15 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
   });
 
   const handlePointerRelease = async (e) => {
-    if (!isPressing) return;
-    isPressing = false;
+    if (!isPointerDown) return;
+    isPointerDown = false;
 
-    const rect = overlay.getBoundingClientRect();
-    const shouldCancel = e && e.clientY < rect.top - 45;
+    overlay.classList.remove('is-touch-down');
 
-    overlay.classList.remove('is-pressing', 'is-cancelling');
-    ensureVoiceHud();
-    if (hudCapsuleEl) hudCapsuleEl.classList.remove('cancelling');
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
 
     try {
       if (activePointerId !== null) {
@@ -1147,38 +1241,74 @@ export function initVoiceDictation({ toast = () => {}, autoGrow = () => {}, sync
     } catch (_) {}
     activePointerId = null;
 
+    // Case 1: Released BEFORE hold threshold (i.e. click/tap only)
+    if (!hasHoldTriggered) {
+      overlay.classList.remove('is-pressing', 'is-cancelling');
+      ensureVoiceHud();
+      if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+
+      // Visual shake hint to teach user to hold
+      overlay.classList.add('shake-hint');
+      setTimeout(() => overlay.classList.remove('shake-hint'), 350);
+      toast(t('composer.voiceShortTapWarning') || (state.lang === 'en' ? 'Hold to speak, release to finish' : '按住说话，松开结束'), 'info');
+      return;
+    }
+
+    // Case 2: Held down, recording was initiated
+    hasHoldTriggered = false;
+    overlay.classList.remove('is-pressing', 'is-cancelling');
+    ensureVoiceHud();
+    if (hudCapsuleEl) hudCapsuleEl.classList.remove('cancelling');
+
     const rec = ensureRecorder();
     if (rec.state !== 'listening') return;
 
+    const rect = overlay.getBoundingClientRect();
+    const shouldCancel = e && e.clientY < rect.top - 45;
+
     if (shouldCancel) {
       if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+      triggerHaptic('cancel');
       rec.cancel();
       toast(t('composer.voiceCancelled') || (state.lang === 'en' ? 'Recording cancelled' : '已取消录音'), 'info');
       return;
     }
 
     const duration = Date.now() - pressStartTime;
-    if (duration < 300) {
+    if (duration < 350) {
       if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+      triggerHaptic('cancel');
       rec.cancel();
       toast(t('composer.voiceShortTapWarning') || (state.lang === 'en' ? 'Hold to speak, release to finish' : '按住说话，松开结束'), 'info');
       return;
     }
 
+    triggerHaptic('finish');
     await rec.stop();
   };
 
   overlay.addEventListener('pointerup', handlePointerRelease);
   overlay.addEventListener('pointercancel', () => {
-    if (!isPressing) return;
-    isPressing = false;
-    overlay.classList.remove('is-pressing', 'is-cancelling');
+    if (!isPointerDown) return;
+    isPointerDown = false;
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+    overlay.classList.remove('is-touch-down', 'is-pressing', 'is-cancelling');
     ensureVoiceHud();
     if (hudCapsuleEl) hudCapsuleEl.classList.remove('active', 'cancelling', 'transcribing');
+    try {
+      if (activePointerId !== null) overlay.releasePointerCapture(activePointerId);
+    } catch (_) {}
     activePointerId = null;
-    const rec = ensureRecorder();
-    if (rec.state === 'listening') {
-      rec.cancel();
+
+    if (hasHoldTriggered) {
+      hasHoldTriggered = false;
+      const rec = ensureRecorder();
+      if (rec.state === 'listening') {
+        rec.cancel();
+      }
     }
   });
 
