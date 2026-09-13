@@ -1107,6 +1107,7 @@ export function regenerateFrom(asstIndex) {
 export function renderThread() {
   const c = state.currentConv;
   if (!el.threadInner) return;
+  import('./share.js').then(({ exitThreadShareMode }) => exitThreadShareMode()).catch(() => {});
   el.threadInner.innerHTML = '';
 
   if (!c || !c.messages || !c.messages.length) {

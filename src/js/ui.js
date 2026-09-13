@@ -194,10 +194,36 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   shareBtn.className = 'msg-action-btn share-btn';
   shareBtn.title = t('chat.shareTooltip') || '分享或保存此交互';
   shareBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> ${t('chat.share') || '分享'}`;
+
+  let activeShareDrawer = null;
   shareBtn.addEventListener('click', () => {
-    import('./share.js').then(({ openShareModal }) => {
-      openShareModal({ conversation: state.currentConv, targetAsstIndex: msgIndex });
-    });
+    if (activeShareDrawer && container.contains(activeShareDrawer)) {
+      if (typeof activeShareDrawer._close === 'function') {
+        activeShareDrawer._close();
+      } else {
+        container.removeChild(activeShareDrawer);
+      }
+      activeShareDrawer = null;
+      shareBtn.classList.remove('active');
+    } else {
+      if (activePlayerDrawer && container.contains(activePlayerDrawer)) {
+        stopGlobalAudio();
+        container.removeChild(activePlayerDrawer);
+        activePlayerDrawer = null;
+        ttsBtn.classList.remove('active');
+      }
+      import('./share.js').then(({ createShareDrawer }) => {
+        if (activeShareDrawer && container.contains(activeShareDrawer)) return;
+        activeShareDrawer = createShareDrawer(msg, msgIndex, () => {
+          shareBtn.classList.remove('active');
+          activeShareDrawer = null;
+        });
+        if (activeShareDrawer) {
+          container.appendChild(activeShareDrawer);
+          shareBtn.classList.add('active');
+        }
+      });
+    }
   });
   bar.appendChild(shareBtn);
 
@@ -251,6 +277,15 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
 
   let activePlayerDrawer = null;
   ttsBtn.addEventListener('click', () => {
+    if (activeShareDrawer && container.contains(activeShareDrawer)) {
+      if (typeof activeShareDrawer._close === 'function') {
+        activeShareDrawer._close();
+      } else {
+        container.removeChild(activeShareDrawer);
+      }
+      activeShareDrawer = null;
+      shareBtn.classList.remove('active');
+    }
     if (activePlayerDrawer && container.contains(activePlayerDrawer)) {
       stopGlobalAudio();
       container.removeChild(activePlayerDrawer);
@@ -382,6 +417,9 @@ export function createImageCard(item, onRegenerate) {
 export function bubble(role, content, images, reasoning, files, displayContent, sources, usage, model, msgIndex, onRegenerate, imageMeta) {
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + role;
+  if (typeof msgIndex === 'number') {
+    wrap.setAttribute('data-msg-index', String(msgIndex));
+  }
 
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
@@ -585,7 +623,10 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
 
     // (d) 操作工具栏（仅对已生成完毕的 Assistant 消息）
     if (content || reasoning) {
-      const actionsBar = createActionsToolbar({ content, usage, model }, msgIndex, onRegenerate);
+      const fullMsg = (state.currentConv && state.currentConv.messages && typeof msgIndex === 'number')
+        ? state.currentConv.messages[msgIndex]
+        : { content, reasoning, usage, model };
+      const actionsBar = createActionsToolbar(fullMsg, msgIndex, onRegenerate);
       col.appendChild(actionsBar);
     }
   } else {

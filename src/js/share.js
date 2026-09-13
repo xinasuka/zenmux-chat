@@ -821,278 +821,407 @@ export async function publishSessionShare({ title, html, ttlDays, slug }) {
 }
 
 /**
- * Share Modal State and UI Controller
+ * Global active share state management
  */
-let activeConversation = null;
-let currentDyads = [];
-let selectedDyadIds = new Set();
-let currentTargetAsstIndex = null;
+let globalActiveDrawer = null;
+let activeThreadShareState = null;
 
-function showResultView(siteUrl, expiresAt, isRetrieved = false) {
-  if (el.shareFormBody) el.shareFormBody.classList.add('hide');
-  if (el.shareResultCard) el.shareResultCard.classList.remove('hide');
-
-  if (el.shareResultUrl) {
-    el.shareResultUrl.value = siteUrl;
-  }
-  if (el.shareResultAnchor) {
-    el.shareResultAnchor.href = siteUrl;
-  }
-  if (el.shareResultAnchorText) {
-    el.shareResultAnchorText.textContent = siteUrl;
-  }
-  if (el.shareSuccessTitle) {
-    el.shareSuccessTitle.textContent = t('share.publishSuccess') || 'Share Link Ready';
-  }
-
-  if (el.shareResultExpiry) {
-    if (expiresAt) {
-      const expDate = new Date(expiresAt).toLocaleDateString(state.lang === 'en' ? 'en-US' : 'zh-CN');
-      el.shareResultExpiry.textContent = t('share.expiresNotice', { date: expDate });
-    } else {
-      el.shareResultExpiry.textContent = t('share.permanentNotice');
+/**
+ * Exits thread selection mode, removing all injected gutter elements and CSS markers.
+ */
+export function exitThreadShareMode() {
+  if (activeThreadShareState) {
+    if (Array.isArray(activeThreadShareState.cleanups)) {
+      activeThreadShareState.cleanups.forEach((fn) => {
+        try { fn(); } catch (_) {}
+      });
     }
-  }
-}
-
-function showFormView(isUpdate = false) {
-  if (el.shareResultCard) el.shareResultCard.classList.add('hide');
-  if (el.shareFormBody) el.shareFormBody.classList.remove('hide');
-
-  if (el.shareSubmitBtn) {
-    el.shareSubmitBtn.disabled = selectedDyadIds.size === 0;
-    el.shareSubmitBtn.classList.remove('btn-loading');
-    el.shareSubmitBtn.textContent = isUpdate
-      ? (t('share.updateBtn') || '更新此分享链接内容')
-      : (t('share.publishBtn') || '生成并发布分享链接');
-  }
-}
-
-export function openShareModal({ conversation, targetAsstIndex = null }) {
-  activeConversation = conversation || state.currentConv;
-  currentTargetAsstIndex = targetAsstIndex;
-
-  if (!activeConversation || !activeConversation.messages || !activeConversation.messages.length) {
-    toast(t('share.emptySession') || '当前会话没有可分享的内容', 'info');
-    return;
+    activeThreadShareState = null;
   }
 
-  currentDyads = extractDyads(activeConversation);
-  if (!currentDyads.length) {
-    toast(t('share.noDyads') || '当前会话暂无完整的问答交互', 'info');
-    return;
-  }
+  if (el.threadInner) {
+    el.threadInner.classList.remove('thread-share-mode');
+    const gutters = el.threadInner.querySelectorAll('.msg-share-gutter');
+    gutters.forEach((g) => g.remove());
 
-  // Check if target assistant message already possesses an active permalink
-  const targetMsg = (targetAsstIndex !== null && activeConversation.messages && activeConversation.messages[targetAsstIndex])
-    ? activeConversation.messages[targetAsstIndex]
-    : null;
-  const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
-  const isExpired = existingShare && existingShare.expiresAt && Date.now() > existingShare.expiresAt;
-
-  // Pre-selection strategy:
-  // If invoked from a specific assistant message toolbar -> select ONLY that dyad.
-  // Otherwise -> select ALL dyads by default.
-  selectedDyadIds.clear();
-  if (targetAsstIndex !== null) {
-    const matched = currentDyads.find((d) => d.asstIndex === targetAsstIndex);
-    if (matched) {
-      selectedDyadIds.add(matched.id);
-    } else {
-      selectedDyadIds.add(currentDyads[currentDyads.length - 1].id);
-    }
-  } else {
-    currentDyads.forEach((d) => selectedDyadIds.add(d.id));
-  }
-
-  renderShareModalBody();
-
-  if (existingShare && !isExpired) {
-    // Fast Path: Link already exists for this assistant response
-    showResultView(existingShare.siteUrl, existingShare.expiresAt, true);
-
-    // Immediate autonomous clipboard ingestion
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(existingShare.siteUrl).then(() => {
-        if (el.shareCopyLinkBtn) {
-          const orig = el.shareCopyLinkBtn.textContent;
-          el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
-          setTimeout(() => { if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = orig; }, 2000);
-        }
-      }).catch(() => {});
-    }
-
-    toast(t('share.retrievedSuccess') || '已获取该轮已有分享链接并自动复制到剪贴板', 'info');
-  } else {
-    // Initial publish view
-    showFormView(false);
-  }
-
-  // Open modal DOM
-  if (el.shareModal) el.shareModal.classList.add('open');
-  if (el.shareModalBackdrop) el.shareModalBackdrop.classList.add('open');
-}
-
-export function closeShareModal() {
-  if (el.shareModal) el.shareModal.classList.remove('open');
-  if (el.shareModalBackdrop) el.shareModalBackdrop.classList.remove('open');
-}
-
-function updateSelectedCountBadge() {
-  if (el.shareSelectedCount) {
-    el.shareSelectedCount.textContent = t('share.selectedBadge', {
-      selected: selectedDyadIds.size,
-      total: currentDyads.length,
+    const messages = el.threadInner.querySelectorAll('.msg');
+    messages.forEach((m) => {
+      m.classList.remove('share-turn-selected', 'share-turn-unselected');
     });
   }
-  if (el.shareSubmitBtn) {
-    el.shareSubmitBtn.disabled = selectedDyadIds.size === 0;
-  }
-}
-
-function renderShareModalBody() {
-  if (!el.shareDyadList) return;
-  el.shareDyadList.innerHTML = '';
-
-  currentDyads.forEach((d) => {
-    const isChecked = selectedDyadIds.has(d.id);
-    const item = document.createElement('div');
-    item.className = 'share-dyad-item' + (isChecked ? ' selected' : '');
-    item.setAttribute('data-id', d.id);
-
-    const userSnippet = d.userText.length > 70 ? d.userText.slice(0, 70) + '…' : d.userText;
-    const asstSnippet = d.asstText.length > 90 ? d.asstText.slice(0, 90) + '…' : (d.asstImageMeta ? '[图像生成]' : d.asstText);
-
-    item.innerHTML = `
-      <label class="share-dyad-checkbox-wrap">
-        <input type="checkbox" class="share-dyad-checkbox" ${isChecked ? 'checked' : ''}>
-        <span class="share-dyad-custom-check"></span>
-      </label>
-      <div class="share-dyad-content">
-        <div class="share-dyad-header-row">
-          <span class="share-dyad-index">${t('share.turnNumber', { number: d.turnIndex })}</span>
-          ${d.asstModel ? `<span class="share-dyad-model">${esc(d.asstModel.split('/').pop())}</span>` : ''}
-        </div>
-        <div class="share-dyad-user-preview">
-          <span class="role-tag">${t('share.userRole')}:</span> ${esc(userSnippet)}
-        </div>
-        <div class="share-dyad-asst-preview">
-          <span class="role-tag">${t('share.asstRole')}:</span> ${esc(asstSnippet)}
-        </div>
-      </div>
-    `;
-
-    const checkbox = item.querySelector('.share-dyad-checkbox');
-    checkbox.addEventListener('change', (e) => {
-      e.stopPropagation();
-      if (checkbox.checked) {
-        selectedDyadIds.add(d.id);
-        item.classList.add('selected');
-      } else {
-        selectedDyadIds.delete(d.id);
-        item.classList.remove('selected');
-      }
-      updateSelectedCountBadge();
-    });
-
-    item.addEventListener('click', (e) => {
-      if (e.target === checkbox || e.target.closest('.share-dyad-checkbox-wrap')) return;
-      checkbox.checked = !checkbox.checked;
-      checkbox.dispatchEvent(new Event('change'));
-    });
-
-    el.shareDyadList.appendChild(item);
-  });
-
-  updateSelectedCountBadge();
 }
 
 /**
- * Initializes all event listeners for the Share Modal.
+ * Enters thread selection mode, injecting circular checkmarks and turn tags into user message gutters.
  */
-export function initShareEngine() {
-  // 1. Close button and backdrop
-  if (el.shareClose) el.shareClose.addEventListener('click', closeShareModal);
-  if (el.shareModalBackdrop) el.shareModalBackdrop.addEventListener('click', closeShareModal);
+export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange }) {
+  exitThreadShareMode();
 
-  // 2. Bulk mutator buttons
-  if (el.shareSelectCurrent) {
-    el.shareSelectCurrent.addEventListener('click', () => {
-      selectedDyadIds.clear();
-      if (currentDyads.length) {
-        selectedDyadIds.add(currentDyads[currentDyads.length - 1].id);
+  if (!el.threadInner || !Array.isArray(dyads) || !dyads.length) return;
+
+  el.threadInner.classList.add('thread-share-mode');
+  const cleanups = [];
+
+  function syncVisuals() {
+    dyads.forEach((d) => {
+      const isSelected = selectedDyadIds.has(d.id);
+      const userEl = el.threadInner.querySelector(`.msg.user[data-msg-index="${d.userIndex}"]`);
+      const asstEl = d.asstIndex >= 0 ? el.threadInner.querySelector(`.msg.assistant[data-msg-index="${d.asstIndex}"]`) : null;
+
+      if (userEl) {
+        userEl.classList.toggle('share-turn-selected', isSelected);
+        userEl.classList.toggle('share-turn-unselected', !isSelected);
       }
-      renderShareModalBody();
+      if (asstEl) {
+        asstEl.classList.toggle('share-turn-selected', isSelected);
+        asstEl.classList.toggle('share-turn-unselected', !isSelected);
+      }
     });
   }
 
-  if (el.shareSelectAll) {
-    el.shareSelectAll.addEventListener('click', () => {
-      currentDyads.forEach((d) => selectedDyadIds.add(d.id));
-      renderShareModalBody();
-    });
+  function toggleDyad(dyadId) {
+    if (selectedDyadIds.has(dyadId)) {
+      selectedDyadIds.delete(dyadId);
+    } else {
+      selectedDyadIds.add(dyadId);
+    }
+    syncVisuals();
+    if (typeof onSelectionChange === 'function') {
+      onSelectionChange(selectedDyadIds);
+    }
   }
 
-  if (el.shareClearAll) {
-    el.shareClearAll.addEventListener('click', () => {
+  dyads.forEach((d) => {
+    const userEl = el.threadInner.querySelector(`.msg.user[data-msg-index="${d.userIndex}"]`);
+    const asstEl = d.asstIndex >= 0 ? el.threadInner.querySelector(`.msg.assistant[data-msg-index="${d.asstIndex}"]`) : null;
+
+    if (userEl) {
+      const userBody = userEl.querySelector('.body');
+      if (userBody) {
+        const gutter = document.createElement('div');
+        gutter.className = 'msg-share-gutter';
+        gutter.setAttribute('data-dyad-id', d.id);
+
+        const checkBtn = document.createElement('button');
+        checkBtn.type = 'button';
+        checkBtn.className = 'msg-share-checkbox';
+        checkBtn.title = t('share.toggleDyad') || '选择/取消选择本轮对话';
+        checkBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        checkBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleDyad(d.id);
+        });
+
+        const turnTag = document.createElement('span');
+        turnTag.className = 'msg-share-turn-tag';
+        turnTag.textContent = t('share.turnNumber', { number: d.turnIndex });
+
+        const selectAllLink = document.createElement('button');
+        selectAllLink.type = 'button';
+        selectAllLink.className = 'msg-share-all-link';
+        selectAllLink.textContent = t('share.selectAllLink') || '全选会话';
+        selectAllLink.title = t('share.selectAll') || '选择全部对话';
+        selectAllLink.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dyads.forEach((item) => selectedDyadIds.add(item.id));
+          syncVisuals();
+          if (typeof onSelectionChange === 'function') {
+            onSelectionChange(selectedDyadIds);
+          }
+        });
+
+        gutter.appendChild(checkBtn);
+        gutter.appendChild(turnTag);
+        gutter.appendChild(selectAllLink);
+        userBody.insertBefore(gutter, userBody.firstChild);
+      }
+    }
+
+    function attachTurnClick(msgElem) {
+      if (!msgElem) return;
+      const handler = (e) => {
+        if (e.target.closest('a, button, input, select, textarea, pre, code, summary, .msg-action-btn, .msg-sources, .msg-usage-card, .msg-share-drawer')) {
+          return;
+        }
+        toggleDyad(d.id);
+      };
+      msgElem.addEventListener('click', handler);
+      cleanups.push(() => msgElem.removeEventListener('click', handler));
+    }
+
+    attachTurnClick(userEl);
+    attachTurnClick(asstEl);
+  });
+
+  syncVisuals();
+
+  activeThreadShareState = {
+    dyads,
+    selectedDyadIds,
+    syncVisuals,
+    cleanups,
+  };
+}
+
+/**
+ * Creates and mounts an in-situ expandable Share Drawer inside the message actions container.
+ */
+export function createShareDrawer(msg, msgIndex, onClose) {
+  // Close any previously active drawer across the entire app
+  if (globalActiveDrawer && typeof globalActiveDrawer._close === 'function') {
+    globalActiveDrawer._close();
+  }
+
+  const conv = state.currentConv;
+  if (!conv || !Array.isArray(conv.messages) || !conv.messages.length) {
+    toast(t('share.emptySession') || '当前会话没有可分享的内容', 'info');
+    return null;
+  }
+
+  const dyads = extractDyads(conv);
+  if (!dyads.length) {
+    toast(t('share.noDyads') || '当前会话暂无完整的问答交互', 'info');
+    return null;
+  }
+
+  const targetMsg = (typeof msgIndex === 'number' && conv.messages && conv.messages[msgIndex]) || msg;
+  const matchedDyad = dyads.find((d) => d.asstIndex === msgIndex) || dyads[dyads.length - 1];
+
+  const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
+  const isExpired = existingShare && existingShare.expiresAt && Date.now() > existingShare.expiresAt;
+  const hasValidExistingShare = Boolean(existingShare && !isExpired);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'msg-share-drawer';
+
+  function closeDrawer() {
+    exitThreadShareMode();
+    if (globalActiveDrawer === drawer) {
+      globalActiveDrawer = null;
+    }
+    if (drawer.parentElement) {
+      drawer.parentElement.removeChild(drawer);
+    }
+    if (typeof onClose === 'function') {
+      onClose();
+    }
+  }
+  drawer._close = closeDrawer;
+  globalActiveDrawer = drawer;
+
+  // Render Header
+  const header = document.createElement('div');
+  header.className = 'share-drawer-header';
+  header.innerHTML = `
+    <div class="share-drawer-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+      </svg>
+      <span>${t('share.modalTitle') || '保存与分享会话'}</span>
+    </div>
+    <button type="button" class="share-drawer-close" title="${t('common.close') || '关闭'}">×</button>
+  `;
+  header.querySelector('.share-drawer-close').addEventListener('click', closeDrawer);
+  drawer.appendChild(header);
+
+  // Body container for switching between Config View and Result View
+  const bodyWrap = document.createElement('div');
+  drawer.appendChild(bodyWrap);
+
+  let selectedDyadIds = new Set();
+  if (matchedDyad) {
+    selectedDyadIds.add(matchedDyad.id);
+  } else if (dyads.length) {
+    selectedDyadIds.add(dyads[dyads.length - 1].id);
+  }
+
+  function renderResultView(siteUrl, expiresAt, isRetrieved = false) {
+    exitThreadShareMode();
+    bodyWrap.innerHTML = '';
+
+    const resCard = document.createElement('div');
+    resCard.className = 'share-drawer-result-body';
+
+    let expiryNotice = t('share.permanentNotice');
+    if (expiresAt) {
+      const dateStr = new Date(expiresAt).toLocaleDateString(state.lang === 'en' ? 'en-US' : 'zh-CN');
+      expiryNotice = t('share.expiresNotice', { date: dateStr });
+    }
+
+    resCard.innerHTML = `
+      <div class="share-drawer-ready-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <span>${t('share.publishSuccess') || '分享链接已就绪'}</span>
+      </div>
+
+      <div class="share-drawer-url-box">
+        <a class="share-drawer-link-anchor" href="${siteUrl}" target="_blank" rel="noopener noreferrer">
+          <span class="url-text">${siteUrl}</span>
+          <svg class="share-external-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      </div>
+
+      <div class="share-drawer-expiry-note">${expiryNotice}</div>
+
+      <div class="share-drawer-actions">
+        <button type="button" class="share-drawer-copy-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="copy-btn-text">${t('share.copyLink') || '复制链接'}</span>
+        </button>
+        <button type="button" class="share-drawer-open-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          <span>${t('share.openLink') || '在新标签页打开'}</span>
+        </button>
+        <button type="button" class="share-drawer-edit-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span>${t('share.updateSnapshot') || '修改内容或重新选轮'}</span>
+        </button>
+      </div>
+    `;
+
+    const copyBtn = resCard.querySelector('.share-drawer-copy-btn');
+    const copyText = copyBtn.querySelector('.copy-btn-text');
+    copyBtn.addEventListener('click', () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(siteUrl).then(() => {
+          toast(t('share.copied') || '已复制分享链接到剪贴板', 'success');
+          copyText.textContent = t('common.copied') || '已复制';
+          setTimeout(() => { copyText.textContent = t('share.copyLink') || '复制链接'; }, 2000);
+        }).catch(() => {
+          toast(t('common.copyFailed') || '复制失败，请手动选取', 'error');
+        });
+      }
+    });
+
+    resCard.querySelector('.share-drawer-open-btn').addEventListener('click', () => {
+      window.open(siteUrl, '_blank', 'noopener,noreferrer');
+    });
+
+    resCard.querySelector('.share-drawer-edit-btn').addEventListener('click', () => {
+      renderConfigView(true);
+    });
+
+    bodyWrap.appendChild(resCard);
+  }
+
+  function renderConfigView(isUpdate = false) {
+    bodyWrap.innerHTML = '';
+
+    const form = document.createElement('div');
+    form.className = 'share-drawer-form-body';
+
+    const existingSlug = targetMsg && targetMsg.share && targetMsg.share.slug ? targetMsg.share.slug : null;
+
+    form.innerHTML = `
+      <div class="share-drawer-selection-bar">
+        <span class="share-drawer-count-badge"></span>
+        <div class="share-drawer-pills">
+          <button type="button" class="share-pill-btn share-pill-current">${t('share.selectCurrent') || '仅此单轮'}</button>
+          <button type="button" class="share-pill-btn share-pill-all">${t('share.selectAll') || '全选会话'}</button>
+        </div>
+      </div>
+
+      <div class="share-drawer-hint">
+        ${t('share.drawerHint') || '点击上方对话任意区域或勾选框即可自由增减分享内容。'}
+      </div>
+
+      <div class="share-drawer-retention-row">
+        <label class="share-retention-label">${t('share.retentionLabel') || '保留策略'}:</label>
+        <select class="share-retention-select">
+          <option value="7" selected>${t('share.ttl7d') || '7 天有效 (推荐)'}</option>
+          <option value="14">${t('share.ttl14d') || '14 天有效'}</option>
+          <option value="30">${t('share.ttl30d') || '30 天有效'}</option>
+          <option value="0">${t('share.ttlPermanent') || '永久保留 (FIFO 自动轮转)'}</option>
+        </select>
+        <span class="share-auto-badge">${t('share.autoMetricsNotice') || '✦ 思考过程与模型指标已自动内嵌'}</span>
+      </div>
+
+      <div class="share-drawer-actions">
+        <button type="button" class="share-drawer-publish-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <span class="btn-text">${existingSlug || isUpdate ? (t('share.updateBtn') || '更新此分享链接内容') : (t('share.publishBtn') || '生成并发布分享链接')}</span>
+        </button>
+        <button type="button" class="share-drawer-cancel-btn">${t('common.cancel') || '取消'}</button>
+      </div>
+    `;
+
+    const countBadge = form.querySelector('.share-drawer-count-badge');
+    const publishBtn = form.querySelector('.share-drawer-publish-btn');
+    const cancelBtn = form.querySelector('.share-drawer-cancel-btn');
+    const ttlSelect = form.querySelector('.share-retention-select');
+
+    function updateBadge() {
+      countBadge.textContent = t('share.selectedBadge', {
+        selected: selectedDyadIds.size,
+        total: dyads.length,
+      }) || `已选 ${selectedDyadIds.size} / ${dyads.length} 轮交互`;
+      publishBtn.disabled = selectedDyadIds.size === 0;
+    }
+
+    form.querySelector('.share-pill-current').addEventListener('click', () => {
       selectedDyadIds.clear();
-      renderShareModalBody();
+      if (matchedDyad) selectedDyadIds.add(matchedDyad.id);
+      else if (dyads.length) selectedDyadIds.add(dyads[dyads.length - 1].id);
+      if (activeThreadShareState && activeThreadShareState.syncVisuals) {
+        activeThreadShareState.syncVisuals();
+      }
+      updateBadge();
     });
-  }
 
-  // 3. Edit / Modify Selection Button
-  if (el.shareEditContentBtn) {
-    el.shareEditContentBtn.addEventListener('click', () => {
-      showFormView(true);
+    form.querySelector('.share-pill-all').addEventListener('click', () => {
+      dyads.forEach((d) => selectedDyadIds.add(d.id));
+      if (activeThreadShareState && activeThreadShareState.syncVisuals) {
+        activeThreadShareState.syncVisuals();
+      }
+      updateBadge();
     });
-  }
 
-  // 4. Submit Share Button (Creates new site or updates existing site in-place via slug)
-  if (el.shareSubmitBtn) {
-    el.shareSubmitBtn.addEventListener('click', async () => {
+    cancelBtn.addEventListener('click', closeDrawer);
+
+    publishBtn.addEventListener('click', async () => {
       if (!selectedDyadIds.size) {
         toast(t('share.emptySelection') || '请至少选择一轮对话进行分享', 'info');
         return;
       }
 
-      const targetDyads = currentDyads.filter((d) => selectedDyadIds.has(d.id));
-      const ttlDays = el.shareTtlSelect ? parseInt(el.shareTtlSelect.value, 10) : 7;
-      const includeReasoning = el.shareIncludeReasoning ? el.shareIncludeReasoning.checked : true;
-      const includeMetrics = el.shareIncludeMetrics ? el.shareIncludeMetrics.checked : true;
+      const targetDyads = dyads.filter((d) => selectedDyadIds.has(d.id));
+      const ttlDays = parseInt(ttlSelect.value, 10) || 7;
+      const slugToUse = existingSlug || (targetMsg && targetMsg.share ? targetMsg.share.slug : null);
 
-      const targetMsg = (currentTargetAsstIndex !== null && activeConversation.messages && activeConversation.messages[currentTargetAsstIndex])
-        ? activeConversation.messages[currentTargetAsstIndex]
-        : null;
-      const existingSlug = targetMsg && targetMsg.share && targetMsg.share.slug ? targetMsg.share.slug : null;
-
-      el.shareSubmitBtn.disabled = true;
-      el.shareSubmitBtn.classList.add('btn-loading');
-      el.shareSubmitBtn.textContent = existingSlug
-        ? (t('share.updating') || '正在更新并同步快照…')
-        : (t('share.publishing') || '正在生成并发布快照…');
+      publishBtn.disabled = true;
+      const origHtml = publishBtn.innerHTML;
+      publishBtn.innerHTML = `
+        <span class="spinner-border" style="width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:swUpdateSpin .6s linear infinite;display:inline-block"></span>
+        <span>${slugToUse ? (t('share.updating') || '正在更新并同步快照…') : (t('share.publishing') || '正在生成并发布快照…')}</span>
+      `;
 
       try {
-        // Compile self-contained HTML
         const html = await compileStandaloneHtml({
-          title: (activeConversation && activeConversation.title) || 'ZenMux Chat Session',
+          title: (conv && conv.title) || 'ZenMux Chat Session',
           dyads: targetDyads,
           options: {
-            includeReasoning,
-            includeMetrics,
+            includeReasoning: true,
+            includeMetrics: true,
             theme: state.theme || 'dark',
             lang: state.lang || 'zh',
           },
         });
 
-        // Publish to Edge Gateway (in-place PUT if existingSlug is present)
         const result = await publishSessionShare({
-          title: (activeConversation && activeConversation.title) || 'ZenMux Chat Session',
+          title: (conv && conv.title) || 'ZenMux Chat Session',
           html,
           ttlDays,
-          slug: existingSlug,
+          slug: slugToUse,
         });
 
-        // Bind permalink directly to the assistant message in IndexedDB
         if (targetMsg) {
           targetMsg.share = {
             slug: result.slug,
@@ -1102,34 +1231,21 @@ export function initShareEngine() {
             ttlDays,
           };
           import('./db.js').then(({ ZenMuxDB }) => {
-            ZenMuxDB.putConversation(activeConversation).catch(() => {});
+            ZenMuxDB.putConversation(conv).catch(() => {});
           });
         }
 
-        // Transition to success card
-        showResultView(result.siteUrl, result.expiresAt, false);
-
-        // Immediate autonomous clipboard ingestion
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(result.siteUrl).then(() => {
-            if (el.shareCopyLinkBtn) {
-              const origText = el.shareCopyLinkBtn.textContent;
-              el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
-              setTimeout(() => {
-                if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = origText;
-              }, 2000);
-            }
-          }).catch(() => {});
+          navigator.clipboard.writeText(result.siteUrl).catch(() => {});
         }
 
-        // Save to local share history
         try {
           const historyRaw = localStorage.getItem('zm.share.history') || '[]';
           const history = JSON.parse(historyRaw);
           history.unshift({
             slug: result.slug,
             url: result.siteUrl,
-            title: (activeConversation && activeConversation.title) || 'ZenMux Chat Session',
+            title: (conv && conv.title) || 'ZenMux Chat Session',
             createdAt: result.createdAt || new Date().toISOString(),
             expiresAt: result.expiresAt,
             turnsCount: targetDyads.length,
@@ -1142,40 +1258,48 @@ export function initShareEngine() {
           : (t('share.publishSuccess') || '分享链接已就绪并已自动复制到剪贴板');
         toast(successNotice, 'success');
 
+        renderResultView(result.siteUrl, result.expiresAt, false);
+
       } catch (err) {
         toast(t('share.shareFailed', { error: err.message || err }), 'error');
-      } finally {
-        el.shareSubmitBtn.disabled = false;
-        el.shareSubmitBtn.classList.remove('btn-loading');
-        el.shareSubmitBtn.textContent = existingSlug
-          ? (t('share.updateBtn') || '更新此分享链接内容')
-          : (t('share.publishBtn') || '生成并发布分享链接');
+        publishBtn.disabled = false;
+        publishBtn.innerHTML = origHtml;
       }
     });
+
+    bodyWrap.appendChild(form);
+
+    enterThreadShareMode({
+      dyads,
+      selectedDyadIds,
+      onSelectionChange: () => updateBadge(),
+    });
+
+    updateBadge();
   }
 
-  // 5. Copy and Open result link
-  if (el.shareCopyLinkBtn) {
-    el.shareCopyLinkBtn.addEventListener('click', () => {
-      const url = el.shareResultUrl ? el.shareResultUrl.value : '';
-      if (!url) return;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => {
-          toast(t('share.copied') || '已复制分享链接到剪贴板', 'success');
-          const origText = el.shareCopyLinkBtn.textContent;
-          el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
-          setTimeout(() => {
-            if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = origText;
-          }, 2000);
-        });
+  if (hasValidExistingShare) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(existingShare.siteUrl).catch(() => {});
+    }
+    renderResultView(existingShare.siteUrl, existingShare.expiresAt, true);
+    toast(t('share.retrievedSuccess') || '已获取该轮已有分享链接并自动复制到剪贴板', 'info');
+  } else {
+    renderConfigView(false);
+  }
+
+  return drawer;
+}
+
+/**
+ * Initializes global share listeners (Escape key, thread cleanup).
+ */
+export function initShareEngine() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && globalActiveDrawer) {
+      if (typeof globalActiveDrawer._close === 'function') {
+        globalActiveDrawer._close();
       }
-    });
-  }
-
-  if (el.shareOpenLinkBtn) {
-    el.shareOpenLinkBtn.addEventListener('click', () => {
-      const url = el.shareResultUrl ? el.shareResultUrl.value : '';
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    });
-  }
+    }
+  });
 }

@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.21';
+export const APP_VERSION = '2.21.22';
 
 export const LS = {
   cur: 'zm.current',
@@ -148,29 +148,6 @@ export const el = {
   updateClose: $('update-close-btn'),
 
   toast: $('toast'),
-
-  shareModal: $('share-modal'),
-  shareModalBackdrop: $('share-modal-backdrop'),
-  shareClose: $('share-close'),
-  shareDyadList: $('share-dyad-list'),
-  shareSelectCurrent: $('share-select-current'),
-  shareSelectAll: $('share-select-all'),
-  shareClearAll: $('share-clear-all'),
-  shareSelectedCount: $('share-selected-count'),
-  shareTtlSelect: $('share-ttl-select'),
-  shareIncludeReasoning: $('share-include-reasoning'),
-  shareIncludeMetrics: $('share-include-metrics'),
-  shareSubmitBtn: $('share-submit-btn'),
-  shareFormBody: $('share-form-body'),
-  shareResultCard: $('share-result-card'),
-  shareSuccessTitle: $('share-success-title'),
-  shareResultAnchor: $('share-result-anchor'),
-  shareResultAnchorText: $('share-result-anchor-text'),
-  shareResultUrl: $('share-result-url'),
-  shareResultExpiry: $('share-result-expiry'),
-  shareCopyLinkBtn: $('share-copy-link-btn'),
-  shareOpenLinkBtn: $('share-open-link-btn'),
-  shareEditContentBtn: $('share-edit-content-btn'),
   settingsShareTtl: $('settings-share-ttl'),
 };
 
