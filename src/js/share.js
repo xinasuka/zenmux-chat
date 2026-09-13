@@ -955,8 +955,9 @@ export function createShareDrawer(msg, msgIndex, onClose) {
 
   const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
   const effectiveExpiresAt = existingShare && (
-    existingShare.expiresAt ||
-    (existingShare.ttlDays > 0 && existingShare.sharedAt ? new Date(existingShare.sharedAt + existingShare.ttlDays * 86400000).toISOString() : null)
+    existingShare.ttlDays === 0
+      ? null
+      : (existingShare.expiresAt || (existingShare.ttlDays > 0 && existingShare.sharedAt ? new Date(existingShare.sharedAt + existingShare.ttlDays * 86400000).toISOString() : null))
   );
   const isExpired = effectiveExpiresAt && Date.now() > new Date(effectiveExpiresAt).getTime();
   const hasValidExistingShare = Boolean(existingShare && !isExpired);
@@ -988,7 +989,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
       </svg>
-      <span>${t('share.modalTitle') || '保存与分享会话'}</span>
+      <span>${t('share.modalTitle') || '保存与分享'}</span>
     </div>
     <button type="button" class="share-drawer-close" title="${t('common.close') || '关闭'}">×</button>
   `;
@@ -1081,7 +1082,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         </button>
         <button type="button" class="share-drawer-edit-btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          <span>${t('share.updateSnapshot') || '修改内容或重新选轮'}</span>
+          <span>${t('share.updateSnapshot') || '重新选择'}</span>
         </button>
       </div>
     `;
@@ -1193,7 +1194,8 @@ export function createShareDrawer(msg, msgIndex, onClose) {
       }
 
       const targetDyads = dyads.filter((d) => selectedDyadIds.has(d.id));
-      const ttlDays = parseInt(ttlSelect.value, 10) || 7;
+      const parsedTtl = parseInt(ttlSelect.value, 10);
+      const ttlDays = isNaN(parsedTtl) ? 7 : parsedTtl;
       const slugToUse = existingSlug || (targetMsg && targetMsg.share ? targetMsg.share.slug : null);
 
       publishBtn.disabled = true;
@@ -1222,7 +1224,9 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           slug: slugToUse,
         });
 
-        const resolvedExpiresAt = result.expiresAt || (ttlDays > 0 ? new Date(Date.now() + ttlDays * 86400000).toISOString() : null);
+        const resolvedExpiresAt = (ttlDays > 0)
+          ? (result.expiresAt || new Date(Date.now() + ttlDays * 86400000).toISOString())
+          : null;
 
         if (targetMsg) {
           targetMsg.share = {
@@ -1285,7 +1289,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
       navigator.clipboard.writeText(existingShare.siteUrl).catch(() => {});
     }
     renderResultView(existingShare.siteUrl, effectiveExpiresAt, true);
-    toast(t('share.retrievedSuccess') || '已获取该轮已有分享链接并自动复制到剪贴板', 'info');
+    toast(t('share.retrievedSuccess') || '链接已复制到剪贴板', 'info');
   } else {
     renderConfigView(false);
   }
