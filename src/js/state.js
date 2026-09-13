@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.19';
+export const APP_VERSION = '2.21.20';
 
 export const LS = {
   cur: 'zm.current',
@@ -29,6 +29,8 @@ export const LS = {
   ttsModel: 'zm.tts.model',
   ttsVoice: 'zm.tts.voice',
   lang: 'zm.lang',
+  shareTtl: 'zm.share.ttl_days',
+  shareHistory: 'zm.share.history',
 };
 
 const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -146,11 +148,33 @@ export const el = {
   updateClose: $('update-close-btn'),
 
   toast: $('toast'),
+
+  shareSessionBtn: $('share-session-btn'),
+  shareModal: $('share-modal'),
+  shareModalBackdrop: $('share-modal-backdrop'),
+  shareClose: $('share-close'),
+  shareDyadList: $('share-dyad-list'),
+  shareSelectCurrent: $('share-select-current'),
+  shareSelectAll: $('share-select-all'),
+  shareClearAll: $('share-clear-all'),
+  shareSelectedCount: $('share-selected-count'),
+  shareTtlSelect: $('share-ttl-select'),
+  shareIncludeReasoning: $('share-include-reasoning'),
+  shareIncludeMetrics: $('share-include-metrics'),
+  shareSubmitBtn: $('share-submit-btn'),
+  shareFormBody: $('share-form-body'),
+  shareResultCard: $('share-result-card'),
+  shareResultUrl: $('share-result-url'),
+  shareResultExpiry: $('share-result-expiry'),
+  shareCopyLinkBtn: $('share-copy-link-btn'),
+  shareOpenLinkBtn: $('share-open-link-btn'),
+  settingsShareTtl: $('settings-share-ttl'),
 };
 
 export const state = {
   token: getStorageItem(LS.token) || '',
   model: getStorageItem(LS.model) || '',
+  shareTtlDays: parseInt(getStorageItem(LS.shareTtl), 10) || 7,
   theme: getStorageItem(LS.theme) || 'dark',
   themeMode: getStorageItem(LS.themeMode) || (getStorageItem(LS.theme) ? getStorageItem(LS.theme) : 'auto'),
   instructions: getStorageItem(LS.instructions) || '',

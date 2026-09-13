@@ -2285,6 +2285,274 @@
     transform:translateX(16px);
   }
 
+  /* ---------- Share & Save Modal ---------- */
+  .share-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    max-width: 600px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .45);
+    padding: 20px 22px;
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 88vh;
+    z-index: 1001;
+    animation: modalScaleUp .2s cubic-bezier(.16, 1, .3, 1) forwards;
+  }
+  .share-modal.open {
+    display: flex !important;
+  }
+  [data-theme="light"] .share-modal {
+    box-shadow: 0 20px 48px -12px rgba(45, 35, 25, .18), 0 2px 8px rgba(45, 35, 25, .06);
+  }
+  .share-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .share-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--fg);
+    font-family: "Newsreader", "Charter", "Bitstream Charter", "Georgia", "Cambria", ui-serif, serif;
+    letter-spacing: -0.2px;
+  }
+  .share-modal-title svg { color: var(--accent); }
+  .share-modal-subtitle {
+    font-size: 12.5px;
+    color: var(--fg-dim);
+    margin-top: 3px;
+    line-height: 1.45;
+  }
+  .share-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .share-toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .share-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .share-pill-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .share-pill-btn:hover {
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+  .share-selected-badge {
+    font-size: 11.5px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .share-dyad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 38vh;
+    overflow-y: auto;
+    padding: 2px;
+  }
+  .share-dyad-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--card-item-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .share-dyad-item:hover {
+    border-color: var(--line);
+  }
+  .share-dyad-item.selected {
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb, 56, 189, 248), 0.05);
+  }
+  .share-dyad-checkbox-wrap {
+    margin-top: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+  .share-dyad-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .share-dyad-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .share-dyad-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .share-dyad-index {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .share-dyad-model {
+    font-size: 10.5px;
+    color: var(--fg-faint);
+  }
+  .share-dyad-user-preview, .share-dyad-asst-preview {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--fg-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .share-dyad-user-preview .role-tag, .share-dyad-asst-preview .role-tag {
+    font-weight: 600;
+    color: var(--fg);
+    margin-right: 4px;
+  }
+  .share-options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    background: var(--card-item-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-top: 4px;
+  }
+  .share-option-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .share-option-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg);
+  }
+  .share-toggles-col {
+    justify-content: center;
+    gap: 8px;
+  }
+  .share-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--fg-dim);
+    cursor: pointer;
+  }
+  .share-checkbox-label input {
+    accent-color: var(--accent);
+  }
+  .share-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .share-submit-btn {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .share-result-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px 8px;
+    gap: 12px;
+  }
+  .share-success-icon {
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+  .share-success-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .share-result-expiry {
+    font-size: 12.5px;
+    color: var(--fg-dim);
+    max-width: 440px;
+    line-height: 1.5;
+  }
+  .share-link-box {
+    display: flex;
+    width: 100%;
+    max-width: 480px;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .share-link-input {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--fg);
+    font-family: var(--mono);
+    outline: none;
+  }
+  .share-copy-action-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s ease;
+    white-space: nowrap;
+  }
+  .share-copy-action-btn:hover { opacity: .9; }
+  .share-success-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
   /* ---------- Settings Modal ---------- */
   .settings-modal{
     width:100%;max-width:580px;background:var(--bg-elev);border:1px solid var(--line);
@@ -2909,7 +3177,7 @@
       margin: 0 auto 6px !important;
       flex-shrink: 0 !important;
     }
-    .settings-modal, .plugins-modal {
+    .settings-modal, .plugins-modal, .share-modal {
       width: 100% !important;
       max-width: 100% !important;
       height: auto !important;
@@ -2925,11 +3193,11 @@
       margin: 0 !important;
       animation: sheetSlideUp .25s cubic-bezier(.16,1,.3,1) forwards !important;
     }
-    .settings-modal-header, .plugins-modal-header,
+    .settings-modal-header, .plugins-modal-header, .share-modal-header,
     .plugins-modal-desc, .plugins-quick-bar {
       flex: 0 0 auto !important;
     }
-    .settings-modal-body, .plugins-list {
+    .settings-modal-body, .plugins-list, .share-modal-body {
       flex: 1 1 auto !important;
       min-height: 0 !important;
       max-height: none !important;
@@ -3070,7 +3338,7 @@
       min-height: 80px !important;
       font-size: 14px !important;
     }
-    .settings-modal-footer {
+    .settings-modal-footer, .share-modal-footer {
       flex: 0 0 auto !important;
       padding-top: 10px !important;
       border-top: 1px solid var(--line-soft) !important;

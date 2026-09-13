@@ -850,6 +850,9 @@ export function renderSettingsState() {
     el.settingsTtsVoiceRow.style.display = (state.ttsModel === 'browser') ? 'none' : 'flex';
   }
   updateSettingsCharCount();
+  if (el.settingsShareTtl) {
+    el.settingsShareTtl.value = String(state.shareTtlDays || 7);
+  }
   syncThemePillsUI(state.themeMode);
   renderMemoryManagerUI();
 }
@@ -874,6 +877,7 @@ export function saveSettings() {
   const vadEngine = (el.settingsVadEngine ? el.settingsVadEngine.value : '') || 'energy';
   const ttsModel = (el.settingsTtsModel ? el.settingsTtsModel.value : '') || 'browser';
   const ttsVoice = (el.settingsTtsVoice ? el.settingsTtsVoice.value : '') || 'Kore';
+  const shareTtl = parseInt(el.settingsShareTtl ? el.settingsShareTtl.value : 7, 10) || 7;
 
   state.instructions = text;
   state.instructionsEnabled = enabled;
@@ -882,6 +886,7 @@ export function saveSettings() {
   state.vadEngine = vadEngine;
   state.ttsModel = ttsModel;
   state.ttsVoice = ttsVoice;
+  state.shareTtlDays = shareTtl;
 
   localStorage.setItem(LS.instructions, text);
   localStorage.setItem(LS.instructionsEnabled, String(enabled));
@@ -890,6 +895,7 @@ export function saveSettings() {
   localStorage.setItem(LS.vadEngine, vadEngine);
   localStorage.setItem(LS.ttsModel, ttsModel);
   localStorage.setItem(LS.ttsVoice, ttsVoice);
+  localStorage.setItem(LS.shareTtl, String(shareTtl));
 
   closeSettingsModal();
   toast(t('settings.settingsSaved') || '偏好设置已保存并应用', 'info');
@@ -1363,6 +1369,14 @@ function initEventListeners() {
     if (isMobileScreen()) closeSidebar();
   });
 
+  if (el.shareSessionBtn) {
+    el.shareSessionBtn.addEventListener('click', () => {
+      import('./share.js').then(({ openShareModal }) => {
+        openShareModal({ conversation: state.currentConv });
+      });
+    });
+  }
+
   if (el.logout) {
     el.logout.addEventListener('click', () => {
       localStorage.removeItem(LS.token);
@@ -1689,6 +1703,9 @@ function initEventListeners() {
       if (el.lightbox && !el.lightbox.classList.contains('hide')) closeLightbox();
       if (el.pluginsModalBackdrop && !el.pluginsModalBackdrop.classList.contains('hide')) closePluginsModal();
       if (el.settingsModalBackdrop && !el.settingsModalBackdrop.classList.contains('hide')) closeSettingsModal();
+      if (el.shareModal && el.shareModal.classList.contains('open')) {
+        import('./share.js').then(({ closeShareModal }) => closeShareModal());
+      }
     }
   });
 
@@ -1759,6 +1776,12 @@ export async function initApp() {
   initEventListeners();
   initSidebarResizer();
   initVersionChecker(toast);
+
+  import('./share.js').then(({ initShareEngine }) => {
+    initShareEngine();
+  }).catch((err) => {
+    console.warn('[Share] Engine initialization notice:', err);
+  });
 
   if (el.model) el.model.value = state.model;
   if (el.effort) el.effort.value = state.effort;
