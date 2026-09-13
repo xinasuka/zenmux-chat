@@ -151,7 +151,8 @@ export async function executeAssistantStream(userMsg, options = {}) {
   if (!c) return;
 
   const meta = state.modelMeta[state.model];
-  const col = appendBubble('assistant', null); // Returns .body container element
+  const asstIndex = c.messages.length;
+  const col = appendBubble('assistant', null, asstIndex); // Returns .body container element
 
   const toBottom = () => { if (el.thread) el.thread.scrollTop = el.thread.scrollHeight; };
   const nearBottom = () => el.thread ? (el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 120) : true;
@@ -456,6 +457,11 @@ export async function executeAssistantStream(userMsg, options = {}) {
       };
       c.messages.push(asstMsg);
       c.updatedAt = Date.now();
+      const finalIndex = c.messages.length - 1;
+      const wrap = col && (col.closest ? col.closest('.msg') : col.parentElement);
+      if (wrap) {
+        wrap.setAttribute('data-msg-index', String(finalIndex));
+      }
 
       if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
         const refined = TitleExtractor.sniffAssistantTitle(acc);
@@ -468,7 +474,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
         if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
       });
 
-      const actionsBar = createActionsToolbar(asstMsg, c.messages.length - 1, options.onRegenerate);
+      const actionsBar = createActionsToolbar(asstMsg, finalIndex, options.onRegenerate);
       col.appendChild(actionsBar);
       updateSidebarFooter();
     }
@@ -489,8 +495,13 @@ export async function executeAssistantStream(userMsg, options = {}) {
         };
         c.messages.push(partialMsg);
         c.updatedAt = Date.now();
+        const finalIndex = c.messages.length - 1;
+        const wrap = col && (col.closest ? col.closest('.msg') : col.parentElement);
+        if (wrap) {
+          wrap.setAttribute('data-msg-index', String(finalIndex));
+        }
         ZenMuxDB.putConversation(c);
-        const actionsBar = createActionsToolbar(partialMsg, c.messages.length - 1, options.onRegenerate);
+        const actionsBar = createActionsToolbar(partialMsg, finalIndex, options.onRegenerate);
         col.appendChild(actionsBar);
         updateSidebarFooter();
       }
@@ -519,7 +530,8 @@ export async function executeImageGeneration(userMsg, options = {}) {
   if (el.send) el.send.disabled = true;
   if (el.stop) el.stop.style.display = 'none';
 
-  const col = appendBubble('assistant', null);
+  const asstIndex = c.messages.length;
+  const col = appendBubble('assistant', null, asstIndex);
   const skeletonCard = createImageCard({ loading: true });
   col.appendChild(skeletonCard);
 
@@ -724,6 +736,11 @@ export async function executeImageGeneration(userMsg, options = {}) {
     };
     c.messages.push(assistantMsg);
     c.updatedAt = Date.now();
+    const finalIndex = c.messages.length - 1;
+    const wrap = col && (col.closest ? col.closest('.msg') : col.parentElement);
+    if (wrap) {
+      wrap.setAttribute('data-msg-index', String(finalIndex));
+    }
 
     await ZenMuxDB.putConversation(c);
     if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();

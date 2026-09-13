@@ -863,11 +863,38 @@ export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange
   el.threadInner.classList.add('thread-share-mode');
   const cleanups = [];
 
+  function getMessageElement(role, index) {
+    if (typeof index !== 'number' || index < 0) return null;
+    // 1. Precise lookup via data-msg-index
+    const elFound = el.threadInner.querySelector(`.msg.${role}[data-msg-index="${index}"]`);
+    if (elFound) return elFound;
+
+    // 2. Resilient fallback: index-based scan across all .msg elements in threadInner
+    const allMsgs = el.threadInner.querySelectorAll('.msg');
+    if (allMsgs && allMsgs[index] && allMsgs[index].classList.contains(role)) {
+      allMsgs[index].setAttribute('data-msg-index', String(index));
+      return allMsgs[index];
+    }
+
+    // 3. Fallback for the last assistant response:
+    if (role === 'assistant') {
+      const allAsstMsgs = el.threadInner.querySelectorAll('.msg.assistant');
+      const lastDyad = dyads[dyads.length - 1];
+      if (lastDyad && lastDyad.asstIndex === index && allAsstMsgs.length > 0) {
+        const lastAsst = allAsstMsgs[allAsstMsgs.length - 1];
+        lastAsst.setAttribute('data-msg-index', String(index));
+        return lastAsst;
+      }
+    }
+
+    return null;
+  }
+
   function syncVisuals() {
     dyads.forEach((d) => {
       const isSelected = selectedDyadIds.has(d.id);
-      const userEl = el.threadInner.querySelector(`.msg.user[data-msg-index="${d.userIndex}"]`);
-      const asstEl = d.asstIndex >= 0 ? el.threadInner.querySelector(`.msg.assistant[data-msg-index="${d.asstIndex}"]`) : null;
+      const userEl = getMessageElement('user', d.userIndex);
+      const asstEl = d.asstIndex >= 0 ? getMessageElement('assistant', d.asstIndex) : null;
 
       if (userEl) {
         userEl.classList.toggle('share-turn-selected', isSelected);
@@ -894,6 +921,8 @@ export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange
 
   function attachTurnOverlay(msgElem, dyadId) {
     if (!msgElem) return;
+    if (msgElem.querySelector(`.msg-share-overlay[data-dyad-id="${dyadId}"]`)) return;
+
     const overlay = document.createElement('div');
     overlay.className = 'msg-share-overlay';
     overlay.setAttribute('data-dyad-id', dyadId);
@@ -912,8 +941,8 @@ export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange
   }
 
   dyads.forEach((d) => {
-    const userEl = el.threadInner.querySelector(`.msg.user[data-msg-index="${d.userIndex}"]`);
-    const asstEl = d.asstIndex >= 0 ? el.threadInner.querySelector(`.msg.assistant[data-msg-index="${d.asstIndex}"]`) : null;
+    const userEl = getMessageElement('user', d.userIndex);
+    const asstEl = d.asstIndex >= 0 ? getMessageElement('assistant', d.asstIndex) : null;
 
     attachTurnOverlay(userEl, d.id);
     attachTurnOverlay(asstEl, d.id);
@@ -953,6 +982,12 @@ export function createShareDrawer(msg, msgIndex, onClose) {
   const targetMsg = (typeof msgIndex === 'number' && conv.messages && conv.messages[msgIndex]) || msg;
   const matchedDyad = dyads.find((d) => d.asstIndex === msgIndex) || dyads[dyads.length - 1];
 
+  const hostMsgElem = (typeof msgIndex === 'number' && el.threadInner && el.threadInner.querySelector(`.msg.assistant[data-msg-index="${msgIndex}"]`)) ||
+    (matchedDyad && el.threadInner && el.threadInner.querySelector(`.msg.assistant[data-msg-index="${matchedDyad.asstIndex}"]`));
+  if (hostMsgElem) {
+    hostMsgElem.classList.add('has-share-drawer');
+  }
+
   const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
   const effectiveExpiresAt = existingShare && (
     existingShare.ttlDays === 0
@@ -967,6 +1002,9 @@ export function createShareDrawer(msg, msgIndex, onClose) {
 
   function closeDrawer() {
     exitThreadShareMode();
+    if (hostMsgElem) {
+      hostMsgElem.classList.remove('has-share-drawer');
+    }
     if (globalActiveDrawer === drawer) {
       globalActiveDrawer = null;
     }

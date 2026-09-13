@@ -642,8 +642,8 @@ export function bubble(role, content, images, reasoning, files, displayContent, 
   return wrap;
 }
 
-export function appendBubble(role, sources) {
-  const wrap = bubble(role, '', null, '', null, '', sources, null, null, null, null);
+export function appendBubble(role, sources, msgIndex) {
+  const wrap = bubble(role, '', null, '', null, '', sources, null, null, typeof msgIndex === 'number' ? msgIndex : null, null);
   if (el.threadInner) el.threadInner.appendChild(wrap);
   return wrap.querySelector('.body');
 }

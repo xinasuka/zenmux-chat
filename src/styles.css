@@ -2294,14 +2294,22 @@
   /* Selection Overlay Mask (Intercepts clicks, shields buttons/links/code, prevents text selection) */
   .msg-share-overlay {
     position: absolute;
-    inset: -6px -10px;
+    inset: -6px -8px;
     border-radius: 12px;
     z-index: 10;
     cursor: pointer;
     pointer-events: auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     border: 1.5px solid transparent;
     background: transparent;
     transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  @media (max-width: 640px) {
+    .msg-share-overlay {
+      inset: -4px -6px;
+      border-radius: 10px;
+    }
   }
 
   /* Selected State: Full opacity, accent highlight outline, subtle luminous tint */
@@ -2353,7 +2361,19 @@
     background: rgba(0, 0, 0, .015);
   }
 
-  /* Keep Share Drawer and Active Share Button elevated above the overlay */
+  /* Keep Share Drawer and Active Share Button elevated and undimmed */
+  .thread-share-mode .msg.has-share-drawer {
+    opacity: 1 !important;
+  }
+  .thread-share-mode .msg.has-share-drawer.share-turn-unselected .body > *:not(.msg-actions-container),
+  .thread-share-mode .msg.has-share-drawer.share-turn-unselected .avatar {
+    opacity: .38;
+  }
+  [data-theme="light"] .thread-share-mode .msg.has-share-drawer.share-turn-unselected .body > *:not(.msg-actions-container),
+  [data-theme="light"] .thread-share-mode .msg.has-share-drawer.share-turn-unselected .avatar {
+    opacity: .45;
+  }
+
   .msg-share-drawer {
     position: relative;
     z-index: 25;
