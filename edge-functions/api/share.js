@@ -103,8 +103,9 @@ export async function onRequestPost(context) {
 
     // Calculate TTL in seconds if requested
     let ttlSeconds = null;
-    if (ttlDays && Number(ttlDays) > 0) {
-      ttlSeconds = Math.min(365, parseInt(ttlDays, 10)) * 86400;
+    const parsedTtlDays = parseInt(ttlDays, 10);
+    if (!isNaN(parsedTtlDays) && parsedTtlDays > 0) {
+      ttlSeconds = Math.min(365, parsedTtlDays) * 86400;
     }
 
     // 4. Quota management: FIFO eviction is only executed when creating brand new sites
@@ -216,12 +217,16 @@ export async function onRequestPost(context) {
       }, 502);
     }
 
+    const computedExpiresAt = (ttlSeconds && ttlSeconds > 0)
+      ? (finalData.expiresAt || finalData.expires_at || stageData.expiresAt || stageData.expires_at || new Date(Date.now() + ttlSeconds * 1000).toISOString())
+      : null;
+
     return json({
       ok: true,
       slug,
       siteUrl: finalData.siteUrl || siteUrl,
-      expiresAt: finalData.expiresAt || stageData.expiresAt || null,
-      ttlDays: ttlDays || null,
+      expiresAt: computedExpiresAt,
+      ttlDays: parsedTtlDays > 0 ? parsedTtlDays : 0,
       updated: isUpdate,
       createdAt: new Date().toISOString(),
     }, 200);

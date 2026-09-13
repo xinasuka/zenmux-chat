@@ -954,7 +954,11 @@ export function createShareDrawer(msg, msgIndex, onClose) {
   const matchedDyad = dyads.find((d) => d.asstIndex === msgIndex) || dyads[dyads.length - 1];
 
   const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
-  const isExpired = existingShare && existingShare.expiresAt && Date.now() > existingShare.expiresAt;
+  const effectiveExpiresAt = existingShare && (
+    existingShare.expiresAt ||
+    (existingShare.ttlDays > 0 && existingShare.sharedAt ? new Date(existingShare.sharedAt + existingShare.ttlDays * 86400000).toISOString() : null)
+  );
+  const isExpired = effectiveExpiresAt && Date.now() > new Date(effectiveExpiresAt).getTime();
   const hasValidExistingShare = Boolean(existingShare && !isExpired);
 
   const drawer = document.createElement('div');
@@ -1002,6 +1006,45 @@ export function createShareDrawer(msg, msgIndex, onClose) {
     selectedDyadIds.add(dyads[dyads.length - 1].id);
   }
 
+  function getShareStatusInfo(expiresAt) {
+    if (!expiresAt) {
+      return {
+        text: t('share.statusPermanent') || (state.lang === 'en' ? 'Permanent' : '永久有效'),
+        type: 'permanent',
+      };
+    }
+
+    const expTime = new Date(expiresAt).getTime();
+    if (isNaN(expTime)) {
+      return {
+        text: t('share.statusPermanent') || (state.lang === 'en' ? 'Permanent' : '永久有效'),
+        type: 'permanent',
+      };
+    }
+
+    const diffMs = expTime - Date.now();
+    if (diffMs <= 0) {
+      return {
+        text: t('share.statusExpired') || (state.lang === 'en' ? 'Expired' : '已过期'),
+        type: 'expired',
+      };
+    }
+
+    const hoursRemain = Math.ceil(diffMs / (1000 * 60 * 60));
+    if (hoursRemain < 24) {
+      return {
+        text: t('share.statusHoursRemain') || (state.lang === 'en' ? '< 24h remain' : '剩余不到 1 天'),
+        type: 'expiring',
+      };
+    }
+
+    const daysRemain = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return {
+      text: t('share.statusDaysRemain', { days: daysRemain }) || (state.lang === 'en' ? `${daysRemain} days remain` : `剩余 ${daysRemain} 天`),
+      type: 'expiring',
+    };
+  }
+
   function renderResultView(siteUrl, expiresAt, isRetrieved = false) {
     exitThreadShareMode();
     bodyWrap.innerHTML = '';
@@ -1009,18 +1052,17 @@ export function createShareDrawer(msg, msgIndex, onClose) {
     const resCard = document.createElement('div');
     resCard.className = 'share-drawer-result-body';
 
-    let expiryNotice = t('share.permanentNotice');
-    if (expiresAt) {
-      const dateStr = new Date(expiresAt).toLocaleDateString(state.lang === 'en' ? 'en-US' : 'zh-CN');
-      expiryNotice = t('share.expiresNotice', { date: dateStr });
-    }
+    const statusInfo = getShareStatusInfo(expiresAt);
 
     resCard.innerHTML = `
-      <div class="share-drawer-ready-badge">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-        <span>${t('share.publishSuccess') || '分享链接已就绪'}</span>
+      <div class="share-drawer-ready-row">
+        <div class="share-drawer-ready-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span>${t('share.publishSuccess') || '分享链接已就绪'}</span>
+        </div>
+        <span class="share-drawer-status-pill ${statusInfo.type}">${statusInfo.text}</span>
       </div>
 
       <div class="share-drawer-url-box">
@@ -1031,8 +1073,6 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           </svg>
         </a>
       </div>
-
-      <div class="share-drawer-expiry-note">${expiryNotice}</div>
 
       <div class="share-drawer-actions">
         <button type="button" class="share-drawer-copy-btn">
@@ -1114,6 +1154,9 @@ export function createShareDrawer(msg, msgIndex, onClose) {
     const publishBtn = form.querySelector('.share-drawer-publish-btn');
     const cancelBtn = form.querySelector('.share-drawer-cancel-btn');
     const ttlSelect = form.querySelector('.share-retention-select');
+    if (targetMsg && targetMsg.share && typeof targetMsg.share.ttlDays !== 'undefined') {
+      ttlSelect.value = String(targetMsg.share.ttlDays);
+    }
 
     function updateBadge() {
       countBadge.textContent = t('share.selectedBadge', {
@@ -1179,11 +1222,13 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           slug: slugToUse,
         });
 
+        const resolvedExpiresAt = result.expiresAt || (ttlDays > 0 ? new Date(Date.now() + ttlDays * 86400000).toISOString() : null);
+
         if (targetMsg) {
           targetMsg.share = {
             slug: result.slug,
             siteUrl: result.siteUrl,
-            expiresAt: result.expiresAt,
+            expiresAt: resolvedExpiresAt,
             sharedAt: Date.now(),
             ttlDays,
           };
@@ -1204,7 +1249,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
             url: result.siteUrl,
             title: (conv && conv.title) || 'ZenMux Chat Session',
             createdAt: result.createdAt || new Date().toISOString(),
-            expiresAt: result.expiresAt,
+            expiresAt: resolvedExpiresAt,
             turnsCount: targetDyads.length,
           });
           localStorage.setItem('zm.share.history', JSON.stringify(history.slice(0, 50)));
@@ -1215,7 +1260,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           : (t('share.publishSuccess') || '分享链接已就绪并已自动复制到剪贴板');
         toast(successNotice, 'success');
 
-        renderResultView(result.siteUrl, result.expiresAt, false);
+        renderResultView(result.siteUrl, resolvedExpiresAt, false);
 
       } catch (err) {
         toast(t('share.shareFailed', { error: err.message || err }), 'error');
@@ -1239,7 +1284,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(existingShare.siteUrl).catch(() => {});
     }
-    renderResultView(existingShare.siteUrl, existingShare.expiresAt, true);
+    renderResultView(existingShare.siteUrl, effectiveExpiresAt, true);
     toast(t('share.retrievedSuccess') || '已获取该轮已有分享链接并自动复制到剪贴板', 'info');
   } else {
     renderConfigView(false);

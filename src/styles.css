@@ -2524,6 +2524,17 @@
   }
 
   /* Result View Inside Drawer */
+  .share-drawer-result-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .share-drawer-ready-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
   .share-drawer-ready-badge {
     display: flex;
     align-items: center;
@@ -2531,6 +2542,31 @@
     font-size: 12.5px;
     font-weight: 500;
     color: var(--accent);
+  }
+  .share-drawer-status-pill {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    background: var(--card-item-bg);
+    border: 1px solid var(--card-border);
+    padding: 2px 7.5px;
+    border-radius: 6px;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.4;
+  }
+  .share-drawer-status-pill.expiring {
+    color: var(--accent);
+    background: var(--accent-glow);
+    border-color: var(--card-border);
+  }
+  .share-drawer-status-pill.permanent {
+    color: var(--fg-dim);
+  }
+  .share-drawer-status-pill.expired {
+    color: var(--danger, #e54d2e);
+    border-color: rgba(229, 77, 46, .25);
   }
   .share-drawer-url-box {
     display: flex;
@@ -2561,11 +2597,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .share-drawer-expiry-note {
-    font-size: 11.5px;
-    color: var(--fg-dim);
-    line-height: 1.4;
   }
   .share-drawer-copy-btn, .share-drawer-edit-btn {
     display: inline-flex;
