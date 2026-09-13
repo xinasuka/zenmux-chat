@@ -827,7 +827,7 @@ let globalActiveDrawer = null;
 let activeThreadShareState = null;
 
 /**
- * Exits thread selection mode, removing all injected gutter elements and CSS markers.
+ * Exits thread selection mode, removing all injected overlay mask elements and CSS markers.
  */
 export function exitThreadShareMode() {
   if (activeThreadShareState) {
@@ -841,8 +841,8 @@ export function exitThreadShareMode() {
 
   if (el.threadInner) {
     el.threadInner.classList.remove('thread-share-mode');
-    const gutters = el.threadInner.querySelectorAll('.msg-share-gutter');
-    gutters.forEach((g) => g.remove());
+    const overlays = el.threadInner.querySelectorAll('.msg-share-overlay');
+    overlays.forEach((o) => o.remove());
 
     const messages = el.threadInner.querySelectorAll('.msg');
     messages.forEach((m) => {
@@ -852,7 +852,8 @@ export function exitThreadShareMode() {
 }
 
 /**
- * Enters thread selection mode, injecting circular checkmarks and turn tags into user message gutters.
+ * Enters thread selection mode, injecting full-surface selection overlay masks over prompt/response pairs.
+ * The overlay intercepts all clicks, protecting interactive buttons/code/audio and preventing text selection.
  */
 export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange }) {
   exitThreadShareMode();
@@ -891,66 +892,31 @@ export function enterThreadShareMode({ dyads, selectedDyadIds, onSelectionChange
     }
   }
 
+  function attachTurnOverlay(msgElem, dyadId) {
+    if (!msgElem) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'msg-share-overlay';
+    overlay.setAttribute('data-dyad-id', dyadId);
+    overlay.setAttribute('role', 'button');
+    overlay.title = t('share.toggleDyad') || '点击切换此轮对话选择状态';
+
+    const handler = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleDyad(dyadId);
+    };
+    overlay.addEventListener('click', handler);
+    cleanups.push(() => overlay.removeEventListener('click', handler));
+
+    msgElem.appendChild(overlay);
+  }
+
   dyads.forEach((d) => {
     const userEl = el.threadInner.querySelector(`.msg.user[data-msg-index="${d.userIndex}"]`);
     const asstEl = d.asstIndex >= 0 ? el.threadInner.querySelector(`.msg.assistant[data-msg-index="${d.asstIndex}"]`) : null;
 
-    if (userEl) {
-      const userBody = userEl.querySelector('.body');
-      if (userBody) {
-        const gutter = document.createElement('div');
-        gutter.className = 'msg-share-gutter';
-        gutter.setAttribute('data-dyad-id', d.id);
-
-        const checkBtn = document.createElement('button');
-        checkBtn.type = 'button';
-        checkBtn.className = 'msg-share-checkbox';
-        checkBtn.title = t('share.toggleDyad') || '选择/取消选择本轮对话';
-        checkBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-        checkBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleDyad(d.id);
-        });
-
-        const turnTag = document.createElement('span');
-        turnTag.className = 'msg-share-turn-tag';
-        turnTag.textContent = t('share.turnNumber', { number: d.turnIndex });
-
-        const selectAllLink = document.createElement('button');
-        selectAllLink.type = 'button';
-        selectAllLink.className = 'msg-share-all-link';
-        selectAllLink.textContent = t('share.selectAllLink') || '全选会话';
-        selectAllLink.title = t('share.selectAll') || '选择全部对话';
-        selectAllLink.addEventListener('click', (e) => {
-          e.stopPropagation();
-          dyads.forEach((item) => selectedDyadIds.add(item.id));
-          syncVisuals();
-          if (typeof onSelectionChange === 'function') {
-            onSelectionChange(selectedDyadIds);
-          }
-        });
-
-        gutter.appendChild(checkBtn);
-        gutter.appendChild(turnTag);
-        gutter.appendChild(selectAllLink);
-        userBody.insertBefore(gutter, userBody.firstChild);
-      }
-    }
-
-    function attachTurnClick(msgElem) {
-      if (!msgElem) return;
-      const handler = (e) => {
-        if (e.target.closest('a, button, input, select, textarea, pre, code, summary, .msg-action-btn, .msg-sources, .msg-usage-card, .msg-share-drawer')) {
-          return;
-        }
-        toggleDyad(d.id);
-      };
-      msgElem.addEventListener('click', handler);
-      cleanups.push(() => msgElem.removeEventListener('click', handler));
-    }
-
-    attachTurnClick(userEl);
-    attachTurnClick(asstEl);
+    attachTurnOverlay(userEl, d.id);
+    attachTurnOverlay(asstEl, d.id);
   });
 
   syncVisuals();
@@ -1073,10 +1039,6 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           <span class="copy-btn-text">${t('share.copyLink') || '复制链接'}</span>
         </button>
-        <button type="button" class="share-drawer-open-btn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-          <span>${t('share.openLink') || '在新标签页打开'}</span>
-        </button>
         <button type="button" class="share-drawer-edit-btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           <span>${t('share.updateSnapshot') || '修改内容或重新选轮'}</span>
@@ -1096,10 +1058,6 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           toast(t('common.copyFailed') || '复制失败，请手动选取', 'error');
         });
       }
-    });
-
-    resCard.querySelector('.share-drawer-open-btn').addEventListener('click', () => {
-      window.open(siteUrl, '_blank', 'noopener,noreferrer');
     });
 
     resCard.querySelector('.share-drawer-edit-btn').addEventListener('click', () => {
@@ -1127,7 +1085,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
       </div>
 
       <div class="share-drawer-hint">
-        ${t('share.drawerHint') || '点击上方对话任意区域或勾选框即可自由增减分享内容。'}
+        ${t('share.drawerHint') || '点击上方任意对话即可自由选入或移出分享内容。'}
       </div>
 
       <div class="share-drawer-retention-row">
@@ -1138,7 +1096,6 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           <option value="30">${t('share.ttl30d') || '30 天有效'}</option>
           <option value="0">${t('share.ttlPermanent') || '永久保留 (FIFO 自动轮转)'}</option>
         </select>
-        <span class="share-auto-badge">${t('share.autoMetricsNotice') || '✦ 思考过程与模型指标已自动内嵌'}</span>
       </div>
 
       <div class="share-drawer-actions">
