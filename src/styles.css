@@ -2313,16 +2313,17 @@
     background: rgba(80, 160, 255, .04);
     box-shadow: 0 0 0 1px rgba(80, 160, 255, .15);
   }
-  [data-theme="light"] .thread-share-mode .msg.share-turn-selected .msg-share-overlay {
-    border-color: var(--accent);
-    background: rgba(204, 120, 92, .05);
-    box-shadow: 0 0 0 1px rgba(204, 120, 92, .18);
-  }
   .thread-share-mode .msg.share-turn-selected:hover .msg-share-overlay {
     background: rgba(80, 160, 255, .07);
   }
+  [data-theme="light"] .thread-share-mode .msg.share-turn-selected .msg-share-overlay {
+    border-color: rgba(204, 120, 92, .32);
+    background: rgba(204, 120, 92, .025);
+    box-shadow: none;
+  }
   [data-theme="light"] .thread-share-mode .msg.share-turn-selected:hover .msg-share-overlay {
-    background: rgba(204, 120, 92, .08);
+    border-color: rgba(204, 120, 92, .5);
+    background: rgba(204, 120, 92, .05);
   }
 
   /* Unselected State: Dimmed to 38% opacity, clear visual contrast */
@@ -2341,6 +2342,16 @@
     border-style: dashed;
     background: rgba(255, 255, 255, .02);
   }
+  [data-theme="light"] .thread-share-mode .msg.share-turn-unselected {
+    opacity: .45;
+  }
+  [data-theme="light"] .thread-share-mode .msg.share-turn-unselected:hover {
+    opacity: .78;
+  }
+  [data-theme="light"] .thread-share-mode .msg.share-turn-unselected:hover .msg-share-overlay {
+    border-color: rgba(60, 50, 40, .18);
+    background: rgba(0, 0, 0, .015);
+  }
 
   /* Keep Share Drawer and Active Share Button elevated above the overlay */
   .msg-share-drawer {
@@ -2356,35 +2367,29 @@
 
   /* In-situ Share Drawer */
   .msg-share-drawer {
-    background: var(--bg-card);
-    border: 1px solid var(--line);
+    background: var(--card-bg);
+    border: 1px solid var(--line-soft);
     border-radius: 12px;
-    padding: 14px 16px;
-    margin-top: 10px;
+    padding: 12px 14px;
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     animation: slideDown .18s ease forwards;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, .18);
-  }
-  [data-theme="light"] .msg-share-drawer {
-    background: #fff;
-    border-color: rgba(0, 0, 0, .1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
   }
   .share-drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--card-border);
     padding-bottom: 8px;
   }
   .share-drawer-title {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--fg);
   }
@@ -2399,12 +2404,12 @@
     line-height: 1;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 4px;
-    transition: all .15s ease;
+    border-radius: 6px;
+    transition: color .15s ease, background .15s ease;
   }
   .share-drawer-close:hover {
     color: var(--fg);
-    background: var(--bg-hover, rgba(255, 255, 255, .06));
+    background: var(--bg-elev);
   }
 
   .share-drawer-selection-bar {
@@ -2425,8 +2430,8 @@
     gap: 6px;
   }
   .share-pill-btn {
-    background: var(--bg-soft, rgba(255, 255, 255, .04));
-    border: 1px solid var(--line);
+    background: var(--card-item-bg);
+    border: 1px solid var(--card-border);
     color: var(--fg-dim);
     font-size: 11.5px;
     padding: 3px 9px;
@@ -2435,9 +2440,9 @@
     transition: all .15s ease;
   }
   .share-pill-btn:hover {
-    color: var(--fg);
+    color: var(--accent);
     border-color: var(--accent);
-    background: rgba(80, 160, 255, .08);
+    background: var(--accent-glow);
   }
   .share-drawer-hint {
     font-size: 11.5px;
@@ -2450,10 +2455,10 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    background: var(--bg-soft, rgba(255, 255, 255, .03));
+    background: var(--card-item-bg);
     padding: 8px 12px;
     border-radius: 8px;
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--card-border);
   }
   .share-retention-label {
     font-size: 12px;
@@ -2461,8 +2466,8 @@
     color: var(--fg);
   }
   .share-retention-select {
-    background: var(--bg-card);
-    border: 1px solid var(--line);
+    background: var(--card-bg);
+    border: 1px solid var(--line-soft);
     color: var(--fg);
     border-radius: 6px;
     padding: 4px 8px;
@@ -2476,47 +2481,46 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    margin-top: 4px;
+    margin-top: 2px;
   }
   .share-drawer-publish-btn {
     background: var(--accent);
     color: #fff;
     border: none;
     border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: 7px 15px;
+    font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     transition: all .15s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    box-shadow: 0 2px 6px var(--accent-glow);
   }
   .share-drawer-publish-btn:hover {
-    opacity: .92;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(80, 160, 255, .25);
+    opacity: .95;
+    box-shadow: 0 3px 10px var(--accent-glow);
   }
   .share-drawer-publish-btn:disabled {
     opacity: .5;
     cursor: not-allowed;
-    transform: none;
+    box-shadow: none;
   }
   .share-drawer-cancel-btn {
     background: transparent;
     color: var(--fg-dim);
-    border: 1px solid var(--line);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
-    padding: 8px 14px;
+    padding: 7px 13px;
     font-size: 12.5px;
     cursor: pointer;
     transition: all .15s ease;
   }
   .share-drawer-cancel-btn:hover {
     color: var(--fg);
-    border-color: var(--line-strong, var(--fg-faint));
-    background: var(--bg-hover, rgba(255, 255, 255, .05));
+    border-color: var(--line);
+    background: var(--card-item-bg);
   }
 
   /* Result View Inside Drawer */
@@ -2538,18 +2542,19 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 12px;
+    padding: 8px 12px;
     border-radius: 8px;
-    background: var(--bg-soft, rgba(255, 255, 255, .04));
-    border: 1px solid var(--accent);
+    background: var(--card-item-bg);
+    border: 1px solid var(--line-soft);
     color: var(--accent);
     text-decoration: none;
     font-family: var(--mono);
-    font-size: 12.5px;
+    font-size: 12px;
     transition: all .15s ease;
   }
   .share-drawer-link-anchor:hover {
-    background: rgba(80, 160, 255, .08);
+    background: var(--accent-glow);
+    border-color: var(--accent);
     text-decoration: underline;
   }
   .share-drawer-link-anchor .url-text {
@@ -2577,19 +2582,21 @@
     background: var(--accent);
     color: #fff;
     border: none;
+    box-shadow: 0 2px 6px var(--accent-glow);
   }
   .share-drawer-copy-btn:hover {
-    opacity: .92;
+    opacity: .95;
+    box-shadow: 0 3px 10px var(--accent-glow);
   }
   .share-drawer-edit-btn {
-    background: transparent;
-    color: var(--fg-dim);
-    border: 1px solid transparent;
+    background: var(--card-item-bg);
+    color: var(--fg);
+    border: 1px solid var(--card-border);
   }
   .share-drawer-edit-btn:hover {
-    color: var(--fg);
-    border-color: var(--line);
-    background: var(--bg-hover, rgba(255, 255, 255, .04));
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-glow);
   }
 
   /* ---------- Settings Modal ---------- */
