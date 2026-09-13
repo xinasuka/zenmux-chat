@@ -76,8 +76,9 @@ graph TB
     ClientCore -->|Static Pre-Cached Assets| EdgeCDN
     ClientCore -->|Encrypted API Ingestion| V8EdgeWorkers
     V8EdgeWorkers -->|HTTPS Proxy & Bearer Auth| ZenMuxAPI
-    ShareGateway -->|3-Phase Publishing & FIFO Prune| HereNowAPI
-    ShareGateway -->|Direct HTML Binary Stream PUT| R2Storage
+    ClientCore -->|Phase 1 (Prepare) & Phase 3 (Finalize)| ShareGateway
+    ShareGateway -->|Publish Manifest & Finalize| HereNowAPI
+    ClientCore -->|Phase 2: Direct Presigned Binary Stream PUT| R2Storage
 ```
 
 ---
@@ -113,10 +114,10 @@ The deployment and compute topology is partitioned into two complementary server
 - **In-Place Version Mutation (`PUT /api/v1/publish/{slug}`)**:
   - When modifying dyads or toggles for an already-shared turn, the gateway dispatches `PUT https://here.now/api/v1/publish/{slug}` to update the live snapshot under the identical URL.
   - In-place version updates bypass FIFO quota eviction and consume **zero additional site quota slots** against the 500-site pool.
-- **Three-Phase Publishing Pipeline**:
-  1. Stage publication manifest (`POST /api/v1/publish` for novel creation, or `PUT /api/v1/publish/{slug}` for in-place mutation) defining metadata, file sizing, and retention TTL.
-  2. Direct binary streaming of compiled UTF-8 HTML byte buffer to presigned Cloudflare R2 storage via `PUT`.
-  3. Atomic version finalization (`POST /finalize`) confirming live availability.
+- **Three-Phase Presigned Storage Upload Protocol (EdgeOne 1 MB Bypass)**:
+  1. **Phase 1 (Prepare / Stage)**: Client posts lightweight metadata (`{ action: 'prepare', title, ttlDays, htmlSize, slug }` `< 1 KB`) to `/api/share`. The EdgeOne worker executes token validation, FIFO eviction checks, and stages the deployment with `here.now` (`POST /publish` or `PUT /publish/{slug}`), returning the Cloudflare R2 presigned S3/AWS4-HMAC-SHA256 PUT URL and upload headers.
+  2. **Phase 2 (Direct Binary Ingestion)**: Client streams the compiled UTF-8 HTML byte buffer directly from the browser to Cloudflare R2 (`PUT uploadUrl`) with zero API key required. This completely bypasses EdgeOne's rigid 1 MB request body limit, allowing multi-turn snapshots with multi-megabyte Base64 image payloads to upload without failure.
+  3. **Phase 3 (Atomic Finalization)**: Client posts lightweight confirmation (`{ action: 'finalize', slug, versionId, ttlSeconds, ttlDays }` `< 1 KB`) to `/api/share`. EdgeOne calls `here.now POST /finalize` using `env.HERENOW_API_KEY` and returns the final live `siteUrl` and calculated `expiresAt`.
 - **High-Assurance Delivery Contract**:
   - **Autonomous Clipboard Ingestion**: Automatically writes `siteUrl` to the OS clipboard upon creation or retrieval.
   - **Active Hyperlink Component**: Exposes an interactive `<a class="share-url-anchor">` element with inline link preview, alongside copy status animations and external tab navigation.

@@ -89,147 +89,163 @@ export async function onRequestPost(context) {
       return json({ error: '无效的 JSON 请求体' }, 400);
     }
 
-    const { title, html, ttlDays, slug: incomingSlug } = body || {};
-    if (!html || typeof html !== 'string' || !html.trim()) {
-      return json({ error: '缺少必需的 html 快照内容' }, 400);
-    }
+    const { action } = body || {};
 
-    const targetSlug = (typeof incomingSlug === 'string' && incomingSlug.trim().length > 0) ? incomingSlug.trim() : null;
-    const isUpdate = Boolean(targetSlug);
+    // ----------------------------------------------------
+    // Protocol Action 1: Prepare (Stage publish manifest)
+    // ----------------------------------------------------
+    if (action === 'prepare') {
+      const { title, ttlDays, htmlSize, slug: incomingSlug } = body;
+      const validSize = parseInt(htmlSize, 10);
+      if (isNaN(validSize) || validSize <= 0) {
+        return json({ error: '缺少有效的快照字节大小 (htmlSize)' }, 400);
+      }
 
-    const encoder = new TextEncoder();
-    const htmlBytes = encoder.encode(html);
-    const htmlSize = htmlBytes.byteLength;
+      const targetSlug = (typeof incomingSlug === 'string' && incomingSlug.trim().length > 0) ? incomingSlug.trim() : null;
+      const isUpdate = Boolean(targetSlug);
 
-    // Calculate TTL in seconds if requested
-    let ttlSeconds = null;
-    const parsedTtlDays = parseInt(ttlDays, 10);
-    if (!isNaN(parsedTtlDays) && parsedTtlDays > 0) {
-      ttlSeconds = Math.min(365, parsedTtlDays) * 86400;
-    }
+      // Calculate TTL in seconds if requested
+      let ttlSeconds = null;
+      const parsedTtlDays = parseInt(ttlDays, 10);
+      if (!isNaN(parsedTtlDays) && parsedTtlDays > 0) {
+        ttlSeconds = Math.min(365, parsedTtlDays) * 86400;
+      }
 
-    // 4. Quota management: FIFO eviction is only executed when creating brand new sites
-    if (!isUpdate) {
-      await enforceFifoEviction(apiKey);
-    }
+      // Proactive FIFO quota management when provisioning brand new sites
+      if (!isUpdate) {
+        await enforceFifoEviction(apiKey);
+      }
 
-    // 5. Phase 1: Stage Publish Manifest (POST for new site, PUT for in-place version update)
-    const displayName = title ? `ZenMux - ${String(title).trim().slice(0, 70)}` : 'ZenMux Chat Session';
-    const publishPayload = {
-      displayName,
-      displayDescription: 'Exported conversational snapshot from ZenMux Chat',
-      ttlSeconds,
-      files: [
-        {
-          path: 'index.html',
-          size: htmlSize,
-          contentType: 'text/html; charset=utf-8',
+      // Stage Publish Manifest with here.now control plane
+      const displayName = title ? `ZenMux - ${String(title).trim().slice(0, 70)}` : 'ZenMux Chat Session';
+      const publishPayload = {
+        displayName,
+        displayDescription: 'Exported conversational snapshot from ZenMux Chat',
+        ttlSeconds,
+        files: [
+          {
+            path: 'index.html',
+            size: validSize,
+            contentType: 'text/html; charset=utf-8',
+          },
+        ],
+      };
+
+      const stageEndpoint = isUpdate
+        ? `${HERENOW_API_BASE}/publish/${encodeURIComponent(targetSlug)}`
+        : `${HERENOW_API_BASE}/publish`;
+      const stageMethod = isUpdate ? 'PUT' : 'POST';
+
+      const stageRes = await fetch(stageEndpoint, {
+        method: stageMethod,
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
+          'X-HereNow-Client': CLIENT_IDENTIFIER,
         },
-      ],
-    };
+        body: JSON.stringify(publishPayload),
+      });
 
-    const stageEndpoint = isUpdate
-      ? `${HERENOW_API_BASE}/publish/${encodeURIComponent(targetSlug)}`
-      : `${HERENOW_API_BASE}/publish`;
-    const stageMethod = isUpdate ? 'PUT' : 'POST';
+      if (!stageRes.ok) {
+        const errText = await stageRes.text();
+        return json({
+          error: isUpdate ? 'here.now 更新站点快照版本失败' : 'here.now 创建站点清单失败',
+          status: stageRes.status,
+          detail: errText,
+        }, 502);
+      }
 
-    const stageRes = await fetch(stageEndpoint, {
-      method: stageMethod,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'User-Agent': USER_AGENT,
-        'X-HereNow-Client': CLIENT_IDENTIFIER,
-      },
-      body: JSON.stringify(publishPayload),
-    });
+      const stageData = await stageRes.json();
+      const slug = stageData.slug || targetSlug;
+      const siteUrl = stageData.siteUrl;
+      const uploadInfo = stageData.upload;
 
-    if (!stageRes.ok) {
-      const errText = await stageRes.text();
+      if (!uploadInfo || !uploadInfo.uploads || !uploadInfo.uploads[0] || !uploadInfo.uploads[0].url) {
+        return json({
+          error: 'here.now 未返回预签名上传地址',
+          detail: stageData,
+        }, 502);
+      }
+
+      const targetUpload = uploadInfo.uploads[0];
+
       return json({
-        error: isUpdate ? 'here.now 更新站点快照版本失败' : 'here.now 创建站点清单失败',
-        status: stageRes.status,
-        detail: errText,
-      }, 502);
-    }
-
-    const stageData = await stageRes.json();
-    const slug = stageData.slug || targetSlug;
-    const siteUrl = stageData.siteUrl;
-    const uploadInfo = stageData.upload;
-
-    if (!uploadInfo || !uploadInfo.uploads || !uploadInfo.uploads[0] || !uploadInfo.uploads[0].url) {
-      return json({
-        error: 'here.now 未返回预签名上传地址',
-        detail: stageData,
-      }, 502);
-    }
-
-    const targetUpload = uploadInfo.uploads[0];
-
-    // 6. Phase 2: Binary Transmission to Presigned Storage (PUT targetUpload.url)
-    const putHeaders = new Headers(targetUpload.headers || {});
-    if (!putHeaders.has('Content-Type')) {
-      putHeaders.set('Content-Type', 'text/html; charset=utf-8');
-    }
-
-    const uploadRes = await fetch(targetUpload.url, {
-      method: 'PUT',
-      headers: putHeaders,
-      body: htmlBytes,
-    });
-
-    if (!uploadRes.ok) {
-      const uploadErr = await uploadRes.text();
-      return json({
-        error: '上传快照 HTML 二进制内容至存储节点失败',
-        status: uploadRes.status,
-        detail: uploadErr,
-      }, 502);
-    }
-
-    // 7. Phase 3: Atomic Finalization (POST finalizeUrl)
-    const finalizeUrl = uploadInfo.finalizeUrl || `${HERENOW_API_BASE}/publish/${encodeURIComponent(slug)}/finalize`;
-    const finalizeRes = await fetch(finalizeUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'User-Agent': USER_AGENT,
-        'X-HereNow-Client': CLIENT_IDENTIFIER,
-      },
-      body: JSON.stringify({
+        ok: true,
+        slug,
+        siteUrl,
+        uploadUrl: targetUpload.url,
+        uploadHeaders: targetUpload.headers || {},
         versionId: uploadInfo.versionId,
-      }),
-    });
-
-    let finalData = {};
-    if (finalizeRes.ok) {
-      try {
-        finalData = await finalizeRes.json();
-      } catch (_) {}
-    } else {
-      const finalizeErr = await finalizeRes.text();
-      return json({
-        error: 'here.now 站点版本生效确认失败',
-        status: finalizeRes.status,
-        detail: finalizeErr,
-      }, 502);
+        ttlSeconds,
+        isUpdate,
+      }, 200);
     }
 
-    const computedExpiresAt = (ttlSeconds && ttlSeconds > 0)
-      ? (finalData.expiresAt || finalData.expires_at || stageData.expiresAt || stageData.expires_at || new Date(Date.now() + ttlSeconds * 1000).toISOString())
-      : null;
+    // ----------------------------------------------------
+    // Protocol Action 2: Finalize (Confirm snapshot activation)
+    // ----------------------------------------------------
+    if (action === 'finalize') {
+      const { slug, versionId, ttlSeconds, ttlDays, isUpdate } = body;
+      if (!slug || typeof slug !== 'string' || !slug.trim()) {
+        return json({ error: '缺少必需的站点标识 (slug)' }, 400);
+      }
+      if (!versionId || typeof versionId !== 'string' || !versionId.trim()) {
+        return json({ error: '缺少必需的快照版本标识 (versionId)' }, 400);
+      }
+
+      const finalizeUrl = `${HERENOW_API_BASE}/publish/${encodeURIComponent(slug.trim())}/finalize`;
+      const finalizeRes = await fetch(finalizeUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
+          'X-HereNow-Client': CLIENT_IDENTIFIER,
+        },
+        body: JSON.stringify({
+          versionId: versionId.trim(),
+        }),
+      });
+
+      let finalData = {};
+      if (finalizeRes.ok) {
+        try {
+          finalData = await finalizeRes.json();
+        } catch (_) {}
+      } else {
+        const finalizeErr = await finalizeRes.text();
+        return json({
+          error: 'here.now 站点版本生效确认失败',
+          status: finalizeRes.status,
+          detail: finalizeErr,
+        }, 502);
+      }
+
+      const parsedTtlDays = parseInt(ttlDays, 10);
+      const parsedTtlSeconds = parseInt(ttlSeconds, 10);
+      const effectiveTtlSec = (!isNaN(parsedTtlSeconds) && parsedTtlSeconds > 0)
+        ? parsedTtlSeconds
+        : ((!isNaN(parsedTtlDays) && parsedTtlDays > 0) ? parsedTtlDays * 86400 : null);
+
+      const computedExpiresAt = (effectiveTtlSec && effectiveTtlSec > 0)
+        ? (finalData.expiresAt || finalData.expires_at || new Date(Date.now() + effectiveTtlSec * 1000).toISOString())
+        : null;
+
+      return json({
+        ok: true,
+        slug: slug.trim(),
+        siteUrl: finalData.siteUrl || `https://${slug.trim()}.here.now/`,
+        expiresAt: computedExpiresAt,
+        ttlDays: (!isNaN(parsedTtlDays) && parsedTtlDays > 0) ? parsedTtlDays : 0,
+        updated: Boolean(isUpdate),
+        createdAt: new Date().toISOString(),
+      }, 200);
+    }
 
     return json({
-      ok: true,
-      slug,
-      siteUrl: finalData.siteUrl || siteUrl,
-      expiresAt: computedExpiresAt,
-      ttlDays: parsedTtlDays > 0 ? parsedTtlDays : 0,
-      updated: isUpdate,
-      createdAt: new Date().toISOString(),
-    }, 200);
+      error: '无效的操作指令 (必需 action: "prepare" 或 "finalize")',
+    }, 400);
 
   } catch (fatalErr) {
     // Master exception boundary prevents EdgeOne HTTP 545 crashes

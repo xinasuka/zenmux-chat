@@ -789,8 +789,10 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
 }
 
 /**
- * Dispatches the compiled HTML snapshot to the EdgeOne /api/share gateway.
- * Supports both novel creation (POST) and in-place version mutation (PUT) via slug.
+ * Dispatches the compiled HTML snapshot using the unified 3-phase presigned storage upload protocol.
+ * Phase 1: Calls EdgeOne /api/share (action: 'prepare') to obtain the presigned R2 PUT URL.
+ * Phase 2: Directly uploads the raw HTML binary to Cloudflare R2, completely bypassing EdgeOne's 1 MB limit.
+ * Phase 3: Calls EdgeOne /api/share (action: 'finalize') to activate the new version on here.now.
  */
 export async function publishSessionShare({ title, html, ttlDays, slug }) {
   const token = state.token;
@@ -798,26 +800,71 @@ export async function publishSessionShare({ title, html, ttlDays, slug }) {
     throw new Error(t('gate.invalidKey') || '未提供用户访问口令');
   }
 
-  const res = await fetch('/api/share', {
+  const encoder = new TextEncoder();
+  const htmlBytes = encoder.encode(html);
+  const htmlSize = htmlBytes.byteLength;
+
+  // Phase 1: Stage Publish Manifest via EdgeOne Control Plane (< 1 KB JSON)
+  const prepRes = await fetch('/api/share', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Access-Token': token,
     },
     body: JSON.stringify({
+      action: 'prepare',
       title,
-      html,
       ttlDays,
+      htmlSize,
       slug: slug || undefined,
     }),
   });
 
-  const data = await res.json();
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || data.detail || '发布会话分享失败');
+  const prepData = await prepRes.json();
+  if (!prepRes.ok || !prepData.ok) {
+    throw new Error(prepData.error || prepData.detail || '准备发布快照失败');
   }
 
-  return data;
+  // Phase 2: Direct Binary Stream to Cloudflare R2 Storage (Presigned URL)
+  const putHeaders = new Headers(prepData.uploadHeaders || {});
+  if (!putHeaders.has('Content-Type')) {
+    putHeaders.set('Content-Type', 'text/html; charset=utf-8');
+  }
+
+  const putRes = await fetch(prepData.uploadUrl, {
+    method: 'PUT',
+    headers: putHeaders,
+    body: htmlBytes,
+  });
+
+  if (!putRes.ok) {
+    const putErr = await putRes.text();
+    throw new Error(`上传快照至存储节点失败 (${putRes.status}): ${putErr || putRes.statusText}`);
+  }
+
+  // Phase 3: Finalize and Activate Deployment via EdgeOne Control Plane (< 1 KB JSON)
+  const finRes = await fetch('/api/share', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Access-Token': token,
+    },
+    body: JSON.stringify({
+      action: 'finalize',
+      slug: prepData.slug,
+      versionId: prepData.versionId,
+      ttlSeconds: prepData.ttlSeconds,
+      ttlDays,
+      isUpdate: prepData.isUpdate,
+    }),
+  });
+
+  const finData = await finRes.json();
+  if (!finRes.ok || !finData.ok) {
+    throw new Error(finData.error || finData.detail || '确认快照生效失败');
+  }
+
+  return finData;
 }
 
 /**
