@@ -1369,13 +1369,6 @@ function initEventListeners() {
     if (isMobileScreen()) closeSidebar();
   });
 
-  if (el.shareSessionBtn) {
-    el.shareSessionBtn.addEventListener('click', () => {
-      import('./share.js').then(({ openShareModal }) => {
-        openShareModal({ conversation: state.currentConv });
-      });
-    });
-  }
 
   if (el.logout) {
     el.logout.addEventListener('click', () => {

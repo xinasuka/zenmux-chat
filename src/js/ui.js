@@ -189,7 +189,19 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   });
   bar.appendChild(regenBtn);
 
-  // 3. Token 消耗详情展开按钮
+  // 3. 分享/保存交互按钮 (紧随重新生成按钮)
+  const shareBtn = document.createElement('button');
+  shareBtn.className = 'msg-action-btn share-btn';
+  shareBtn.title = t('chat.shareTooltip') || '分享或保存此交互';
+  shareBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> ${t('chat.share') || '分享'}`;
+  shareBtn.addEventListener('click', () => {
+    import('./share.js').then(({ openShareModal }) => {
+      openShareModal({ conversation: state.currentConv, targetAsstIndex: msgIndex });
+    });
+  });
+  bar.appendChild(shareBtn);
+
+  // 4. Token 消耗详情展开按钮
   if (msg.usage && msg.usage.total_tokens) {
     const u = msg.usage;
     const infoBtn = document.createElement('button');
@@ -231,7 +243,7 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
     container.appendChild(usageCard);
   }
 
-  // 4. 语音朗读按钮
+  // 5. 语音朗读按钮
   const ttsBtn = document.createElement('button');
   ttsBtn.className = 'msg-action-btn tts-btn';
   ttsBtn.title = t('chat.readAloudTooltip');
@@ -255,18 +267,6 @@ export function createActionsToolbar(msg, msgIndex, onRegenerate) {
   });
 
   bar.appendChild(ttsBtn);
-
-  // 5. 分享/保存交互按钮
-  const shareBtn = document.createElement('button');
-  shareBtn.className = 'msg-action-btn share-btn';
-  shareBtn.title = t('chat.shareTooltip') || '分享或保存此交互';
-  shareBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> ${t('chat.share') || '分享'}`;
-  shareBtn.addEventListener('click', () => {
-    import('./share.js').then(({ openShareModal }) => {
-      openShareModal({ conversation: state.currentConv, targetAsstIndex: msgIndex });
-    });
-  });
-  bar.appendChild(shareBtn);
 
   container.appendChild(bar);
   return container;

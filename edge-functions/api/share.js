@@ -89,10 +89,13 @@ export async function onRequestPost(context) {
       return json({ error: '无效的 JSON 请求体' }, 400);
     }
 
-    const { title, html, ttlDays } = body || {};
+    const { title, html, ttlDays, slug: incomingSlug } = body || {};
     if (!html || typeof html !== 'string' || !html.trim()) {
       return json({ error: '缺少必需的 html 快照内容' }, 400);
     }
+
+    const targetSlug = (typeof incomingSlug === 'string' && incomingSlug.trim().length > 0) ? incomingSlug.trim() : null;
+    const isUpdate = Boolean(targetSlug);
 
     const encoder = new TextEncoder();
     const htmlBytes = encoder.encode(html);
@@ -104,10 +107,12 @@ export async function onRequestPost(context) {
       ttlSeconds = Math.min(365, parseInt(ttlDays, 10)) * 86400;
     }
 
-    // 4. Proactive FIFO Quota Check & Eviction
-    await enforceFifoEviction(apiKey);
+    // 4. Quota management: FIFO eviction is only executed when creating brand new sites
+    if (!isUpdate) {
+      await enforceFifoEviction(apiKey);
+    }
 
-    // 5. Phase 1: Stage Publish Manifest (POST /api/v1/publish)
+    // 5. Phase 1: Stage Publish Manifest (POST for new site, PUT for in-place version update)
     const displayName = title ? `ZenMux - ${String(title).trim().slice(0, 70)}` : 'ZenMux Chat Session';
     const publishPayload = {
       displayName,
@@ -122,8 +127,13 @@ export async function onRequestPost(context) {
       ],
     };
 
-    const stageRes = await fetch(`${HERENOW_API_BASE}/publish`, {
-      method: 'POST',
+    const stageEndpoint = isUpdate
+      ? `${HERENOW_API_BASE}/publish/${encodeURIComponent(targetSlug)}`
+      : `${HERENOW_API_BASE}/publish`;
+    const stageMethod = isUpdate ? 'PUT' : 'POST';
+
+    const stageRes = await fetch(stageEndpoint, {
+      method: stageMethod,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -136,14 +146,14 @@ export async function onRequestPost(context) {
     if (!stageRes.ok) {
       const errText = await stageRes.text();
       return json({
-        error: 'here.now 创建站点清单失败',
+        error: isUpdate ? 'here.now 更新站点快照版本失败' : 'here.now 创建站点清单失败',
         status: stageRes.status,
         detail: errText,
       }, 502);
     }
 
     const stageData = await stageRes.json();
-    const slug = stageData.slug;
+    const slug = stageData.slug || targetSlug;
     const siteUrl = stageData.siteUrl;
     const uploadInfo = stageData.upload;
 
@@ -212,6 +222,7 @@ export async function onRequestPost(context) {
       siteUrl: finalData.siteUrl || siteUrl,
       expiresAt: finalData.expiresAt || stageData.expiresAt || null,
       ttlDays: ttlDays || null,
+      updated: isUpdate,
       createdAt: new Date().toISOString(),
     }, 200);
 

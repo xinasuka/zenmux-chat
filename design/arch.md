@@ -106,10 +106,20 @@ The deployment and compute topology is partitioned into two complementary server
 
 ### 3.4 Session Save & Share Gateway (`/api/share`) & here.now Static Hosting Plane
 - **Managed Credential Isolation**: Securely injects `env.HERENOW_API_KEY.trim()`, eliminating any exposure of static hosting API keys to the browser client.
+- **Entity-Anchored Permalinking Model**:
+  - Each shared snapshot is anchored to the generating assistant message's immutable creation timestamp (`asstMsg.createdAt`) and message UUID.
+  - Snapshot metadata `{ slug, siteUrl, expiresAt, sharedAt, ttlDays }` is stored in-situ on `asstMsg.share` inside `ZenMuxDB` (IndexedDB).
+  - Subsequent share invocations on the same turn execute a **0ms Fast Path**: retrieving the existing active URL, writing directly to the system clipboard (`navigator.clipboard.writeText`), and rendering the ready card with zero upstream network calls or quota consumption.
+- **In-Place Version Mutation (`PUT /api/v1/publish/{slug}`)**:
+  - When modifying dyads or toggles for an already-shared turn, the gateway dispatches `PUT https://here.now/api/v1/publish/{slug}` to update the live snapshot under the identical URL.
+  - In-place version updates bypass FIFO quota eviction and consume **zero additional site quota slots** against the 500-site pool.
 - **Three-Phase Publishing Pipeline**:
-  1. Stage publication manifest (`POST https://here.now/api/v1/publish`) defining metadata, file sizing, and retention TTL.
+  1. Stage publication manifest (`POST /api/v1/publish` for novel creation, or `PUT /api/v1/publish/{slug}` for in-place mutation) defining metadata, file sizing, and retention TTL.
   2. Direct binary streaming of compiled UTF-8 HTML byte buffer to presigned Cloudflare R2 storage via `PUT`.
   3. Atomic version finalization (`POST /finalize`) confirming live availability.
+- **High-Assurance Delivery Contract**:
+  - **Autonomous Clipboard Ingestion**: Automatically writes `siteUrl` to the OS clipboard upon creation or retrieval.
+  - **Active Hyperlink Component**: Exposes an interactive `<a class="share-url-anchor">` element with inline link preview, alongside copy status animations and external tab navigation.
 - **Dual-Engine Link Rotation & Quota Preservation**:
   - *Engine I (Native TTL)*: Built-in expiry via `ttlSeconds` automatically decaying snapshots after configured durations (7 days default, 14 days, 30 days, or indefinite).
   - *Engine II (Proactive FIFO Eviction)*: Automated capacity surveillance checking total site counts against the 500-site quota ceiling. When active sites $\ge 480$, automatically prunes the oldest sites by sorting `updatedAt` ascending and issuing `DELETE /publish/{slug}`.

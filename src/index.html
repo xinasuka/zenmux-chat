@@ -180,12 +180,6 @@
         </div>
       </div>
       <div class="spacer" data-page-node-id="188psDF9zupSFc3dpDJDTJ"></div>
-      <button class="icon-btn" id="share-session-btn" title="Save and Share Session" data-i18n-title="topbar.shareTitle">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-        </svg>
-      </button>
       <button class="icon-btn" id="settings-btn" title="Preferences and System Instructions" data-i18n-title="topbar.settingsTitle">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
           stroke-linecap="round" stroke-linejoin="round">
@@ -696,8 +690,19 @@
           <polyline points="22 4 12 14.01 9 11.01"></polyline>
         </svg>
       </div>
-      <h3 class="share-success-title" data-i18n="share.publishSuccess">Share Link Ready</h3>
+      <h3 id="share-success-title" class="share-success-title" data-i18n="share.publishSuccess">Share Link Ready</h3>
       <p id="share-result-expiry" class="share-result-expiry"></p>
+
+      <div class="share-url-preview-wrap">
+        <a id="share-result-anchor" class="share-url-anchor" href="#" target="_blank" rel="noopener noreferrer">
+          <span id="share-result-anchor-text" class="share-url-text">https://here.now/...</span>
+          <svg class="share-external-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      </div>
 
       <div class="share-link-box">
         <input type="text" id="share-result-url" class="share-link-input" readonly spellcheck="false">
@@ -706,6 +711,7 @@
 
       <div class="share-success-actions">
         <button type="button" id="share-open-link-btn" class="primary-btn" data-i18n="share.openLink">Open in New Tab</button>
+        <button type="button" id="share-edit-content-btn" class="secondary-btn share-edit-btn" data-i18n="share.updateSnapshot">Modify Selection & Update</button>
       </div>
     </div>
   </div>

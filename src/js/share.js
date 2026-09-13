@@ -790,8 +790,9 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
 
 /**
  * Dispatches the compiled HTML snapshot to the EdgeOne /api/share gateway.
+ * Supports both novel creation (POST) and in-place version mutation (PUT) via slug.
  */
-export async function publishSessionShare({ title, html, ttlDays }) {
+export async function publishSessionShare({ title, html, ttlDays, slug }) {
   const token = state.token;
   if (!token) {
     throw new Error(t('gate.invalidKey') || '未提供用户访问口令');
@@ -807,6 +808,7 @@ export async function publishSessionShare({ title, html, ttlDays }) {
       title,
       html,
       ttlDays,
+      slug: slug || undefined,
     }),
   });
 
@@ -824,9 +826,52 @@ export async function publishSessionShare({ title, html, ttlDays }) {
 let activeConversation = null;
 let currentDyads = [];
 let selectedDyadIds = new Set();
+let currentTargetAsstIndex = null;
+
+function showResultView(siteUrl, expiresAt, isRetrieved = false) {
+  if (el.shareFormBody) el.shareFormBody.classList.add('hide');
+  if (el.shareResultCard) el.shareResultCard.classList.remove('hide');
+
+  if (el.shareResultUrl) {
+    el.shareResultUrl.value = siteUrl;
+  }
+  if (el.shareResultAnchor) {
+    el.shareResultAnchor.href = siteUrl;
+  }
+  if (el.shareResultAnchorText) {
+    el.shareResultAnchorText.textContent = siteUrl;
+  }
+  if (el.shareSuccessTitle) {
+    el.shareSuccessTitle.textContent = t('share.publishSuccess') || 'Share Link Ready';
+  }
+
+  if (el.shareResultExpiry) {
+    if (expiresAt) {
+      const expDate = new Date(expiresAt).toLocaleDateString(state.lang === 'en' ? 'en-US' : 'zh-CN');
+      el.shareResultExpiry.textContent = t('share.expiresNotice', { date: expDate });
+    } else {
+      el.shareResultExpiry.textContent = t('share.permanentNotice');
+    }
+  }
+}
+
+function showFormView(isUpdate = false) {
+  if (el.shareResultCard) el.shareResultCard.classList.add('hide');
+  if (el.shareFormBody) el.shareFormBody.classList.remove('hide');
+
+  if (el.shareSubmitBtn) {
+    el.shareSubmitBtn.disabled = selectedDyadIds.size === 0;
+    el.shareSubmitBtn.classList.remove('btn-loading');
+    el.shareSubmitBtn.textContent = isUpdate
+      ? (t('share.updateBtn') || '更新此分享链接内容')
+      : (t('share.publishBtn') || '生成并发布分享链接');
+  }
+}
 
 export function openShareModal({ conversation, targetAsstIndex = null }) {
   activeConversation = conversation || state.currentConv;
+  currentTargetAsstIndex = targetAsstIndex;
+
   if (!activeConversation || !activeConversation.messages || !activeConversation.messages.length) {
     toast(t('share.emptySession') || '当前会话没有可分享的内容', 'info');
     return;
@@ -838,16 +883,22 @@ export function openShareModal({ conversation, targetAsstIndex = null }) {
     return;
   }
 
+  // Check if target assistant message already possesses an active permalink
+  const targetMsg = (targetAsstIndex !== null && activeConversation.messages && activeConversation.messages[targetAsstIndex])
+    ? activeConversation.messages[targetAsstIndex]
+    : null;
+  const existingShare = targetMsg && targetMsg.share && targetMsg.share.siteUrl ? targetMsg.share : null;
+  const isExpired = existingShare && existingShare.expiresAt && Date.now() > existingShare.expiresAt;
+
   // Pre-selection strategy:
   // If invoked from a specific assistant message toolbar -> select ONLY that dyad.
-  // Otherwise (invoked from header/topbar) -> select ALL dyads by default.
+  // Otherwise -> select ALL dyads by default.
   selectedDyadIds.clear();
   if (targetAsstIndex !== null) {
     const matched = currentDyads.find((d) => d.asstIndex === targetAsstIndex);
     if (matched) {
       selectedDyadIds.add(matched.id);
     } else {
-      // Fallback: select the latest dyad
       selectedDyadIds.add(currentDyads[currentDyads.length - 1].id);
     }
   } else {
@@ -856,12 +907,25 @@ export function openShareModal({ conversation, targetAsstIndex = null }) {
 
   renderShareModalBody();
 
-  // Reset results view to form view
-  if (el.shareResultCard) el.shareResultCard.classList.add('hide');
-  if (el.shareFormBody) el.shareFormBody.classList.remove('hide');
-  if (el.shareSubmitBtn) {
-    el.shareSubmitBtn.disabled = false;
-    el.shareSubmitBtn.classList.remove('btn-loading');
+  if (existingShare && !isExpired) {
+    // Fast Path: Link already exists for this assistant response
+    showResultView(existingShare.siteUrl, existingShare.expiresAt, true);
+
+    // Immediate autonomous clipboard ingestion
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(existingShare.siteUrl).then(() => {
+        if (el.shareCopyLinkBtn) {
+          const orig = el.shareCopyLinkBtn.textContent;
+          el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
+          setTimeout(() => { if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = orig; }, 2000);
+        }
+      }).catch(() => {});
+    }
+
+    toast(t('share.retrievedSuccess') || '已获取该轮已有分享链接并自动复制到剪贴板', 'info');
+  } else {
+    // Initial publish view
+    showFormView(false);
   }
 
   // Open modal DOM
@@ -976,7 +1040,14 @@ export function initShareEngine() {
     });
   }
 
-  // 3. Submit Share Button
+  // 3. Edit / Modify Selection Button
+  if (el.shareEditContentBtn) {
+    el.shareEditContentBtn.addEventListener('click', () => {
+      showFormView(true);
+    });
+  }
+
+  // 4. Submit Share Button (Creates new site or updates existing site in-place via slug)
   if (el.shareSubmitBtn) {
     el.shareSubmitBtn.addEventListener('click', async () => {
       if (!selectedDyadIds.size) {
@@ -989,9 +1060,16 @@ export function initShareEngine() {
       const includeReasoning = el.shareIncludeReasoning ? el.shareIncludeReasoning.checked : true;
       const includeMetrics = el.shareIncludeMetrics ? el.shareIncludeMetrics.checked : true;
 
+      const targetMsg = (currentTargetAsstIndex !== null && activeConversation.messages && activeConversation.messages[currentTargetAsstIndex])
+        ? activeConversation.messages[currentTargetAsstIndex]
+        : null;
+      const existingSlug = targetMsg && targetMsg.share && targetMsg.share.slug ? targetMsg.share.slug : null;
+
       el.shareSubmitBtn.disabled = true;
       el.shareSubmitBtn.classList.add('btn-loading');
-      el.shareSubmitBtn.textContent = t('share.publishing') || '正在生成并发布快照…';
+      el.shareSubmitBtn.textContent = existingSlug
+        ? (t('share.updating') || '正在更新并同步快照…')
+        : (t('share.publishing') || '正在生成并发布快照…');
 
       try {
         // Compile self-contained HTML
@@ -1006,28 +1084,42 @@ export function initShareEngine() {
           },
         });
 
-        // Publish to Edge Gateway
+        // Publish to Edge Gateway (in-place PUT if existingSlug is present)
         const result = await publishSessionShare({
           title: (activeConversation && activeConversation.title) || 'ZenMux Chat Session',
           html,
           ttlDays,
+          slug: existingSlug,
         });
 
+        // Bind permalink directly to the assistant message in IndexedDB
+        if (targetMsg) {
+          targetMsg.share = {
+            slug: result.slug,
+            siteUrl: result.siteUrl,
+            expiresAt: result.expiresAt,
+            sharedAt: Date.now(),
+            ttlDays,
+          };
+          import('./db.js').then(({ ZenMuxDB }) => {
+            ZenMuxDB.putConversation(activeConversation).catch(() => {});
+          });
+        }
+
         // Transition to success card
-        if (el.shareFormBody) el.shareFormBody.classList.add('hide');
-        if (el.shareResultCard) {
-          el.shareResultCard.classList.remove('hide');
-          if (el.shareResultUrl) {
-            el.shareResultUrl.value = result.siteUrl;
-          }
-          if (el.shareResultExpiry) {
-            if (result.expiresAt) {
-              const expDate = new Date(result.expiresAt).toLocaleDateString(state.lang === 'en' ? 'en-US' : 'zh-CN');
-              el.shareResultExpiry.textContent = t('share.expiresNotice', { date: expDate });
-            } else {
-              el.shareResultExpiry.textContent = t('share.permanentNotice');
+        showResultView(result.siteUrl, result.expiresAt, false);
+
+        // Immediate autonomous clipboard ingestion
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(result.siteUrl).then(() => {
+            if (el.shareCopyLinkBtn) {
+              const origText = el.shareCopyLinkBtn.textContent;
+              el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
+              setTimeout(() => {
+                if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = origText;
+              }, 2000);
             }
-          }
+          }).catch(() => {});
         }
 
         // Save to local share history
@@ -1045,19 +1137,24 @@ export function initShareEngine() {
           localStorage.setItem('zm.share.history', JSON.stringify(history.slice(0, 50)));
         } catch (_) {}
 
-        toast(t('share.publishSuccess') || '分享链接已就绪', 'success');
+        const successNotice = result.updated
+          ? (t('share.updateSuccess') || '分享链接内容已更新并已复制到剪贴板')
+          : (t('share.publishSuccess') || '分享链接已就绪并已自动复制到剪贴板');
+        toast(successNotice, 'success');
 
       } catch (err) {
         toast(t('share.shareFailed', { error: err.message || err }), 'error');
       } finally {
         el.shareSubmitBtn.disabled = false;
         el.shareSubmitBtn.classList.remove('btn-loading');
-        el.shareSubmitBtn.textContent = t('share.publishBtn') || '生成并发布分享链接';
+        el.shareSubmitBtn.textContent = existingSlug
+          ? (t('share.updateBtn') || '更新此分享链接内容')
+          : (t('share.publishBtn') || '生成并发布分享链接');
       }
     });
   }
 
-  // 4. Copy and Open result link
+  // 5. Copy and Open result link
   if (el.shareCopyLinkBtn) {
     el.shareCopyLinkBtn.addEventListener('click', () => {
       const url = el.shareResultUrl ? el.shareResultUrl.value : '';
@@ -1065,6 +1162,11 @@ export function initShareEngine() {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(() => {
           toast(t('share.copied') || '已复制分享链接到剪贴板', 'success');
+          const origText = el.shareCopyLinkBtn.textContent;
+          el.shareCopyLinkBtn.textContent = t('common.copied') || '已复制';
+          setTimeout(() => {
+            if (el.shareCopyLinkBtn) el.shareCopyLinkBtn.textContent = origText;
+          }, 2000);
         });
       }
     });
