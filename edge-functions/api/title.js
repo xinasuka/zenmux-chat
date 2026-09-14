@@ -125,37 +125,28 @@ export async function onRequestPost(context) {
     if (!upstreamRes.ok) {
       errDetail = await upstreamRes.text().catch(() => '');
 
-      // 边缘自愈容灾：若上游因不支持 reasoning / temperature / system 角色返回 400 或 422，自动剔除冲突字段就地重试
+      // 边缘自愈容灾：若上游因不支持 reasoning 或 system 角色返回 400 或 422，自动剔除冲突字段并合并为单一用户消息就地重试
       if (upstreamRes.status === 400 || upstreamRes.status === 422) {
-        let modified = false;
-        if (/reasoning/i.test(errDetail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(errDetail)) {
-          delete upstreamPayload.reasoning;
-          modified = true;
-        }
-        if (/system/i.test(errDetail) && /(?:developer|user|not supported|disallowed|invalid)/i.test(errDetail)) {
-          upstreamPayload.messages = [
-            { role: 'user', content: `${systemPrompt}\n\n${combinedDialogue}` }
-          ];
-          modified = true;
-        }
+        delete upstreamPayload.reasoning;
+        upstreamPayload.messages = [
+          { role: 'user', content: `${systemPrompt}\n\n${combinedDialogue}` }
+        ];
 
-        if (modified) {
-          try {
-            upstreamRes = await fetch(UPSTREAM, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
-              },
-              body: JSON.stringify(upstreamPayload),
-            });
-            if (!upstreamRes.ok) {
-              errDetail = await upstreamRes.text().catch(() => '');
-            }
-          } catch (retryErr) {
-            errDetail = String(retryErr && retryErr.message);
+        try {
+          upstreamRes = await fetch(UPSTREAM, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
+            },
+            body: JSON.stringify(upstreamPayload),
+          });
+          if (!upstreamRes.ok) {
+            errDetail = await upstreamRes.text().catch(() => '');
           }
+        } catch (retryErr) {
+          errDetail = String(retryErr && retryErr.message);
         }
       }
     }

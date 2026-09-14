@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.22.2';
+export const APP_VERSION = '2.22.3';
 
 export const LS = {
   cur: 'zm.current',
@@ -240,10 +240,18 @@ export function hasImageGen(m) {
 
 export function isFree(m) {
   if (!m) return false;
+  const id = (m.id || m.name || '').toLowerCase();
+  const name = (m.display_name || m.displayName || '').toLowerCase();
+  if (id.includes(':free') || id.includes('-free') || id.includes('/free') || name.includes('(free)') || name.includes(' free')) {
+    return true;
+  }
   const p = m.pricings || {};
   function zero(arr) {
     if (!arr || !arr.length) return false;
-    for (let i = 0; i < arr.length; i++) if (Number(arr[i].value) !== 0) return false;
+    for (let i = 0; i < arr.length; i++) {
+      const val = arr[i].value !== undefined ? arr[i].value : arr[i].price;
+      if (Number(val) !== 0) return false;
+    }
     return true;
   }
   return zero(p.prompt) && zero(p.completion);

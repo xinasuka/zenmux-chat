@@ -47,6 +47,8 @@ export function closeLightbox() {
   el.lightboxImg.src = '';
 }
 
+const activeTitleRequests = new Set();
+
 export const TitleExtractor = {
   cleanUserPrompt(text, files, images) {
     if (files && files.length) {
@@ -98,9 +100,10 @@ export const TitleExtractor = {
   },
 
   findFreeTextModel(list) {
-    if (!Array.isArray(list) || !list.length) return null;
+    const defaultFallback = { id: 'z-ai/glm-4.7-flash-free' };
+    if (!Array.isArray(list) || !list.length) return defaultFallback;
     const freeText = list.filter((m) => !hasImageGen(m) && isFree(m));
-    if (!freeText.length) return null;
+    if (!freeText.length) return defaultFallback;
 
     // 1. Prioritize non-reasoning free models if available
     const nonReasoning = freeText.find((m) => !hasReasoning(m));
@@ -111,26 +114,37 @@ export const TitleExtractor = {
     if (preferred) return preferred;
 
     // 3. Fallback: Any free text model
-    return freeText[0];
+    return freeText[0] || defaultFallback;
   },
 
   async generateDynamicTitle({ conversation, promptText, responseText, modelsList, token, onUpdate }) {
-    if (!conversation || conversation.customTitle || conversation.titleGenerated) return;
-
-    // Strict Free-Tier Boundary: Candidate must be a free, non-image text model
-    const candidate = this.findFreeTextModel(modelsList || state.rawModelList);
-    if (!candidate || !candidate.id) {
-      conversation.titleGenerated = true;
+    if (!conversation) return;
+    if (conversation.customTitle) {
+      console.log('[SessionTitle] Skipping dynamic title: user set customTitle');
+      return;
+    }
+    if (conversation.titleGenerated) {
+      console.log('[SessionTitle] Skipping dynamic title: already generated for conversation:', conversation.id);
+      return;
+    }
+    if (activeTitleRequests.has(conversation.id)) {
+      console.log('[SessionTitle] Title generation already in-flight for conversation:', conversation.id);
       return;
     }
 
-    // Single-shot idempotency lock to prevent duplicate concurrent network dispatches
-    conversation.titleGenerated = true;
+    const candidate = this.findFreeTextModel(modelsList || state.rawModelList);
+    const modelId = (candidate && candidate.id) || 'z-ai/glm-4.7-flash-free';
 
     // Extract compact thematic nucleus (max 600 characters each)
     const cleanPrompt = (promptText || '').trim().slice(0, 600);
     const cleanResponse = (responseText || '').trim().slice(0, 600);
-    if (!cleanPrompt) return;
+    if (!cleanPrompt) {
+      console.log('[SessionTitle] Skipping dynamic title: prompt is empty');
+      return;
+    }
+
+    activeTitleRequests.add(conversation.id);
+    console.log('[SessionTitle] Requesting dynamic title for conversation:', conversation.id, 'with model:', modelId);
 
     try {
       const headers = {
@@ -142,7 +156,7 @@ export const TitleExtractor = {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: candidate.id,
+          model: modelId,
           prompt: cleanPrompt,
           response: cleanResponse
         }),
@@ -152,27 +166,35 @@ export const TitleExtractor = {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        console.warn('[SessionTitle] /api/title returned error:', res.status, data);
+        console.warn('[SessionTitle] /api/title returned error status:', res.status, data);
         return;
       }
 
       const newTitle = data && data.title && data.title.trim();
+      console.log('[SessionTitle] Received title from /api/title:', newTitle);
 
       if (newTitle && newTitle.length >= 2) {
         // Race Condition Guard: If user renamed or modified customTitle while in flight, discard
-        if (conversation.customTitle) return;
+        if (conversation.customTitle) {
+          console.log('[SessionTitle] Discarding title: user set customTitle while in flight');
+          return;
+        }
 
         conversation.title = newTitle;
+        conversation.titleGenerated = true;
         await ZenMuxDB.putConversation(conversation);
+        console.log('[SessionTitle] Successfully saved new title to DB:', newTitle);
 
         if (typeof onUpdate === 'function') {
           onUpdate();
         }
       } else {
-        console.warn('[SessionTitle] Empty or invalid title generated:', data);
+        console.warn('[SessionTitle] Empty or invalid title returned by /api/title:', data);
       }
     } catch (err) {
       console.warn('[SessionTitle] Network or execution error during title synthesis:', err);
+    } finally {
+      activeTitleRequests.delete(conversation.id);
     }
   }
 };

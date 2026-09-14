@@ -475,17 +475,20 @@ export async function executeAssistantStream(userMsg, options = {}) {
       });
 
       // Asynchronously initiate dynamic LLM title synthesis using free text models
-      if (!c.customTitle && !c.titleGenerated && c.messages.length === 2) {
-        const firstUserMsg = c.messages[0];
+      if (!c.customTitle && !c.titleGenerated) {
+        const firstUserMsg = c.messages.find((m) => m.role === 'user');
         const userPrompt = firstUserMsg ? (firstUserMsg.displayContent || firstUserMsg.content || '') : '';
-        TitleExtractor.generateDynamicTitle({
-          conversation: c,
-          promptText: userPrompt,
-          responseText: acc,
-          modelsList: state.rawModelList,
-          token: state.token,
-          onUpdate: options.onUpdateConvList
-        });
+        if (userPrompt) {
+          console.log('[SessionTitle] Triggering TitleExtractor from chat stream completion for conversation:', c.id);
+          TitleExtractor.generateDynamicTitle({
+            conversation: c,
+            promptText: userPrompt,
+            responseText: acc,
+            modelsList: state.rawModelList,
+            token: state.token,
+            onUpdate: options.onUpdateConvList
+          });
+        }
       }
 
       const actionsBar = createActionsToolbar(asstMsg, finalIndex, options.onRegenerate);
