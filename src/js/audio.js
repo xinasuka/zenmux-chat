@@ -1103,7 +1103,6 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
               } catch (_) {}
             });
           }
-          toast(t('composer.voiceCompleted') || (state.lang === 'en' ? 'Speech recognition complete' : '语音识别完成'), 'info');
         },
         onNotice: (msg) => {
           updateVoiceUI('idle');
