@@ -125,13 +125,17 @@ The deployment and compute topology is partitioned into two complementary server
   - *Engine I (Native TTL)*: Built-in expiry via `ttlSeconds` automatically decaying snapshots after configured durations (7 days default, 14 days, 30 days, or indefinite).
   - *Engine II (Proactive FIFO Eviction)*: Automated capacity surveillance checking total site counts against the 500-site quota ceiling. When active sites $\ge 480$, automatically prunes the oldest sites by sorting `updatedAt` ascending and issuing `DELETE /publish/{slug}`.
 - **Hermetic Media Inlining**: Client-side document synthesizer transcodes local blob URLs and remote images into Base64 Data URIs, guaranteeing immutable document fidelity in perpetuity.
-- **JSON Data Island & Dual-Channel "Fork in ZenChat" Handshake**:
+- **JSON Data Island & Peer-to-Peer "Fork in ZenChat" Handshake**:
   - **Embedded Data Island**: The compiled snapshot encapsulates the raw conversation model, prompt-response history, and token usage into a hermetic `<script type="application/json" id="zenchat-snapshot-data">` block with script breakout protection (`<\/script>`).
   - **Dynamic Origin Resolution (`resolveAppOrigin()`)**: During snapshot compilation, the client evaluates `window.location.origin`. If executing on a public domain, it embeds `<meta name="zenchat:app-origin" content="...">`; if on private/loopback environments (`localhost`, `127.0.0.1`, `192.168.x`), it safely defaults to `https://zenchat.cc.cd`. Users can override this via `localStorage.getItem('zm.custom.origin')`.
-  - **Dual-Channel Handshake (CORS Resilience & 0ms Ingestion)**:
-    - *Channel I (Direct `postMessage` Handshake)*: When clicking "Fork in ZenChat", the parent snapshot window actively streams `ZENCHAT_SNAPSHOT_IMPORT` directly to the newly opened ZenChat window via `postMessage` until acknowledged (`ZENCHAT_IMPORT_ACK`), achieving sub-50ms ingestion with zero network traffic.
-    - *Channel II (EdgeOne Serverless Resolver Proxy)*: If the session link is opened in a standalone tab or shared externally, direct browser `fetch()` against `*.here.now` is blocked by browser CORS. ZenChat automatically falls back to EdgeOne `/api/share?resolve=<url>` (or POST `{ action: 'resolve' }`), which fetches the HTML server-side without CORS boundaries, guarded by strict `.here.now` hostname whitelisting against SSRF.
-    - *State Rehydration*: `importConversationFromJson()` deserializes the snapshot, persists into `ZenMuxDB`, updates `state.conversations`, and hydrates the active workspace.
+  - **Hermetic Peer-to-Peer Handshake (Zero Server Proxy & Zero CORS Risk)**:
+    - *Authorized Interaction Boundary*: Importing shared conversations is strictly constrained to direct user interaction on the published snapshot document (clicking "Fork in ZenChat"). External URL import links and edge resolver proxies are intentionally omitted to eliminate SSRF attack vectors, server compute overhead, and cross-origin fetch failures.
+    - *Bidirectional W3C Handshake Protocol*:
+      1. Opener snapshot spawns ZenChat via `const newWin = window.open(targetOrigin, '_blank')`.
+      2. New window boots, validates local authentication, and broadcasts `ZENCHAT_RECEIVER_READY` to `window.opener`.
+      3. Opener transmits `ZENCHAT_SNAPSHOT_IMPORT` with the verbatim JSON string extracted from `#zenchat-snapshot-data` (pulsed every 300ms until acknowledged).
+      4. Receiver validates the payload, acknowledges with `ZENCHAT_IMPORT_ACK`, and unshifts the new forked conversation into `ZenMuxDB` and `state.conversations`.
+    - *Gated State Queueing & Deduplication*: If the receiving tab is locked behind the access Gate, incoming import payloads are securely held in memory (`pendingImportRawJson`) and hydrated immediately upon password validation. Multi-pulse transmissions are deduplicated via payload fingerprinting.
 - **SVG Symbol Sprite Deflation**:
   - Embedded snapshots define an inlined hidden SVG sprite containing reusable symbols (`#icon-copy`, `#icon-check`, `#icon-fork`, `#icon-sun`, `#icon-moon`, `#icon-info`).
   - Multi-turn interaction cards reference `<use href="#icon-copy">` rather than duplicating raw SVG XML per turn, significantly deflating the generated document footprint.

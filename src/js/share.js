@@ -925,38 +925,44 @@ ${safeJsonIsland}
           targetOrigin = custom.trim().replace(/\\/+$/, '');
         }
       } catch (e) {}
-      const importUrl = encodeURIComponent(window.location.href);
-      const targetUrl = targetOrigin + '/#import=' + importUrl;
-      const newWin = window.open(targetUrl, '_blank');
 
-      if (newWin) {
-        const dataIsland = document.getElementById('zenchat-snapshot-data');
-        if (dataIsland && dataIsland.textContent) {
-          const payload = {
-            type: 'ZENCHAT_SNAPSHOT_IMPORT',
-            url: window.location.href,
-            rawJson: dataIsland.textContent.trim(),
-          };
-          let count = 0;
-          const timer = setInterval(() => {
-            count++;
-            if (count > 25 || newWin.closed) {
-              clearInterval(timer);
-              return;
-            }
-            try {
-              newWin.postMessage(payload, targetOrigin);
-            } catch (_) {}
-          }, 300);
+      const dataIsland = document.getElementById('zenchat-snapshot-data');
+      if (!dataIsland || !dataIsland.textContent) return;
 
-          window.addEventListener('message', function onAck(ev) {
-            if (ev.origin === targetOrigin && ev.data && ev.data.type === 'ZENCHAT_IMPORT_ACK') {
-              clearInterval(timer);
-              window.removeEventListener('message', onAck);
-            }
-          });
-        }
+      const newWin = window.open(targetOrigin, '_blank');
+      if (!newWin) return;
+
+      const payload = {
+        type: 'ZENCHAT_SNAPSHOT_IMPORT',
+        rawJson: dataIsland.textContent.trim(),
+      };
+
+      function sendPayload() {
+        try {
+          newWin.postMessage(payload, targetOrigin);
+        } catch (_) {}
       }
+
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts++;
+        if (attempts > 30 || newWin.closed) {
+          clearInterval(timer);
+          return;
+        }
+        sendPayload();
+      }, 300);
+
+      window.addEventListener('message', function onMessage(ev) {
+        if (ev.origin === targetOrigin && ev.data) {
+          if (ev.data.type === 'ZENCHAT_RECEIVER_READY') {
+            sendPayload();
+          } else if (ev.data.type === 'ZENCHAT_IMPORT_ACK') {
+            clearInterval(timer);
+            window.removeEventListener('message', onMessage);
+          }
+        }
+      });
     }
 
     function openLightbox(src) {
