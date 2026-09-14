@@ -38,6 +38,7 @@
 * **Configurable Dual-Engine TTS & Cloud ASR Dictation**: Listen to responses with natural neural speech (OpenAI TTS-1, Gemini, Qwen, Grok) or zero-cost offline browser synthesis; dictate prompts directly via high-fidelity Cloud ASR (Doubao, MiMo, Qwen, Whisper) with client-side VAD silence filtering.
 * **Images, Documents & Code**: Drag-and-drop support for images, PDF files, and 40+ code file formats.
 * **Real-Time Token Usage Metrics**: Transparent tracking of prompt, completion, and reasoning token consumption per conversational turn.
+* **One-Click Conversation Sharing**: Generate clean, shareable web links for any conversation turn with customizable expiration dates (1, 7, 30, or 90 days), preserving full markdown formatting, thinking processes, and attached images. Recipients can read seamlessly on any device or import the conversation into their own ZenChat with one click.
 * **Progressive Web App (PWA) & Mobile APK**: Install directly to your home screen on iOS and Android with full-screen standalone experience, offline shell caching, or compile into a native Android APK via Capacitor.
 * **Private & Safe**: Chat history is stored locally in your browser (IndexedDB). API keys are encrypted securely on the edge server and never exposed to the client.
 * **Enterprise-Grade Access Governance**: Dedicated Admin Console (`admin.html`) backed by Tencent Cloud EdgeOne Key-Value (KV: `ZENMUX_CHAT`) storage and in-memory V8 isolate caching. Create, enable, or revoke user access tokens instantly with zero external database configuration.
@@ -113,10 +114,11 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 7. **双向语音交互**：支持双引擎语音朗读（可自由配置 OpenAI、Gemini、通义千问、Grok 等云端拟真大模型或零消耗本地引擎，支持毫秒级进度拖拽与倍速切换）以及基于大模型云端 ASR（豆包、MiMo、Qwen、Whisper）与端侧 VAD 智能降噪静音切除的高精度语音输入。
 8. **多模态与文档解析**：支持图片上传、PDF 解析及 40+ 种常用编程语言与文档附件。
 9. **Token 用量与消耗透明追踪**：每轮对话均支持直观查看 Prompt 输入、Completion 输出及深度推理的精确 Token 消耗指标。
-10. **PWA 与 Android APK 原生编译**：支持一键添加到 iOS 与 Android 桌面作为独立全屏应用使用；同时内置 Capacitor 工具链，支持一行命令编译生成独立的 Android APK 安装包。
-11. **多租户口令管理与后台**：内置基于腾讯云 EdgeOne 边缘键值存储（KV: `ZENMUX_CHAT`）的管理后台 (`admin.html`)，管理员可直接为不同使用者分配、禁用或删除访问口令，零外部数据库依赖。
-12. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
-13. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
+10. **一键对话快照分享**：支持将任意轮次的精彩问答一键发布为在线网页链接，支持自选有效期（1天、7天、30天或90天）；完整保留排版、思考过程与配图，好友无需注册即可在手机或电脑端浏览并一键导入到自己的 ZenChat 中继续对话。
+11. **PWA 与 Android APK 原生编译**：支持一键添加到 iOS 与 Android 桌面作为独立全屏应用使用；同时内置 Capacitor 工具链，支持一行命令编译生成独立的 Android APK 安装包。
+12. **多租户口令管理与后台**：内置基于腾讯云 EdgeOne 边缘键值存储（KV: `ZENMUX_CHAT`）的管理后台 (`admin.html`)，管理员可直接为不同使用者分配、禁用或删除访问口令，零外部数据库依赖。
+13. **隐私与安全**：对话数据保存在本地浏览器中，API 密钥加密存放在边缘端，绝不泄露给前端。
+14. **零服务器成本**：借助 EdgeOne Pages 免费额度，个人日常使用 0 服务器费用。
 
 ### 极速部署指南
 
