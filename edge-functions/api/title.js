@@ -104,8 +104,7 @@ export async function onRequestPost(context) {
       stream: false,
       max_tokens: 2048,
       temperature: 0.2,
-      reasoning_effort: 'none',
-      reasoning: { effort: 'none' }
+      reasoning: { enabled: false }
     };
 
     let upstreamRes;
@@ -121,36 +120,6 @@ export async function onRequestPost(context) {
       });
     } catch (netErr) {
       return json({ error: '上游标题生成接口请求超时或连接中断', detail: String(netErr && netErr.message) }, 504);
-    }
-
-    // 边缘自愈容错：若上游因不支持 reasoning_effort 或 temperature 参数报错 400，自动剥离冲突参数就地重试
-    if (upstreamRes.status === 400) {
-      const detail = await upstreamRes.text().catch(() => '');
-      let modified = false;
-
-      if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
-        delete upstreamPayload.reasoning_effort;
-        delete upstreamPayload.reasoning;
-        modified = true;
-      }
-      if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
-        delete upstreamPayload.temperature;
-        modified = true;
-      }
-
-      if (modified) {
-        try {
-          upstreamRes = await fetch(UPSTREAM, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'User-Agent': 'ZenMux-Chat-Title/2.21 (contact@zenmux.ai)',
-            },
-            body: JSON.stringify(upstreamPayload),
-          });
-        } catch (_) {}
-      }
     }
 
     if (!upstreamRes.ok) {
