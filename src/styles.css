@@ -1455,11 +1455,11 @@
     align-items:center;
   }
   .composer-voice-overlay{
-    flex:1 1 auto;min-width:0;width:100%;min-height:48px;height:48px;display:flex;align-items:center;justify-content:center;
+    flex:1 1 auto;min-width:0;width:100%;min-height:34px;height:34px;display:flex;align-items:center;justify-content:center;
     background:var(--bg-elev, rgba(255,255,255,.05));border:1px solid var(--line, rgba(255,255,255,.12));
-    border-radius:12px;padding:0 16px;box-sizing:border-box;transition:all .18s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius:9px;padding:0 12px;box-sizing:border-box;transition:all .18s cubic-bezier(0.16, 1, 0.3, 1);
     cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
-    box-shadow:0 2px 8px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.06);
+    box-shadow:0 1px 3px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.05);
   }
   .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing){
     background:rgba(255,255,255,.08);border-color:var(--accent);
@@ -1480,12 +1480,12 @@
   }
   .voice-overlay-resting,
   .voice-overlay-active{
-    display:flex;align-items:center;justify-content:center;gap:9px;font-size:14.5px;
-    font-weight:550;color:var(--fg);pointer-events:none;letter-spacing:.3px;
+    display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;
+    font-weight:500;color:var(--fg);pointer-events:none;letter-spacing:.2px;
     width:100%;text-align:center;
   }
   .voice-bar-mic-icon{
-    color:var(--accent);transition:transform .15s;flex-shrink:0;width:18px;height:18px;
+    color:var(--accent);transition:transform .15s;flex-shrink:0;width:16px;height:16px;
   }
   .composer-voice-overlay:hover .voice-bar-mic-icon{
     transform:scale(1.12);
@@ -1502,7 +1502,7 @@
     display:flex;
   }
   .voice-overlay-status{
-    font-size:14.5px;color:var(--fg);font-weight:600;letter-spacing:.2px;text-align:center;
+    font-size:13.5px;color:var(--fg);font-weight:600;letter-spacing:.2px;text-align:center;
     transition:color .15s;
   }
   .composer-voice-overlay.is-cancelling .voice-overlay-status{

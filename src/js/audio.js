@@ -668,22 +668,22 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
         flex: 1 1 auto;
         min-width: 0;
         width: 100%;
-        min-height: 48px;
-        height: 48px;
+        min-height: 34px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
         background: var(--bg-elev, rgba(255, 255, 255, 0.05));
         border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
-        border-radius: 12px;
-        padding: 0 16px;
+        border-radius: 9px;
+        padding: 0 12px;
         box-sizing: border-box;
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
         touch-action: none;
         transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
       @media (max-width: 640px) {
         #composer.in-voice-mode {
@@ -741,12 +741,12 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 9px;
-        font-size: 14.5px;
-        font-weight: 550;
+        gap: 8px;
+        font-size: 13.5px;
+        font-weight: 500;
         color: var(--fg, #eee);
         pointer-events: none;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
         width: 100%;
         text-align: center;
       }
@@ -754,8 +754,8 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
         color: var(--accent, #7f77dd);
         transition: transform 0.15s;
         flex-shrink: 0;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
       }
       .composer-voice-overlay:hover .voice-bar-mic-icon {
         transform: scale(1.12);
@@ -772,7 +772,7 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
         display: flex;
       }
       .voice-overlay-status {
-        font-size: 14.5px;
+        font-size: 13.5px;
         color: var(--fg, #eee);
         font-weight: 600;
         letter-spacing: 0.2px;
