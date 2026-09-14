@@ -121,6 +121,7 @@ export function toggleSidebar() {
 
 export function autoGrow() {
   if (!el.input) return;
+  if (el.input.style.display === 'none') return;
   el.input.style.height = 'auto';
   const sh = el.input.scrollHeight;
   if (sh > 0) {

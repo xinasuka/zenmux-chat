@@ -937,7 +937,13 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
 
     if (el.input) {
       el.input.style.display = '';
-      el.input.focus();
+      autoGrow();
+      requestAnimationFrame(() => {
+        autoGrow();
+        if (typeof window !== 'undefined' && window.innerWidth > 768) {
+          el.input.focus();
+        }
+      });
     }
     if (el.voiceBtn) {
       el.voiceBtn.classList.remove('mode-voice', 'recording', 'voice-on', 'transcribing');
@@ -1082,16 +1088,22 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
           updateWaveform(vol);
         },
         onTranscript: (text) => {
+          // Revert to editor mode first so input textarea is visible in the DOM layout tree
+          switchToTextMode();
           if (el.input && text) {
             const cur = el.input.value.trim();
             el.input.value = (cur ? cur + ' ' : '') + text;
             el.input.dispatchEvent(new Event('input', { bubbles: true }));
             autoGrow();
-            syncSend();
+            requestAnimationFrame(() => {
+              autoGrow();
+              syncSend();
+              try {
+                el.input.selectionStart = el.input.selectionEnd = el.input.value.length;
+              } catch (_) {}
+            });
           }
           toast(t('composer.voiceCompleted') || (state.lang === 'en' ? 'Speech recognition complete' : '语音识别完成'), 'info');
-          // Behavior A: Auto-revert to editor so user can immediately review/edit/send
-          switchToTextMode();
         },
         onNotice: (msg) => {
           updateVoiceUI('idle');
