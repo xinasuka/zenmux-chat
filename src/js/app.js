@@ -1,7 +1,7 @@
 // js/app.js
 // Main entrypoint and orchestrator for ZenMux Chat.
 
-import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc } from './state.js';
+import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc, hasImageGen, isFree } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
@@ -149,24 +149,7 @@ export function hasVision(m) {
   return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
 }
 
-export function hasImageGen(m) {
-  if (!m) return false;
-  if (Array.isArray(m.output_modalities) && m.output_modalities.includes('image')) return true;
-  if (Array.isArray(m.outputModalities) && m.outputModalities.includes('image')) return true;
-  if (m.capabilities && (m.capabilities.image_generation || m.capabilities.image_output)) return true;
-  const id = (m.id || m.name || '').toLowerCase();
-  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft|gpt-image|kling|seedream|hy-image|glm-image|agnes-image|-image\b|image-|\/image\b/i.test(id);
-}
-
-function isFree(m) {
-  const p = m.pricings || {};
-  function zero(arr) {
-    if (!arr || !arr.length) return false;
-    for (let i = 0; i < arr.length; i++) if (Number(arr[i].value) !== 0) return false;
-    return true;
-  }
-  return zero(p.prompt) && zero(p.completion);
-}
+export { hasImageGen, isFree };
 
 export function fillModels(list) {
   if (!el.model) return;

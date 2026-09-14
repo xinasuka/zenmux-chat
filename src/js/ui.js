@@ -1,9 +1,10 @@
 // js/ui.js
 // DOM component constructors: message bubbles, actions toolbar, web sources card, lightbox, toasts, and title sniffer.
 
-import { el, state, esc, formatSize, getHostname, calculateSessionTokens } from './state.js';
+import { el, state, esc, formatSize, getHostname, calculateSessionTokens, hasImageGen, isFree } from './state.js';
 import { renderMd, renderParts } from './markdown.js';
 import { createAudioPlayerDrawer, stopGlobalAudio } from './tts.js';
+import { ZenMuxDB } from './db.js';
 import { t } from './i18n.js';
 
 let toastTimer = null;
@@ -94,6 +95,66 @@ export const TitleExtractor = {
     }
 
     return null;
+  },
+
+  findFreeTextModel(list) {
+    if (!Array.isArray(list) || !list.length) return null;
+    return list.find((m) => !hasImageGen(m) && isFree(m)) || null;
+  },
+
+  async generateDynamicTitle({ conversation, promptText, responseText, modelsList, token, onUpdate }) {
+    if (!conversation || conversation.customTitle || conversation.titleGenerated) return;
+
+    // Strict Free-Tier Boundary: Candidate must be a free, non-image text model
+    const candidate = this.findFreeTextModel(modelsList || state.rawModelList);
+    if (!candidate || !candidate.id) {
+      conversation.titleGenerated = true;
+      return;
+    }
+
+    // Single-shot idempotency lock to prevent duplicate concurrent network dispatches
+    conversation.titleGenerated = true;
+
+    // Extract compact thematic nucleus (max 600 characters each)
+    const cleanPrompt = (promptText || '').trim().slice(0, 600);
+    const cleanResponse = (responseText || '').trim().slice(0, 600);
+    if (!cleanPrompt) return;
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['X-Access-Token'] = token;
+
+      const res = await fetch('/api/title', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: candidate.id,
+          prompt: cleanPrompt,
+          response: cleanResponse
+        }),
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+      });
+
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      const newTitle = data && data.title && data.title.trim();
+
+      if (newTitle && newTitle.length >= 2) {
+        // Race Condition Guard: If user renamed or modified customTitle while in flight, discard
+        if (conversation.customTitle) return;
+
+        conversation.title = newTitle;
+        await ZenMuxDB.putConversation(conversation);
+
+        if (typeof onUpdate === 'function') {
+          onUpdate();
+        }
+      }
+    } catch (_) {
+      // Graceful degradation: silently retain existing Phase I heuristic title
+    }
   }
 };
 

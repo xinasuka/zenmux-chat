@@ -474,6 +474,20 @@ export async function executeAssistantStream(userMsg, options = {}) {
         if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
       });
 
+      // Asynchronously initiate dynamic LLM title synthesis using free text models
+      if (!c.customTitle && !c.titleGenerated && c.messages.length === 2) {
+        const firstUserMsg = c.messages[0];
+        const userPrompt = firstUserMsg ? (firstUserMsg.displayContent || firstUserMsg.content || '') : '';
+        TitleExtractor.generateDynamicTitle({
+          conversation: c,
+          promptText: userPrompt,
+          responseText: acc,
+          modelsList: state.rawModelList,
+          token: state.token,
+          onUpdate: options.onUpdateConvList
+        });
+      }
+
       const actionsBar = createActionsToolbar(asstMsg, finalIndex, options.onRegenerate);
       col.appendChild(actionsBar);
       updateSidebarFooter();

@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.40';
+export const APP_VERSION = '2.21.41';
 
 export const LS = {
   cur: 'zm.current',
@@ -177,6 +177,7 @@ export const state = {
   imageQuality: getStorageItem(LS.imageQuality) || 'auto',
   imageBackground: getStorageItem(LS.imageBackground) || 'auto',
   isImageMode: false,
+  rawModelList: [],
   modelMeta: {},
   pendingAttachments: [],
   busy: false,
@@ -227,3 +228,24 @@ export function esc(s) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+export function hasImageGen(m) {
+  if (!m) return false;
+  if (Array.isArray(m.output_modalities) && m.output_modalities.includes('image')) return true;
+  if (Array.isArray(m.outputModalities) && m.outputModalities.includes('image')) return true;
+  if (m.capabilities && (m.capabilities.image_generation || m.capabilities.image_output)) return true;
+  const id = (m.id || m.name || '').toLowerCase();
+  return /dall-e|imagen|stable-diffusion|flux|midjourney|recraft|gpt-image|kling|seedream|hy-image|glm-image|agnes-image|-image\b|image-|\/image\b/i.test(id);
+}
+
+export function isFree(m) {
+  if (!m) return false;
+  const p = m.pricings || {};
+  function zero(arr) {
+    if (!arr || !arr.length) return false;
+    for (let i = 0; i < arr.length; i++) if (Number(arr[i].value) !== 0) return false;
+    return true;
+  }
+  return zero(p.prompt) && zero(p.completion);
+}
+

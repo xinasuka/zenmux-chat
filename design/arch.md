@@ -94,6 +94,7 @@ The deployment and compute topology is partitioned into two complementary server
   - Verification of access passphrases (`/api/verify-gate`).
   - Secure credential injection: Environment secrets (`ZENMUX_API_KEY`, plugin keys) are injected into outgoing upstream headers, never leaking to the client.
   - Streaming Server-Sent Events (SSE) pipe forwarding with header sanitization (`.trim()`).
+  - Dynamic Session Title Synthesis (`/api/title`): Single-turn, non-streaming session summarization restricted strictly to free text models, stripping internal thinking tags and enforcing language-matched length boundaries (English: 4-10 words, Chinese: 4-12 characters).
   - Master Exception Boundary: Every handler encapsulates logic within `try / catch (fatalErr)` blocks returning structured `{ error, detail }` JSON, completely insulating workers from runtime crashes (`HTTP 545`).
 
 ### 3.2 Cloud Functions (`cloud-functions/`)
