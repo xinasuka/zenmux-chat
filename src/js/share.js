@@ -295,62 +295,94 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
   <meta name="description" content="Shared Conversation from ZenChat">
   <style>
     :root {
-      --bg: #0b0c10;
-      --bg-surface: #12131a;
-      --bg-card: rgba(255, 255, 255, 0.035);
-      --bg-bubble-user: rgba(56, 189, 248, 0.12);
-      --bubble-user-border: rgba(56, 189, 248, 0.28);
-      --fg: #f1f5f9;
-      --fg-dim: #94a3b8;
-      --fg-subtle: #64748b;
-      --line: rgba(255, 255, 255, 0.08);
-      --primary: #38bdf8;
-      --primary-dim: rgba(56, 189, 248, 0.15);
-      --primary-border: rgba(56, 189, 248, 0.35);
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
-      --mono: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, monospace;
-      --radius: 14px;
+      --bg: #1c1c1e;
+      --bg-side: #171719;
+      --bg-elev: #232326;
+      --bg-surface: #232326;
+      --line: #2f2f33;
+      --line-soft: #26262a;
+      --fg: #e8e8ea;
+      --fg-dim: #9a9aa0;
+      --fg-faint: #6b6b72;
+      --accent: #7f77dd;
+      --accent-hover: #928bf2;
+      --accent-glow: rgba(127, 119, 221, 0.22);
+      --radius: 12px;
+      --card-bg: #141418;
+      --card-item-bg: #1a1a1e;
+      --card-border: rgba(255, 255, 255, 0.04);
+      --code-block-bg: #131315;
+      --inline-code-bg: #2a2a30;
+      --inline-code-fg: #e2b7b5;
+      --thought-bg: #151518;
+      --thought-border: #26262c;
+      --thought-rail: #7f77dd;
+      --thought-fg: #a2a2aa;
+      --bg-bubble-user: #28282d;
+      --bubble-user-border: #383840;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+      --brand-font: "Newsreader", "Charter", "Bitstream Charter", "Georgia", "Cambria", ui-serif, serif;
+      --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
     }
 
     [data-theme="light"] {
-      --bg: #f8fafc;
-      --bg-surface: #ffffff;
-      --bg-card: #f1f5f9;
-      --bg-bubble-user: #e0f2fe;
-      --bubble-user-border: rgba(2, 132, 199, 0.22);
-      --fg: #0f172a;
-      --fg-dim: #475569;
-      --fg-subtle: #94a3b8;
-      --line: rgba(0, 0, 0, 0.08);
-      --primary: #0284c7;
-      --primary-dim: rgba(2, 132, 199, 0.12);
-      --primary-border: rgba(2, 132, 199, 0.3);
+      --bg: #FAF9F5;
+      --bg-side: #EFECE6;
+      --bg-elev: #FFFFFF;
+      --bg-surface: #FFFFFF;
+      --line: #E5E0D3;
+      --line-soft: #ECE7DB;
+      --fg: #1F1E1B;
+      --fg-dim: #6B685C;
+      --fg-faint: #9B978B;
+      --accent: #CC785C;
+      --accent-hover: #B86549;
+      --accent-glow: rgba(204, 120, 92, 0.16);
+      --radius: 12px;
+      --card-bg: #F5F2EA;
+      --card-item-bg: #FFFFFF;
+      --card-border: rgba(60, 50, 40, 0.08);
+      --code-block-bg: #EFECE3;
+      --inline-code-bg: #ECE6DA;
+      --inline-code-fg: #9E3B20;
+      --thought-bg: #F4F0E6;
+      --thought-border: #E2DBD0;
+      --thought-rail: #CC785C;
+      --thought-fg: #666258;
+      --bg-bubble-user: #EAE5D9;
+      --bubble-user-border: #D8D1C2;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    ::selection { background: var(--accent-glow); color: var(--fg); }
+    [data-theme="light"] ::selection { background: rgba(204, 120, 92, 0.25); color: #1F1E1B; }
+
     body {
       background-color: var(--bg);
       color: var(--fg);
       font-family: var(--font);
-      font-size: 14.5px;
-      line-height: 1.68;
+      font-size: 15px;
+      line-height: 1.65;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       padding: 32px 16px 80px;
+      transition: background 0.2s ease, color 0.2s ease;
     }
 
     .zenmux-doc {
-      max-width: 820px;
+      max-width: 780px;
       margin: 0 auto;
     }
 
     /* Header */
     .zenmux-header {
-      padding: 22px 24px;
+      padding: 20px 24px;
       background: var(--bg-surface);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      margin-bottom: 32px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      margin-bottom: 28px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      transition: background 0.2s ease, border-color 0.2s ease;
     }
     .zenmux-brand-row {
       display: flex;
@@ -362,27 +394,28 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--fg);
     }
     .brand-logo {
       border-radius: 6px;
       display: block;
     }
     .brand-title {
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      font-family: var(--brand-font);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
       color: var(--fg);
+      line-height: 1.2;
     }
     .brand-sep {
-      color: var(--fg-subtle);
+      color: var(--fg-faint);
       font-size: 11px;
     }
     .brand-sub {
       font-size: 12px;
       font-weight: 500;
-      color: var(--primary);
+      color: var(--accent);
+      letter-spacing: 0.1px;
     }
     .brand-actions {
       display: flex;
@@ -390,7 +423,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       gap: 8px;
     }
     .header-icon-btn {
-      background: var(--bg-card);
+      background: transparent;
       border: 1px solid var(--line);
       color: var(--fg-dim);
       width: 32px;
@@ -400,17 +433,17 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
     .header-icon-btn:hover {
+      background: var(--card-bg);
       color: var(--fg);
-      border-color: var(--primary);
-      background: var(--primary-dim);
+      border-color: var(--accent);
     }
     .zenmux-title {
-      font-size: 21px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
       margin-bottom: 8px;
       color: var(--fg);
       word-break: break-word;
@@ -421,20 +454,20 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       align-items: center;
       gap: 12px;
       font-size: 12px;
-      color: var(--fg-subtle);
+      color: var(--fg-dim);
     }
     .zenmux-time {
-      color: var(--fg-subtle);
+      color: var(--fg-dim);
     }
     .zenmux-disclaimer {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      color: var(--fg-subtle);
-      background: var(--bg-card);
-      padding: 2px 8px;
+      color: var(--fg-dim);
+      background: var(--card-bg);
+      padding: 3px 8px;
       border-radius: 6px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       font-size: 11.5px;
     }
 
@@ -442,14 +475,14 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     .zenmux-thread {
       display: flex;
       flex-direction: column;
-      gap: 28px;
+      gap: 26px;
     }
     .thread-turn {
       display: flex;
       flex-direction: column;
       gap: 16px;
       padding-bottom: 24px;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid var(--line-soft);
     }
     .thread-turn:last-child {
       border-bottom: none;
@@ -463,13 +496,15 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       width: 100%;
     }
     .user-bubble {
-      max-width: min(85%, 680px);
+      max-width: min(85%, 660px);
       background: var(--bg-bubble-user);
       border: 1px solid var(--bubble-user-border);
       border-radius: 18px 18px 4px 18px;
-      padding: 12px 18px;
+      padding: 11px 16px;
       color: var(--fg);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      font-size: 14.5px;
+      line-height: 1.6;
     }
 
     /* Assistant Row */
@@ -482,53 +517,54 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       width: 100%;
       max-width: 100%;
       background: transparent;
-      padding: 2px 2px 8px;
+      padding: 2px 0 6px;
       color: var(--fg);
+      font-size: 15px;
+      line-height: 1.65;
     }
 
     /* Typography & Markdown */
-    .msg-text { word-break: break-word; }
+    .msg-text { word-break: break-word; overflow-wrap: anywhere; }
     .msg-text p { margin-bottom: 12px; }
     .msg-text p:last-child { margin-bottom: 0; }
-    .msg-text h1, .msg-text h2, .msg-text h3 {
-      font-weight: 700;
-      margin: 18px 0 10px;
+    .msg-text h1, .msg-text h2, .msg-text h3, .msg-text h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 18px 0 8px;
       color: var(--fg);
     }
-    .msg-text h1 { font-size: 1.4em; }
-    .msg-text h2 { font-size: 1.22em; }
-    .msg-text h3 { font-size: 1.08em; }
     .msg-text ul, .msg-text ol {
-      margin: 8px 0 12px 22px;
+      margin: 0 0 12px;
+      padding-left: 22px;
     }
-    .msg-text li { margin-bottom: 4px; }
+    .msg-text li { margin: 3px 0; }
     .msg-text blockquote {
-      border-left: 3px solid var(--primary);
-      padding: 6px 14px;
-      background: var(--primary-dim);
-      border-radius: 0 6px 6px 0;
-      color: var(--fg-dim);
       margin: 12px 0;
+      padding: 4px 0 4px 14px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-glow);
+      border-radius: 0 8px 8px 0;
+      color: var(--fg);
+      font-size: 13.5px;
     }
     .msg-text a {
-      color: var(--primary);
+      color: var(--accent);
       text-decoration: none;
     }
     .msg-text a:hover { text-decoration: underline; }
     .msg-text code {
+      background: var(--inline-code-bg);
+      border-radius: 5px;
+      padding: 1.5px 5px;
+      font-size: 13px;
+      color: var(--inline-code-fg);
       font-family: var(--mono);
-      font-size: 0.9em;
-      background: var(--bg-card);
-      border: 1px solid var(--line);
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: var(--primary);
     }
     .msg-text pre {
-      background: #050608;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px 16px;
+      background: var(--code-block-bg);
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      padding: 12px 14px;
       overflow-x: auto;
       margin: 12px 0;
     }
@@ -536,38 +572,74 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       background: transparent;
       border: none;
       padding: 0;
-      color: #e2e8f0;
-      font-size: 12.5px;
+      color: var(--fg);
+      font-size: 13px;
       line-height: 1.55;
+      white-space: pre;
+      font-family: var(--mono);
+    }
+    .msg-text table {
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13.5px;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+    }
+    .msg-text th, .msg-text td {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+    }
+    .msg-text th {
+      background: var(--card-bg);
+      font-weight: 600;
+      text-align: left;
     }
 
-    /* Reasoning block */
+    /* Reasoning card (Thinking process) */
     .reasoning-card {
-      background: var(--bg-card);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 14px;
+      margin: 0 0 14px;
+      background: var(--thought-bg);
+      border: 1px solid var(--thought-border);
+      border-left: 3px solid var(--thought-rail);
+      border-radius: 10px;
+      padding: 9px 13px;
+      color: var(--thought-fg);
       font-size: 13px;
+      transition: background 0.2s ease, border-color 0.2s ease;
     }
     .reasoning-card summary {
       cursor: pointer;
-      font-weight: 600;
       color: var(--fg-dim);
-      list-style: none;
+      font-size: 12.5px;
+      font-weight: 500;
+      user-select: none;
+      outline: none;
       display: flex;
       align-items: center;
       gap: 6px;
+      transition: color 0.15s;
     }
+    .reasoning-card summary:hover { color: var(--fg); }
     .reasoning-card summary::-webkit-details-marker { display: none; }
-    .reasoning-card .sparkle { color: var(--primary); }
-    .reasoning-body {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid var(--line);
-      color: var(--fg-dim);
-      font-size: 12.5px;
+    .reasoning-card[open] summary {
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--thought-border);
     }
+    .reasoning-card .sparkle {
+      color: var(--thought-rail);
+      font-size: 13px;
+      display: inline-block;
+      line-height: 1;
+    }
+    .reasoning-body {
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--thought-fg);
+    }
+    .reasoning-body p { margin: 0 0 8px; }
+    .reasoning-body p:last-child { margin-bottom: 0; }
 
     /* Images and Files */
     .msg-images {
@@ -577,11 +649,11 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       margin-bottom: 12px;
     }
     .img-thumb {
-      width: 90px;
-      height: 90px;
+      width: 88px;
+      height: 88px;
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       cursor: pointer;
     }
     .img-thumb img {
@@ -592,33 +664,40 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     .gen-img {
       max-width: 100%;
       border-radius: 8px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       cursor: pointer;
       display: block;
       margin-bottom: 8px;
     }
     .img-meta {
       font-size: 12px;
-      color: var(--fg-subtle);
+      color: var(--fg-faint);
       display: flex;
       justify-content: space-between;
     }
     .file-card {
-      background: var(--bg-card);
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      background: var(--card-bg);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
       padding: 8px 12px;
       margin-bottom: 8px;
       font-size: 12.5px;
+      color: var(--fg);
     }
-    .file-card summary { cursor: pointer; display: flex; justify-content: space-between; }
-    .file-size { color: var(--fg-subtle); font-size: 11px; }
+    .file-card summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      color: var(--fg-dim);
+    }
+    .file-card summary:hover { color: var(--fg); }
+    .file-size { color: var(--fg-faint); font-size: 11px; }
 
     /* Sources */
     .sources-box {
-      background: var(--bg-card);
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
       padding: 10px 14px;
       margin-bottom: 14px;
     }
@@ -631,28 +710,33 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     .sources-list {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
     }
     .source-item {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
-      color: var(--primary);
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: var(--card-item-bg);
+      border: 1px solid var(--card-border);
+      color: var(--fg);
       text-decoration: none;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 12.5px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .source-item:hover {
+      background: var(--bg-surface);
+      color: var(--accent);
+      border-color: var(--accent);
     }
     .source-num {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--primary-dim);
-      font-size: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-glow);
+      padding: 1px 5px;
+      border-radius: 4px;
       flex-shrink: 0;
     }
 
@@ -662,18 +746,22 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-top: 14px;
-      padding-top: 8px;
+      margin-top: 12px;
+      padding-top: 6px;
     }
     .asst-metrics {
-      font-size: 11px;
-      color: var(--fg-subtle);
+      font-size: 11.5px;
+      color: var(--fg-faint);
       font-variant-numeric: tabular-nums;
+    }
+    .turn-meta-tag {
+      color: var(--fg-faint);
+      font-size: 11.5px;
     }
     .turn-copy-btn {
       background: transparent;
       border: 1px solid var(--line);
-      color: var(--fg-dim);
+      color: var(--fg-faint);
       width: 28px;
       height: 28px;
       border-radius: 6px;
@@ -685,9 +773,9 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       margin-left: auto;
     }
     .turn-copy-btn:hover {
-      color: var(--primary);
-      border-color: var(--primary-border);
-      background: var(--primary-dim);
+      color: var(--fg);
+      border-color: var(--accent);
+      background: var(--card-bg);
     }
 
     /* Lightbox modal */
@@ -695,17 +783,18 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.88);
+      background: rgba(0, 0, 0, 0.84);
       z-index: 9999;
       align-items: center;
       justify-content: center;
       cursor: zoom-out;
+      backdrop-filter: blur(4px);
     }
     #lightbox img {
       max-width: 90vw;
       max-height: 90vh;
       border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     }
 
     /* Responsive */
@@ -735,7 +824,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
             </svg>
           </button>
           <button class="header-icon-btn" onclick="toggleTheme()" title="${lang === 'en' ? 'Toggle Theme' : '切换主题'}" aria-label="${lang === 'en' ? 'Toggle Theme' : '切换主题'}">
-            <svg class="sun-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="sun-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${theme === 'light' ? 'display:none' : ''}">
               <circle cx="12" cy="12" r="5"></circle>
               <line x1="12" y1="1" x2="12" y2="3"></line>
               <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -746,7 +835,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
               <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
             </svg>
-            <svg class="moon-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <svg class="moon-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${theme === 'light' ? 'display:block' : 'display:none'}">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
           </button>
@@ -838,6 +927,8 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       if (saved) {
         document.documentElement.setAttribute('data-theme', saved);
         updateThemeIcons(saved);
+      } else {
+        updateThemeIcons(document.documentElement.getAttribute('data-theme') || '${theme}');
       }
     })();
   </script>
