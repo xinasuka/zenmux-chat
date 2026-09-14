@@ -463,13 +463,6 @@ export async function executeAssistantStream(userMsg, options = {}) {
         wrap.setAttribute('data-msg-index', String(finalIndex));
       }
 
-      if (c.autoTitled && !c.customTitle && c.messages.length === 2) {
-        const refined = TitleExtractor.sniffAssistantTitle(acc);
-        if (refined && refined !== c.title) {
-          c.title = refined;
-        }
-      }
-
       ZenMuxDB.putConversation(c).then(() => {
         if (typeof options.onUpdateConvList === 'function') options.onUpdateConvList();
       });
@@ -479,7 +472,6 @@ export async function executeAssistantStream(userMsg, options = {}) {
         const firstUserMsg = c.messages.find((m) => m.role === 'user');
         const userPrompt = firstUserMsg ? (firstUserMsg.displayContent || firstUserMsg.content || '') : '';
         if (userPrompt) {
-          console.log('[SessionTitle] Triggering TitleExtractor from chat stream completion for conversation:', c.id);
           TitleExtractor.generateDynamicTitle({
             conversation: c,
             promptText: userPrompt,
