@@ -387,6 +387,10 @@ export const TRANSLATIONS = {
       turnNumber: '第 {number} 轮交互',
       userRole: '用户',
       asstRole: 'AI 助手',
+      forkBtn: '在 ZenChat 中继续',
+      importing: '正在导入会话...',
+      importSuccess: '会话已成功导入',
+      importFailed: '导入会话失败',
     }
   },
 
@@ -771,6 +775,10 @@ export const TRANSLATIONS = {
       turnNumber: 'Turn #{number}',
       userRole: 'User',
       asstRole: 'Assistant',
+      forkBtn: 'Continue in ZenChat',
+      importing: 'Importing conversation...',
+      importSuccess: 'Conversation successfully imported',
+      importFailed: 'Failed to import conversation',
     }
   }
 };

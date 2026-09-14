@@ -125,6 +125,13 @@ The deployment and compute topology is partitioned into two complementary server
   - *Engine I (Native TTL)*: Built-in expiry via `ttlSeconds` automatically decaying snapshots after configured durations (7 days default, 14 days, 30 days, or indefinite).
   - *Engine II (Proactive FIFO Eviction)*: Automated capacity surveillance checking total site counts against the 500-site quota ceiling. When active sites $\ge 480$, automatically prunes the oldest sites by sorting `updatedAt` ascending and issuing `DELETE /publish/{slug}`.
 - **Hermetic Media Inlining**: Client-side document synthesizer transcodes local blob URLs and remote images into Base64 Data URIs, guaranteeing immutable document fidelity in perpetuity.
+- **JSON Data Island & "Fork in ZenChat" Handshake**:
+  - **Embedded Data Island**: The compiled snapshot encapsulates the raw conversation model, prompt-response history, and token usage into a hermetic `<script type="application/json" id="zenchat-snapshot-data">` block with script breakout protection (`<\/script>`).
+  - **Dynamic Origin Resolution (`resolveAppOrigin()`)**: During snapshot compilation, the client evaluates `window.location.origin`. If executing on a public domain, it embeds `<meta name="zenchat:app-origin" content="...">`; if on private/loopback environments (`localhost`, `127.0.0.1`, `192.168.x`), it safely defaults to `https://zenchat.cc.cd`. Users can override this via `localStorage.getItem('zm.custom.origin')`.
+  - **Client-Side Import Receiver (`checkPendingImport()`)**: When the app initializes or detects a hash change with `#import=<snapshot_url>`, it executes a CORS fetch against the target snapshot on `here.now`, extracts the JSON data island, clones the conversation into `ZenMuxDB`, updates the active thread in `state.conversations`, and triggers instant UI hydration.
+- **SVG Symbol Sprite Deflation**:
+  - Embedded snapshots define an inlined hidden SVG sprite containing reusable symbols (`#icon-copy`, `#icon-check`, `#icon-fork`, `#icon-sun`, `#icon-moon`, `#icon-info`).
+  - Multi-turn interaction cards reference `<use href="#icon-copy">` rather than duplicating raw SVG XML per turn, significantly deflating the generated document footprint.
 
 ---
 

@@ -125,9 +125,32 @@ async function resolveImageAsBase64(imgSrc, imageMeta) {
 }
 
 /**
+ * Resolves the primary application origin for cross-site interactions (e.g. Fork in ZenChat).
+ * Reverts to production default if running on private, loopback, or invalid origins.
+ */
+export function resolveAppOrigin() {
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    const hostname = window.location.hostname;
+    const isPrivate = (
+      !hostname ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.endsWith('.local')
+    );
+    if (!isPrivate && origin && origin !== 'null') {
+      return origin;
+    }
+  }
+  return 'https://zenchat.cc.cd';
+}
+
+/**
  * Compiles selected dyads into a self-contained, beautifully styled HTML snapshot document.
  */
-export async function compileStandaloneHtml({ title, dyads, options = {} }) {
+export async function compileStandaloneHtml({ title, dyads, conversation = null, options = {} }) {
   const {
     includeReasoning = true,
     includeMetrics = true,
@@ -139,6 +162,26 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+
+  const appOrigin = resolveAppOrigin();
+
+  // Extract messages corresponding to selected dyads for lossless IndexedDB clone
+  const snapshotMessages = [];
+  for (const d of dyads) {
+    if (d.userMsg) snapshotMessages.push(d.userMsg);
+    if (d.asstMsg) snapshotMessages.push(d.asstMsg);
+  }
+
+  const conversationPayload = {
+    id: (conversation && conversation.id) || `conv_${Date.now()}`,
+    title: title || (conversation && conversation.title) || 'Shared Conversation',
+    model: (conversation && conversation.model) || (dyads[0] && dyads[0].asstModel) || state.model || '',
+    createdAt: (conversation && conversation.createdAt) || Date.now(),
+    updatedAt: Date.now(),
+    messages: snapshotMessages.length > 0 ? snapshotMessages : (conversation && conversation.messages ? conversation.messages : []),
+  };
+
+  const safeJsonIsland = JSON.stringify(conversationPayload).replace(/<\/script>/gi, '<\\/script>');
 
   // Asynchronously resolve all images in user and assistant messages to Base64
   const resolvedDyads = await Promise.all(
@@ -165,7 +208,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     })
   );
 
-  // Render turns HTML
+  // Render turns HTML using SVG symbol sprite references (#icon-copy)
   const turnsHtml = resolvedDyads.map((d) => {
     // User images grid
     let userImgsHtml = '';
@@ -271,14 +314,11 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
             ${sourcesHtml}
             ${asstContentHtml}
 
-            <!-- Assistant Footer: Metrics and SVG-only Copy Button -->
+            <!-- Assistant Footer: Metrics and Deflated SVG Sprite Copy Button -->
             <div class="asst-footer">
               <div class="asst-metrics">${metricsHtml}</div>
               <button class="turn-copy-btn" onclick="copyDyad('${d.id}', this)" title="${lang === 'en' ? 'Copy interaction' : '复制本轮对话'}" aria-label="${lang === 'en' ? 'Copy interaction' : '复制本轮对话'}">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
+                <svg class="zm-icon zm-icon-sm" aria-hidden="true"><use href="#icon-copy"></use></svg>
               </button>
             </div>
           </div>
@@ -294,6 +334,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>${esc(title)} · ZenChat</title>
   <meta name="description" content="Shared Conversation from ZenChat">
+  <meta name="zenchat:app-origin" content="${esc(appOrigin)}">
   <style>
     :root {
       --bg: #1c1c1e;
@@ -365,15 +406,21 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       font-size: 15px;
       line-height: 1.65;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
       padding: 32px 16px 80px;
       transition: background 0.2s ease, color 0.2s ease;
     }
 
-    .zenmux-doc {
-      max-width: 780px;
-      margin: 0 auto;
+    .zenmux-doc { max-width: 780px; margin: 0 auto; }
+
+    .zm-icon {
+      width: 15px;
+      height: 15px;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
     }
+    .zm-icon-sm { width: 13px; height: 13px; }
+    .zm-icon-xs { width: 12px; height: 12px; }
 
     /* Header */
     .zenmux-header {
@@ -390,16 +437,15 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       align-items: center;
       justify-content: space-between;
       margin-bottom: 14px;
+      gap: 12px;
     }
     .brand-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
     }
-    .brand-logo {
-      border-radius: 6px;
-      display: block;
-    }
+    .brand-logo { border-radius: 6px; display: block; }
     .brand-title {
       font-family: var(--brand-font);
       font-size: 20px;
@@ -408,10 +454,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       color: var(--fg);
       line-height: 1.2;
     }
-    .brand-sep {
-      color: var(--fg-faint);
-      font-size: 11px;
-    }
+    .brand-sep { color: var(--fg-faint); font-size: 11px; }
     .brand-sub {
       font-size: 12px;
       font-weight: 500;
@@ -422,6 +465,29 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
+    }
+    .fork-btn {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0 12px;
+      height: 32px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s ease, opacity 0.15s ease;
+      white-space: nowrap;
+    }
+    .fork-btn:hover { background: var(--accent-hover); }
+    [data-theme="light"] .fork-btn { color: #fff; }
+    @media (max-width: 480px) {
+      .fork-btn span { display: none; }
+      .fork-btn { padding: 0 8px; }
     }
     .header-icon-btn {
       background: transparent;
@@ -457,9 +523,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       font-size: 12px;
       color: var(--fg-dim);
     }
-    .zenmux-time {
-      color: var(--fg-dim);
-    }
+    .zenmux-time { color: var(--fg-dim); }
     .zenmux-disclaimer {
       display: inline-flex;
       align-items: center;
@@ -473,11 +537,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     }
 
     /* Thread Turns */
-    .zenmux-thread {
-      display: flex;
-      flex-direction: column;
-      gap: 26px;
-    }
+    .zenmux-thread { display: flex; flex-direction: column; gap: 26px; }
     .thread-turn {
       display: flex;
       flex-direction: column;
@@ -485,17 +545,10 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       padding-bottom: 24px;
       border-bottom: 1px solid var(--line-soft);
     }
-    .thread-turn:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
+    .thread-turn:last-child { border-bottom: none; padding-bottom: 0; }
 
-    /* User Row */
-    .user-row {
-      display: flex;
-      justify-content: flex-end;
-      width: 100%;
-    }
+    /* User Bubble */
+    .user-row { display: flex; justify-content: flex-end; width: 100%; }
     .user-bubble {
       max-width: min(85%, 660px);
       background: var(--bg-bubble-user);
@@ -508,15 +561,10 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       line-height: 1.6;
     }
 
-    /* Assistant Row */
-    .asst-row {
-      display: flex;
-      justify-content: flex-start;
-      width: 100%;
-    }
+    /* Assistant Bubble */
+    .asst-row { display: flex; justify-content: flex-start; width: 100%; }
     .asst-bubble {
       width: 100%;
-      max-width: 100%;
       background: transparent;
       padding: 2px 0 6px;
       color: var(--fg);
@@ -534,10 +582,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       margin: 18px 0 8px;
       color: var(--fg);
     }
-    .msg-text ul, .msg-text ol {
-      margin: 0 0 12px;
-      padding-left: 22px;
-    }
+    .msg-text ul, .msg-text ol { margin: 0 0 12px; padding-left: 22px; }
     .msg-text li { margin: 3px 0; }
     .msg-text blockquote {
       margin: 12px 0;
@@ -548,10 +593,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       color: var(--fg);
       font-size: 13.5px;
     }
-    .msg-text a {
-      color: var(--accent);
-      text-decoration: none;
-    }
+    .msg-text a { color: var(--accent); text-decoration: none; }
     .msg-text a:hover { text-decoration: underline; }
     .msg-text code {
       background: var(--inline-code-bg);
@@ -587,17 +629,10 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       overflow-x: auto;
       display: block;
     }
-    .msg-text th, .msg-text td {
-      border: 1px solid var(--line);
-      padding: 6px 10px;
-    }
-    .msg-text th {
-      background: var(--card-bg);
-      font-weight: 600;
-      text-align: left;
-    }
+    .msg-text th, .msg-text td { border: 1px solid var(--line); padding: 6px 10px; }
+    .msg-text th { background: var(--card-bg); font-weight: 600; text-align: left; }
 
-    /* Reasoning card (Thinking process) */
+    /* Reasoning card */
     .reasoning-card {
       margin: 0 0 14px;
       background: var(--thought-bg);
@@ -628,27 +663,13 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       padding-bottom: 6px;
       border-bottom: 1px solid var(--thought-border);
     }
-    .reasoning-card .sparkle {
-      color: var(--thought-rail);
-      font-size: 13px;
-      display: inline-block;
-      line-height: 1;
-    }
-    .reasoning-body {
-      font-size: 12.5px;
-      line-height: 1.6;
-      color: var(--thought-fg);
-    }
+    .reasoning-card .sparkle { color: var(--thought-rail); font-size: 13px; display: inline-block; line-height: 1; }
+    .reasoning-body { font-size: 12.5px; line-height: 1.6; color: var(--thought-fg); }
     .reasoning-body p { margin: 0 0 8px; }
     .reasoning-body p:last-child { margin-bottom: 0; }
 
     /* Images and Files */
-    .msg-images {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
+    .msg-images { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
     .img-thumb {
       width: 88px;
       height: 88px;
@@ -657,11 +678,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       border: 1px solid var(--line-soft);
       cursor: pointer;
     }
-    .img-thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .img-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .gen-img {
       max-width: 100%;
       border-radius: 8px;
@@ -670,12 +687,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       display: block;
       margin-bottom: 8px;
     }
-    .img-meta {
-      font-size: 12px;
-      color: var(--fg-faint);
-      display: flex;
-      justify-content: space-between;
-    }
+    .img-meta { font-size: 12px; color: var(--fg-faint); display: flex; justify-content: space-between; }
     .file-card {
       background: var(--card-bg);
       border: 1px solid var(--line-soft);
@@ -685,12 +697,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       font-size: 12.5px;
       color: var(--fg);
     }
-    .file-card summary {
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      color: var(--fg-dim);
-    }
+    .file-card summary { cursor: pointer; display: flex; justify-content: space-between; color: var(--fg-dim); }
     .file-card summary:hover { color: var(--fg); }
     .file-size { color: var(--fg-faint); font-size: 11px; }
 
@@ -702,17 +709,8 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       padding: 10px 14px;
       margin-bottom: 14px;
     }
-    .sources-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--fg-dim);
-      margin-bottom: 8px;
-    }
-    .sources-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .sources-title { font-size: 12px; font-weight: 600; color: var(--fg-dim); margin-bottom: 8px; }
+    .sources-list { display: flex; flex-direction: column; gap: 6px; }
     .source-item {
       display: flex;
       align-items: center;
@@ -726,11 +724,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       font-size: 12.5px;
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    .source-item:hover {
-      background: var(--bg-surface);
-      color: var(--accent);
-      border-color: var(--accent);
-    }
+    .source-item:hover { background: var(--bg-surface); color: var(--accent); border-color: var(--accent); }
     .source-num {
       font-size: 11px;
       font-weight: 700;
@@ -750,15 +744,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       margin-top: 12px;
       padding-top: 6px;
     }
-    .asst-metrics {
-      font-size: 11.5px;
-      color: var(--fg-faint);
-      font-variant-numeric: tabular-nums;
-    }
-    .turn-meta-tag {
-      color: var(--fg-faint);
-      font-size: 11.5px;
-    }
+    .asst-metrics, .turn-meta-tag { font-size: 11.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
     .turn-copy-btn {
       background: transparent;
       border: 1px solid var(--line);
@@ -773,11 +759,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       transition: all 0.15s ease;
       margin-left: auto;
     }
-    .turn-copy-btn:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--card-bg);
-    }
+    .turn-copy-btn:hover { color: var(--fg); border-color: var(--accent); background: var(--card-bg); }
 
     /* Lightbox modal */
     #lightbox {
@@ -791,12 +773,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       cursor: zoom-out;
       backdrop-filter: blur(4px);
     }
-    #lightbox img {
-      max-width: 90vw;
-      max-height: 90vh;
-      border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
 
     /* Responsive */
     @media (max-width: 640px) {
@@ -808,6 +785,42 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
   </style>
 </head>
 <body>
+  <!-- Hidden SVG Symbol Sprite -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </symbol>
+    <symbol id="icon-fork" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="6" y1="3" x2="6" y2="15"></line>
+      <circle cx="18" cy="6" r="3"></circle>
+      <circle cx="6" cy="18" r="3"></circle>
+      <path d="M18 9a9 9 0 0 1-9 9"></path>
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="16" x2="12" y2="12"></line>
+      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+    </symbol>
+  </svg>
+
   <div class="zenmux-doc">
     <header class="zenmux-header">
       <div class="zenmux-brand-row">
@@ -818,27 +831,16 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
           <span class="brand-sub">${lang === 'en' ? 'Shared Conversation' : '共享对话'}</span>
         </div>
         <div class="brand-actions">
+          <button class="fork-btn" id="fork-btn" onclick="continueInZenChat()" title="${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}">
+            <svg class="zm-icon" aria-hidden="true"><use href="#icon-fork"></use></svg>
+            <span>${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}</span>
+          </button>
           <button class="header-icon-btn" onclick="copyAll(this)" title="${lang === 'en' ? 'Copy All' : '复制全文'}" aria-label="${lang === 'en' ? 'Copy All' : '复制全文'}">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
+            <svg class="zm-icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
           </button>
           <button class="header-icon-btn" onclick="toggleTheme()" title="${lang === 'en' ? 'Toggle Theme' : '切换主题'}" aria-label="${lang === 'en' ? 'Toggle Theme' : '切换主题'}">
-            <svg class="sun-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${theme === 'light' ? 'display:none' : ''}">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-            <svg class="moon-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${theme === 'light' ? 'display:block' : 'display:none'}">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
+            <svg class="zm-icon sun-icon" aria-hidden="true" style="${theme === 'light' ? 'display:none' : ''}"><use href="#icon-sun"></use></svg>
+            <svg class="zm-icon moon-icon" aria-hidden="true" style="${theme === 'light' ? 'display:block' : 'display:none'}"><use href="#icon-moon"></use></svg>
           </button>
         </div>
       </div>
@@ -846,11 +848,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       <div class="zenmux-meta-row">
         <span class="zenmux-time">${createdAt}</span>
         <div class="zenmux-disclaimer">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="16" x2="12" y2="12"></line>
-            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-          </svg>
+          <svg class="zm-icon zm-icon-xs" aria-hidden="true"><use href="#icon-info"></use></svg>
           <span>${lang === 'en' ? 'This shared conversation is generated by AI, for reference only.' : '此共享对话由 AI 生成，仅供参考。'}</span>
         </div>
       </div>
@@ -860,6 +858,11 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       ${turnsHtml}
     </main>
   </div>
+
+  <!-- Raw Session Data Island for Direct Import / Fork -->
+  <script type="application/json" id="zenchat-snapshot-data">
+${safeJsonIsland}
+  </script>
 
   <div id="lightbox" onclick="closeLightbox()">
     <img id="lightbox-img" src="" alt="Full view">
@@ -873,7 +876,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       navigator.clipboard.writeText(raw).then(() => {
         if (btn) {
           const origHtml = btn.innerHTML;
-          btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          btn.innerHTML = '<svg class="zm-icon zm-icon-sm" style="color:#10b981" aria-hidden="true"><use href="#icon-check"></use></svg>';
           setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
         }
       });
@@ -885,7 +888,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       navigator.clipboard.writeText(allText).then(() => {
         if (btn) {
           const origHtml = btn.innerHTML;
-          btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          btn.innerHTML = '<svg class="zm-icon" style="color:#10b981" aria-hidden="true"><use href="#icon-check"></use></svg>';
           setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
         }
       });
@@ -910,6 +913,20 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('zm.snap.theme', next);
       updateThemeIcons(next);
+    }
+
+    function continueInZenChat() {
+      const meta = document.querySelector('meta[name="zenchat:app-origin"]');
+      const defaultOrigin = (meta && meta.content) ? meta.content : 'https://zenchat.cc.cd';
+      let targetOrigin = defaultOrigin;
+      try {
+        const custom = localStorage.getItem('zm.custom.origin');
+        if (custom && custom.trim()) {
+          targetOrigin = custom.trim().replace(/\\/+$/, '');
+        }
+      } catch (e) {}
+      const importUrl = encodeURIComponent(window.location.href);
+      window.open(targetOrigin + '/#import=' + importUrl, '_blank', 'noopener,noreferrer');
     }
 
     function openLightbox(src) {
@@ -1443,6 +1460,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         const html = await compileStandaloneHtml({
           title: (conv && conv.title) || 'ZenMux Chat Session',
           dyads: targetDyads,
+          conversation: conv,
           options: {
             includeReasoning: true,
             includeMetrics: true,

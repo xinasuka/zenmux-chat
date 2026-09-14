@@ -1280,6 +1280,78 @@ export function dissipateGate() {
   });
 }
 
+async function checkPendingImport() {
+  if (typeof window === 'undefined' || !window.location) return;
+  const hash = window.location.hash;
+  if (!hash || !hash.startsWith('#import=')) return;
+
+  const rawUrl = hash.slice(8);
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  } else {
+    window.location.hash = '';
+  }
+
+  let importUrl;
+  try {
+    importUrl = decodeURIComponent(rawUrl);
+  } catch (_) {
+    importUrl = rawUrl;
+  }
+
+  if (!importUrl || (!importUrl.startsWith('http://') && !importUrl.startsWith('https://'))) {
+    return;
+  }
+
+  toast(t('share.importing') || '正在导入会话...', 'info');
+
+  try {
+    const res = await fetch(importUrl, { mode: 'cors' });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const html = await res.text();
+
+    const match = html.match(/<script\s+type=["']application\/json["']\s+id=["']zenchat-snapshot-data["']>([\s\S]*?)<\/script>/i);
+    if (!match || !match[1]) {
+      throw new Error(state.lang === 'en' ? 'No snapshot data island found' : '未发现会话数据岛');
+    }
+
+    const rawData = JSON.parse(match[1].trim());
+    if (!rawData || !Array.isArray(rawData.messages)) {
+      throw new Error(state.lang === 'en' ? 'Invalid conversation payload' : '无效的会话快照载荷');
+    }
+
+    const newId = uid();
+    const baseTitle = rawData.title ? rawData.title.replace(/\s*\(Fork\)$/i, '') : (t('sidebar.newChatTitle') || '新对话');
+    const newConv = {
+      ...rawData,
+      id: newId,
+      title: `${baseTitle} (Fork)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await ZenMuxDB.putConversation(newConv);
+    if (!Array.isArray(state.conversations)) {
+      state.conversations = [];
+    }
+    state.conversations.unshift(newConv);
+    state.currentId = newConv.id;
+    state.currentConv = newConv;
+    localStorage.setItem(LS.cur, newConv.id);
+
+    renderConvList();
+    renderThread();
+    syncSend();
+
+    toast(t('share.importSuccess') || '会话已成功导入', 'success');
+  } catch (err) {
+    console.error('[ZenChat] Import shared conversation failed:', err);
+    toast(`${t('share.importFailed') || '导入会话失败'}: ${err.message}`, 'error');
+  }
+}
+
 async function unlockAndHydrateWorkspace(modelsList) {
   dissipateGate();
   await loadAllConversations();
@@ -1294,6 +1366,7 @@ async function unlockAndHydrateWorkspace(modelsList) {
     syncModelCapabilities();
   }
   syncPluginsUI();
+  await checkPendingImport();
   renderThread();
   syncSend();
   requestAnimationFrame(() => {
@@ -1755,6 +1828,13 @@ function initEventListeners() {
       if (e.key === 'Enter') { e.preventDefault(); submitGate(); }
     });
   }
+
+  // Handle shared conversation fork / import via URL hash (#import=<url>)
+  window.addEventListener('hashchange', () => {
+    if (state.token) {
+      checkPendingImport();
+    }
+  });
 }
 
 /* ---------- Bootstrap Application Lifecycle ---------- */
