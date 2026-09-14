@@ -438,14 +438,16 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
       justify-content: space-between;
       margin-bottom: 14px;
       gap: 12px;
+      min-width: 0;
     }
     .brand-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      flex-shrink: 0;
+      min-width: 0;
+      flex-shrink: 1;
     }
-    .brand-logo { border-radius: 6px; display: block; }
+    .brand-logo { border-radius: 6px; display: block; flex-shrink: 0; }
     .brand-title {
       font-family: var(--brand-font);
       font-size: 20px;
@@ -453,13 +455,17 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
       letter-spacing: -0.3px;
       color: var(--fg);
       line-height: 1.2;
+      flex-shrink: 0;
     }
-    .brand-sep { color: var(--fg-faint); font-size: 11px; }
+    .brand-sep { color: var(--fg-faint); font-size: 11px; flex-shrink: 0; }
     .brand-sub {
       font-size: 12px;
       font-weight: 500;
       color: var(--accent);
       letter-spacing: 0.1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .brand-actions {
       display: flex;
@@ -485,10 +491,6 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
     }
     .fork-btn:hover { background: var(--accent-hover); }
     [data-theme="light"] .fork-btn { color: #fff; }
-    @media (max-width: 480px) {
-      .fork-btn span { display: none; }
-      .fork-btn { padding: 0 8px; }
-    }
     .header-icon-btn {
       background: transparent;
       border: 1px solid var(--line);
@@ -501,6 +503,7 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
       align-items: center;
       justify-content: center;
       transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
     }
     .header-icon-btn:hover {
       background: var(--card-bg);
@@ -812,8 +815,12 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
 
     /* Responsive */
     @media (max-width: 640px) {
-      body { padding: 16px 12px 60px; }
-      .zenmux-header { padding: 16px 18px; margin-bottom: 20px; }
+      body { padding: 14px 10px 60px; }
+      .zenmux-header { padding: 14px 16px; margin-bottom: 18px; }
+      .brand-sep, .brand-sub { display: none; }
+      .brand-actions { gap: 6px; }
+      .fork-btn span { display: none; }
+      .fork-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }
       .user-bubble { max-width: 92%; padding: 10px 14px; }
       .zenmux-title { font-size: 18px; }
     }
@@ -866,7 +873,7 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
           <span class="brand-sub">${lang === 'en' ? 'Shared Conversation' : '共享对话'}</span>
         </div>
         <div class="brand-actions">
-          <button class="fork-btn" id="fork-btn" onclick="continueInZenChat()" title="${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}">
+          <button class="fork-btn" id="fork-btn" onclick="continueInZenChat()" title="${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}" aria-label="${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}">
             <svg class="zm-icon" aria-hidden="true"><use href="#icon-fork"></use></svg>
             <span>${lang === 'en' ? 'Continue in ZenChat' : '在 ZenChat 中继续'}</span>
           </button>
