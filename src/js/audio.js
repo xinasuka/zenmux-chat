@@ -687,24 +687,28 @@ export function initVoiceDictation({ toast = () => { }, autoGrow = () => { }, sy
       }
       @media (max-width: 640px) {
         #composer.in-voice-mode {
-          padding: 7px 10px 10px 12px;
+          padding: 8px 10px 10px 10px;
+        }
+        #composer.in-voice-mode .composer-main-row {
+          align-items: center;
+          width: 100%;
         }
         .composer-voice-overlay {
-          min-height: 56px;
-          height: 56px;
-          border-radius: 16px;
-          padding: 0 20px;
-          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+          min-height: 64px;
+          height: 64px;
+          border-radius: 18px;
+          padding: 0 24px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .composer-voice-overlay .voice-bar-mic-icon {
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
         }
         .composer-voice-overlay .voice-bar-prompt,
         .composer-voice-overlay .voice-overlay-status {
-          font-size: 15.5px;
+          font-size: 16.5px;
           font-weight: 600;
-          letter-spacing: 0.4px;
+          letter-spacing: 0.5px;
         }
       }
       .composer-voice-overlay:hover:not(.is-pressing):not(.is-transcribing) {
