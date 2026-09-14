@@ -103,7 +103,6 @@ export async function onRequestPost(context) {
       ],
       stream: false,
       max_tokens: 2048,
-      temperature: 0.2,
       reasoning: { enabled: false }
     };
 
@@ -114,58 +113,81 @@ export async function onRequestPost(context) {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'ZenMux-Chat-Title/2.21 (contact@zenmux.ai)',
+          'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
         },
         body: JSON.stringify(upstreamPayload),
       });
     } catch (netErr) {
-      return json({ error: '上游标题生成接口请求超时或连接中断', detail: String(netErr && netErr.message) }, 504);
+      return json({ error: '上游标题生成接口请求超时或连接中断', detail: String(netErr && netErr.message), model }, 504);
     }
 
-    if (upstreamRes.status === 400 || upstreamRes.status === 422) {
-      const detail = await upstreamRes.text().catch(() => '');
-      let modified = false;
-      if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
-        delete upstreamPayload.reasoning;
-        modified = true;
-      }
-      if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
-        delete upstreamPayload.temperature;
-        modified = true;
-      }
-      if (modified) {
-        try {
-          upstreamRes = await fetch(UPSTREAM, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
-            },
-            body: JSON.stringify(upstreamPayload),
-          });
-        } catch (_) {}
+    let errDetail = '';
+    if (!upstreamRes.ok) {
+      errDetail = await upstreamRes.text().catch(() => '');
+
+      // 边缘自愈容灾：若上游因不支持 reasoning / temperature / system 角色返回 400 或 422，自动剔除冲突字段就地重试
+      if (upstreamRes.status === 400 || upstreamRes.status === 422) {
+        let modified = false;
+        if (/reasoning/i.test(errDetail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(errDetail)) {
+          delete upstreamPayload.reasoning;
+          modified = true;
+        }
+        if (/system/i.test(errDetail) && /(?:developer|user|not supported|disallowed|invalid)/i.test(errDetail)) {
+          upstreamPayload.messages = [
+            { role: 'user', content: `${systemPrompt}\n\n${combinedDialogue}` }
+          ];
+          modified = true;
+        }
+
+        if (modified) {
+          try {
+            upstreamRes = await fetch(UPSTREAM, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
+              },
+              body: JSON.stringify(upstreamPayload),
+            });
+            if (!upstreamRes.ok) {
+              errDetail = await upstreamRes.text().catch(() => '');
+            }
+          } catch (retryErr) {
+            errDetail = String(retryErr && retryErr.message);
+          }
+        }
       }
     }
 
     if (!upstreamRes.ok) {
-      const errText = await upstreamRes.text().catch(() => '');
-      // 容错降级：返回 200 + title: null，客户端静默保留启发式标题，杜绝控制台出现网络错误告警
-      return json({ title: null, error: `上游返回 HTTP ${upstreamRes.status}`, detail: errText.slice(0, 500) }, 200);
+      return json({
+        error: `上游模型接口返回异常 HTTP ${upstreamRes.status}`,
+        detail: errDetail,
+        model
+      }, upstreamRes.status >= 400 && upstreamRes.status < 600 ? upstreamRes.status : 502);
     }
 
     const resJson = await upstreamRes.json().catch(() => null);
-    const choice = resJson && resJson.choices && resJson.choices[0];
+    if (!resJson) {
+      return json({ error: '解析上游响应 JSON 失败', model }, 502);
+    }
+
+    const choice = resJson.choices && resJson.choices[0];
     const msg = choice && choice.message;
-    const rawContent = (msg && (msg.content || msg.reasoning_content)) || '';
+    const rawContent = (msg && (msg.content || msg.reasoning_content || msg.reasoning)) || (choice && choice.text) || '';
 
     const finalTitle = sanitizeTitle(rawContent);
     if (!finalTitle || finalTitle.length < 2) {
-      // 容错降级：返回 200 + title: null，客户端静默保留启发式标题，杜绝浏览器控制台输出红色 422 网络错误
-      return json({ title: null, error: '合成标题为空或内容不足', raw: rawContent }, 200);
+      return json({
+        error: '合成标题为空或内容不足',
+        raw: rawContent,
+        model,
+        choice
+      }, 422);
     }
 
-    return json({ title: finalTitle.slice(0, 36) }, 200);
+    return json({ title: finalTitle.slice(0, 36), model }, 200);
   } catch (fatalErr) {
     return json({
       error: '标题合成服务内部异常',

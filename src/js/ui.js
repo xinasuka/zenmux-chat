@@ -99,11 +99,19 @@ export const TitleExtractor = {
 
   findFreeTextModel(list) {
     if (!Array.isArray(list) || !list.length) return null;
-    // 1. Prioritize fast, free, non-image, non-reasoning text models (e.g. gemini-2.0-flash, deepseek-chat)
-    const fastFree = list.find((m) => !hasImageGen(m) && !hasReasoning(m) && isFree(m));
-    if (fastFree) return fastFree;
-    // 2. Fallback: Any free non-image text model
-    return list.find((m) => !hasImageGen(m) && isFree(m)) || null;
+    const freeText = list.filter((m) => !hasImageGen(m) && isFree(m));
+    if (!freeText.length) return null;
+
+    // 1. Prioritize non-reasoning free models if available
+    const nonReasoning = freeText.find((m) => !hasReasoning(m));
+    if (nonReasoning) return nonReasoning;
+
+    // 2. Prioritize lightweight conversational flash / glm / tiny / chat models
+    const preferred = freeText.find((m) => /flash|glm|tiny|chat|mini/i.test(m.id || m.name || ''));
+    if (preferred) return preferred;
+
+    // 3. Fallback: Any free text model
+    return freeText[0];
   },
 
   async generateDynamicTitle({ conversation, promptText, responseText, modelsList, token, onUpdate }) {
@@ -141,8 +149,13 @@ export const TitleExtractor = {
         signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(16000) : undefined
       });
 
-      if (!res.ok) return;
       const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        console.warn('[SessionTitle] /api/title returned error:', res.status, data);
+        return;
+      }
+
       const newTitle = data && data.title && data.title.trim();
 
       if (newTitle && newTitle.length >= 2) {
@@ -155,9 +168,11 @@ export const TitleExtractor = {
         if (typeof onUpdate === 'function') {
           onUpdate();
         }
+      } else {
+        console.warn('[SessionTitle] Empty or invalid title generated:', data);
       }
-    } catch (_) {
-      // Graceful degradation: silently retain existing Phase I heuristic title
+    } catch (err) {
+      console.warn('[SessionTitle] Network or execution error during title synthesis:', err);
     }
   }
 };
