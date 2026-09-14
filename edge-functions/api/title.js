@@ -118,7 +118,6 @@ export async function onRequestPost(context) {
           'User-Agent': 'ZenMux-Chat-Title/2.21 (contact@zenmux.ai)',
         },
         body: JSON.stringify(upstreamPayload),
-        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
       });
     } catch (netErr) {
       return json({ error: '上游标题生成接口请求超时或连接中断', detail: String(netErr && netErr.message) }, 504);
@@ -149,7 +148,6 @@ export async function onRequestPost(context) {
               'User-Agent': 'ZenMux-Chat-Title/2.21 (contact@zenmux.ai)',
             },
             body: JSON.stringify(upstreamPayload),
-            signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
           });
         } catch (_) {}
       }
