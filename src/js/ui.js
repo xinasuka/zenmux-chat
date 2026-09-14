@@ -1,7 +1,7 @@
 // js/ui.js
 // DOM component constructors: message bubbles, actions toolbar, web sources card, lightbox, toasts, and title sniffer.
 
-import { el, state, esc, formatSize, getHostname, calculateSessionTokens, hasImageGen, isFree } from './state.js';
+import { el, state, esc, formatSize, getHostname, calculateSessionTokens, hasImageGen, isFree, hasReasoning } from './state.js';
 import { renderMd, renderParts } from './markdown.js';
 import { createAudioPlayerDrawer, stopGlobalAudio } from './tts.js';
 import { ZenMuxDB } from './db.js';
@@ -99,6 +99,10 @@ export const TitleExtractor = {
 
   findFreeTextModel(list) {
     if (!Array.isArray(list) || !list.length) return null;
+    // 1. Prioritize fast, free, non-image, non-reasoning text models (e.g. gemini-2.0-flash, deepseek-chat)
+    const fastFree = list.find((m) => !hasImageGen(m) && !hasReasoning(m) && isFree(m));
+    if (fastFree) return fastFree;
+    // 2. Fallback: Any free non-image text model
     return list.find((m) => !hasImageGen(m) && isFree(m)) || null;
   },
 

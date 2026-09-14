@@ -1,7 +1,7 @@
 // js/state.js
 // Centralized state, DOM element selectors, LocalStorage keys, and core utilities.
 
-export const APP_VERSION = '2.21.41';
+export const APP_VERSION = '2.21.42';
 
 export const LS = {
   cur: 'zm.current',
@@ -249,3 +249,10 @@ export function isFree(m) {
   return zero(p.prompt) && zero(p.completion);
 }
 
+export function hasReasoning(m) {
+  if (!m) return false;
+  if (m.capabilities && m.capabilities.reasoning) return true;
+  if (m.thinking) return true;
+  const id = (m.id || m.name || '').toLowerCase();
+  return /r1\b|reason|reasoning|thinking|qwq|o1\b|o3\b|o4\b/i.test(id);
+}

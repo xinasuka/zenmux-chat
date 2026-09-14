@@ -28,9 +28,9 @@ function sanitizeTitle(raw) {
   if (!raw || typeof raw !== 'string') return '';
   let t = raw.trim();
 
-  // 1. 彻底剔除深度思考过程 (<think>...</think>, <thought>...</thought>)
-  t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  t = t.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim();
+  // 1. 彻底剔除深度思考过程 (<think>...</think>, <thought>...</thought>，包含未闭合片段)
+  t = t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim();
+  t = t.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/gi, '').trim();
 
   // 2. 剔除元数据前缀（包含各种加粗、方括号、破折号修饰）
   t = t.replace(/^(?:[*_`~#\s"'\(\[【]*(?:title|session\s*title|conversation\s*title|topic|subject|标题|会话标题|对话标题|对话主题|主题)[*_`~#\s"'\)\]】]*[\s:：\-—–—\.]*)+/i, '').trim();
@@ -102,7 +102,7 @@ export async function onRequestPost(context) {
         { role: 'user', content: combinedDialogue }
       ],
       stream: false,
-      max_tokens: 35,
+      max_tokens: 100,
       temperature: 0.2
     };
 
@@ -129,11 +129,13 @@ export async function onRequestPost(context) {
 
     const resJson = await upstreamRes.json().catch(() => null);
     const choice = resJson && resJson.choices && resJson.choices[0];
-    const rawContent = (choice && choice.message && choice.message.content) || '';
+    const msg = choice && choice.message;
+    const rawContent = (msg && (msg.content || msg.reasoning_content)) || '';
 
     const finalTitle = sanitizeTitle(rawContent);
     if (!finalTitle || finalTitle.length < 2) {
-      return json({ error: '合成标题为空或内容不足', raw: rawContent }, 422);
+      // 容错降级：返回 200 + title: null，客户端静默保留启发式标题，杜绝浏览器控制台输出红色 422 网络错误
+      return json({ title: null, error: '合成标题为空或内容不足', raw: rawContent }, 200);
     }
 
     return json({ title: finalTitle.slice(0, 36) }, 200);
