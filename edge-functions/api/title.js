@@ -24,6 +24,20 @@ export function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
+function clampTitle(title, maxLen = 64) {
+  if (!title || typeof title !== 'string') return '';
+  const t = title.trim();
+  if (t.length <= maxLen) return t;
+
+  // 针对以空格分隔的英文及拉丁文字，若需截断则在完整单词边界断开，避免切碎单词
+  const sliced = t.slice(0, maxLen);
+  const lastSpace = sliced.lastIndexOf(' ');
+  if (lastSpace > 16) {
+    return sliced.slice(0, lastSpace).replace(/[。？！?!.,;:：；、\s\-—]+$/, '').trim();
+  }
+  return sliced.replace(/[。？！?!.,;:：；、\s\-—]+$/, '').trim();
+}
+
 function sanitizeTitle(raw) {
   if (!raw || typeof raw !== 'string') return '';
   let t = raw.trim();
@@ -89,11 +103,11 @@ export async function onRequestPost(context) {
     const systemPrompt =
       'You are a succinct conversation summarizer. Analyze the initial dialogue exchange and generate a clear, accurate session title.\n' +
       'Rules:\n' +
-      '1. Length: Exactly 4 to 10 words if English; exactly 4 to 12 characters if Chinese.\n' +
+      '1. Length: Exactly 3 to 7 words if English (under 45 characters); exactly 4 to 10 characters if Chinese.\n' +
       '2. Do NOT use quotation marks, colons, brackets, or markdown formatting.\n' +
       '3. Do NOT include prefixes like "Title:", "Session:", "主题：", or "对话：".\n' +
       '4. Strictly match the primary language of the conversation.\n' +
-      '5. Return ONLY the raw title text, nothing else.';
+      '5. Return ONLY the complete, un-truncated title text, nothing else.';
 
     const upstreamPayload = {
       model,
@@ -178,7 +192,7 @@ export async function onRequestPost(context) {
       }, 422);
     }
 
-    return json({ title: finalTitle.slice(0, 36), model }, 200);
+    return json({ title: clampTitle(finalTitle, 64), model }, 200);
   } catch (fatalErr) {
     return json({
       error: '标题合成服务内部异常',
