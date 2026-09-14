@@ -663,10 +663,45 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
       padding-bottom: 6px;
       border-bottom: 1px solid var(--thought-border);
     }
-    .reasoning-card .sparkle { color: var(--thought-rail); font-size: 13px; display: inline-block; line-height: 1; }
-    .reasoning-body { font-size: 12.5px; line-height: 1.6; color: var(--thought-fg); }
+    .reasoning-body { font-size: 12.5px; line-height: 1.6; color: var(--thought-fg); word-break: break-word; overflow-wrap: anywhere; }
     .reasoning-body p { margin: 0 0 8px; }
     .reasoning-body p:last-child { margin-bottom: 0; }
+    .reasoning-body ul, .reasoning-body ol { margin: 4px 0 8px; padding-left: 22px; }
+    .reasoning-body ul ul, .reasoning-body ol ol, .reasoning-body ul ol, .reasoning-body ol ul { margin: 2px 0; padding-left: 18px; }
+    .reasoning-body li { margin: 2px 0; }
+    .reasoning-body blockquote {
+      margin: 8px 0;
+      padding: 6px 12px;
+      background: var(--accent-glow);
+      border-left: 3px solid var(--accent);
+      border-radius: 7px;
+      color: var(--fg);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .reasoning-body blockquote p { margin: 0; }
+    .reasoning-body code {
+      background: var(--inline-code-bg);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11.5px;
+      font-family: var(--mono);
+    }
+    .reasoning-body pre {
+      background: var(--code-block-bg);
+      border: 1px solid var(--thought-border);
+      margin: 6px 0 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .reasoning-body pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      font-size: 12px;
+      white-space: pre;
+    }
 
     /* Images and Files */
     .msg-images { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
