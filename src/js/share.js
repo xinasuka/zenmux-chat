@@ -926,7 +926,37 @@ ${safeJsonIsland}
         }
       } catch (e) {}
       const importUrl = encodeURIComponent(window.location.href);
-      window.open(targetOrigin + '/#import=' + importUrl, '_blank', 'noopener,noreferrer');
+      const targetUrl = targetOrigin + '/#import=' + importUrl;
+      const newWin = window.open(targetUrl, '_blank');
+
+      if (newWin) {
+        const dataIsland = document.getElementById('zenchat-snapshot-data');
+        if (dataIsland && dataIsland.textContent) {
+          const payload = {
+            type: 'ZENCHAT_SNAPSHOT_IMPORT',
+            url: window.location.href,
+            rawJson: dataIsland.textContent.trim(),
+          };
+          let count = 0;
+          const timer = setInterval(() => {
+            count++;
+            if (count > 25 || newWin.closed) {
+              clearInterval(timer);
+              return;
+            }
+            try {
+              newWin.postMessage(payload, targetOrigin);
+            } catch (_) {}
+          }, 300);
+
+          window.addEventListener('message', function onAck(ev) {
+            if (ev.origin === targetOrigin && ev.data && ev.data.type === 'ZENCHAT_IMPORT_ACK') {
+              clearInterval(timer);
+              window.removeEventListener('message', onAck);
+            }
+          });
+        }
+      }
     }
 
     function openLightbox(src) {

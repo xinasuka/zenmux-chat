@@ -1280,6 +1280,94 @@ export function dissipateGate() {
   });
 }
 
+let lastImportedSnapshotUrl = null;
+
+async function importConversationFromJson(rawJson, sourceUrl = '') {
+  if (!rawJson) return;
+  if (sourceUrl && lastImportedSnapshotUrl === sourceUrl) return;
+
+  try {
+    const rawData = typeof rawJson === 'string' ? JSON.parse(rawJson.trim()) : rawJson;
+    if (!rawData || !Array.isArray(rawData.messages)) {
+      throw new Error(state.lang === 'en' ? 'Invalid conversation payload' : '无效的会话快照载荷');
+    }
+
+    if (sourceUrl) {
+      lastImportedSnapshotUrl = sourceUrl;
+    }
+
+    const newId = uid();
+    const baseTitle = rawData.title ? rawData.title.replace(/\s*\(Fork\)$/i, '') : (t('sidebar.newChatTitle') || '新对话');
+    const newConv = {
+      ...rawData,
+      id: newId,
+      title: `${baseTitle} (Fork)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await ZenMuxDB.putConversation(newConv);
+    if (!Array.isArray(state.conversations)) {
+      state.conversations = [];
+    }
+    if (!state.conversations.some((c) => c.id === newConv.id)) {
+      state.conversations.unshift(newConv);
+    }
+    state.currentId = newConv.id;
+    state.currentConv = newConv;
+    localStorage.setItem(LS.cur, newConv.id);
+
+    renderConvList();
+    renderThread();
+    syncSend();
+
+    toast(t('share.importSuccess') || '会话已成功导入', 'success');
+  } catch (err) {
+    console.error('[ZenChat] Import shared conversation failed:', err);
+    toast(`${t('share.importFailed') || '导入会话失败'}: ${err.message}`, 'error');
+  }
+}
+
+async function fetchSnapshotHtml(url) {
+  // Strategy 1: Direct CORS fetch (works for same-origin or CORS-enabled endpoints)
+  try {
+    const directRes = await fetch(url, { mode: 'cors' });
+    if (directRes.ok) {
+      return await directRes.text();
+    }
+  } catch (_) {
+    // Cross-origin restriction triggered -> fallback to edge resolver proxy
+  }
+
+  // Strategy 2: EdgeOne Serverless Resolver Proxy (/api/share?resolve=...)
+  try {
+    const proxyUrl = `/api/share?resolve=${encodeURIComponent(url)}`;
+    const proxyRes = await fetch(proxyUrl);
+    if (proxyRes.ok) {
+      const data = await proxyRes.json();
+      if (data && data.html) {
+        return data.html;
+      }
+    }
+  } catch (_) {}
+
+  // Strategy 3: EdgeOne POST { action: 'resolve', url }
+  const postRes = await fetch('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'resolve', url }),
+  });
+  if (!postRes.ok) {
+    const errObj = await postRes.json().catch(() => ({}));
+    throw new Error(errObj.error || `HTTP ${postRes.status}`);
+  }
+  const postData = await postRes.json();
+  if (!postData || !postData.html) {
+    throw new Error(state.lang === 'en' ? 'No snapshot content retrieved' : '未获取到有效快照内容');
+  }
+  return postData.html;
+}
+
 async function checkPendingImport() {
   if (typeof window === 'undefined' || !window.location) return;
   const hash = window.location.hash;
@@ -1303,49 +1391,17 @@ async function checkPendingImport() {
     return;
   }
 
+  if (lastImportedSnapshotUrl === importUrl) return;
+
   toast(t('share.importing') || '正在导入会话...', 'info');
 
   try {
-    const res = await fetch(importUrl, { mode: 'cors' });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const html = await res.text();
-
+    const html = await fetchSnapshotHtml(importUrl);
     const match = html.match(/<script\s+type=["']application\/json["']\s+id=["']zenchat-snapshot-data["']>([\s\S]*?)<\/script>/i);
     if (!match || !match[1]) {
       throw new Error(state.lang === 'en' ? 'No snapshot data island found' : '未发现会话数据岛');
     }
-
-    const rawData = JSON.parse(match[1].trim());
-    if (!rawData || !Array.isArray(rawData.messages)) {
-      throw new Error(state.lang === 'en' ? 'Invalid conversation payload' : '无效的会话快照载荷');
-    }
-
-    const newId = uid();
-    const baseTitle = rawData.title ? rawData.title.replace(/\s*\(Fork\)$/i, '') : (t('sidebar.newChatTitle') || '新对话');
-    const newConv = {
-      ...rawData,
-      id: newId,
-      title: `${baseTitle} (Fork)`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    await ZenMuxDB.putConversation(newConv);
-    if (!Array.isArray(state.conversations)) {
-      state.conversations = [];
-    }
-    state.conversations.unshift(newConv);
-    state.currentId = newConv.id;
-    state.currentConv = newConv;
-    localStorage.setItem(LS.cur, newConv.id);
-
-    renderConvList();
-    renderThread();
-    syncSend();
-
-    toast(t('share.importSuccess') || '会话已成功导入', 'success');
+    await importConversationFromJson(match[1], importUrl);
   } catch (err) {
     console.error('[ZenChat] Import shared conversation failed:', err);
     toast(`${t('share.importFailed') || '导入会话失败'}: ${err.message}`, 'error');
@@ -1833,6 +1889,18 @@ function initEventListeners() {
   window.addEventListener('hashchange', () => {
     if (state.token) {
       checkPendingImport();
+    }
+  });
+
+  // Handle direct cross-window postMessage import from opened snapshot
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'ZENCHAT_SNAPSHOT_IMPORT' && e.data.rawJson) {
+      try {
+        if (e.source && typeof e.source.postMessage === 'function') {
+          e.source.postMessage({ type: 'ZENCHAT_IMPORT_ACK' }, e.origin);
+        }
+      } catch (_) {}
+      importConversationFromJson(e.data.rawJson, e.data.url || '');
     }
   });
 }

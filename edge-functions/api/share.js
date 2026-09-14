@@ -15,6 +15,46 @@ export function onRequestOptions() {
 }
 
 /**
+ * Public Resolution Proxy: Resolves here.now snapshots server-side to bypass browser CORS constraints.
+ */
+export async function onRequestGet(context) {
+  try {
+    const { request } = context;
+    const reqUrl = new URL(request.url);
+    const targetUrl = reqUrl.searchParams.get('resolve') || reqUrl.searchParams.get('url');
+    if (!targetUrl) {
+      return json({ error: '缺少目标快照 URL 参数 (resolve)' }, 400);
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(targetUrl);
+    } catch (_) {
+      return json({ error: '目标 URL 格式无效' }, 400);
+    }
+
+    if (!parsed.hostname.endsWith('.here.now') && !parsed.hostname.includes('here.now')) {
+      return json({ error: '仅允许解析来自 here.now 托管节点的快照' }, 400);
+    }
+
+    const pageRes = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': USER_AGENT,
+      },
+    });
+
+    if (!pageRes.ok) {
+      return json({ error: `目标快照读取失败 (HTTP ${pageRes.status})` }, pageRes.status);
+    }
+
+    const html = await pageRes.text();
+    return json({ html });
+  } catch (err) {
+    return json({ error: `解析快照异常: ${err.message || String(err)}` }, 500);
+  }
+}
+
+/**
  * Proactively prune oldest sites if active sites count approaches the 500-site quota ceiling.
  */
 async function enforceFifoEviction(apiKey) {
@@ -67,21 +107,7 @@ export async function onRequestPost(context) {
   try {
     const { request, env } = context;
 
-    // 1. Edge Gatekeeper: Verify user access token via EdgeOne KV
-    const auth = await verifyUserToken(request, env, context);
-    if (!auth.ok) {
-      return json({ error: auth.error }, auth.status);
-    }
-
-    // 2. Extract & sanitize here.now API credentials
-    const apiKey = env.HERENOW_API_KEY ? String(env.HERENOW_API_KEY).trim() : '';
-    if (!apiKey) {
-      return json({
-        error: '服务端未配置 HERENOW_API_KEY 环境变量，请在 EdgeOne 控制台添加配置',
-      }, 500);
-    }
-
-    // 3. Parse & validate request payload
+    // 1. Parse & validate request payload
     let body = null;
     try {
       body = await request.json();
@@ -90,6 +116,59 @@ export async function onRequestPost(context) {
     }
 
     const { action } = body || {};
+
+    // ----------------------------------------------------
+    // Public Protocol Action: Resolve snapshot from here.now
+    // Bypasses browser CORS restrictions by proxying the read on the edge
+    // ----------------------------------------------------
+    if (action === 'resolve') {
+      const { url } = body;
+      if (!url || typeof url !== 'string' || (!url.startsWith('https://') && !url.startsWith('http://'))) {
+        return json({ error: '缺少有效的目标 URL' }, 400);
+      }
+
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(url);
+      } catch (_) {
+        return json({ error: '目标 URL 格式不正确' }, 400);
+      }
+
+      if (!parsedUrl.hostname.endsWith('.here.now') && !parsedUrl.hostname.includes('here.now')) {
+        return json({ error: '仅允许解析来自 here.now 托管节点的快照' }, 400);
+      }
+
+      try {
+        const pageRes = await fetch(url, {
+          headers: {
+            'User-Agent': USER_AGENT,
+          },
+        });
+
+        if (!pageRes.ok) {
+          return json({ error: `目标快照读取失败 (HTTP ${pageRes.status})` }, pageRes.status);
+        }
+
+        const html = await pageRes.text();
+        return json({ html });
+      } catch (fetchErr) {
+        return json({ error: `抓取快照内容异常: ${fetchErr.message}` }, 502);
+      }
+    }
+
+    // 2. Edge Gatekeeper: Verify user access token via EdgeOne KV for publishing actions
+    const auth = await verifyUserToken(request, env, context);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
+    // 3. Extract & sanitize here.now API credentials
+    const apiKey = env.HERENOW_API_KEY ? String(env.HERENOW_API_KEY).trim() : '';
+    if (!apiKey) {
+      return json({
+        error: '服务端未配置 HERENOW_API_KEY 环境变量，请在 EdgeOne 控制台添加配置',
+      }, 500);
+    }
 
     // ----------------------------------------------------
     // Protocol Action 1: Prepare (Stage publish manifest)
