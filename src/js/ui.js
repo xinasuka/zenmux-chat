@@ -138,7 +138,7 @@ export const TitleExtractor = {
           prompt: cleanPrompt,
           response: cleanResponse
         }),
-        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(16000) : undefined
       });
 
       if (!res.ok) return;
