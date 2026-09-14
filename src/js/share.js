@@ -144,7 +144,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     dyads.map(async (d) => {
       // User images
       const resolvedUserImages = await Promise.all(
-        d.userImages.map(async (img) => {
+        (Array.isArray(d.userImages) ? d.userImages : []).map(async (img) => {
           const base64 = await resolveImageAsBase64(img.dataUrl || img.src);
           return { ...img, dataUrl: base64 };
         })

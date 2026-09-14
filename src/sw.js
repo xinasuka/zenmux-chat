@@ -4,7 +4,7 @@
 
 // CACHE_NAME acts as the primary invalidation catalyst.
 // Synchronized atomically with package.json via scripts/bump.js on every release.
-const CACHE_NAME = 'zenchat-shell-v2.21.30';
+const CACHE_NAME = 'zenchat-shell-v2.21.31';
 
 // Static application shell assets pre-cached during worker installation
 const PRECACHE_ASSETS = [
