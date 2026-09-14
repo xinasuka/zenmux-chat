@@ -1,4 +1,4 @@
-import { el, state, uid, esc } from './state.js';
+import { el, state, uid, esc, hasReasoning } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { PluginRegistry } from './plugins.js';
 import { MemoryStore } from './memory.js';
@@ -185,7 +185,7 @@ export async function executeAssistantStream(userMsg, options = {}) {
     return { role: m.role, content: m.content || '' };
   });
 
-  const canReason = !!(meta && meta.capabilities && meta.capabilities.reasoning);
+  const canReason = hasReasoning(meta || { id: state.model });
 
   function buildPayload(msgs, allowTools) {
     const systemParts = [];

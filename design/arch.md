@@ -168,9 +168,16 @@ sequenceDiagram
 
 ZenMux acts as the universal intelligence plane, normalizing diverse upstream APIs into OpenAI-compatible paradigms.
 
-### 4.1 Reasoning & Chain-of-Thought (CoT) Telemetry
+### 4.1 Reasoning, Chain-of-Thought (CoT) & Session Synthesis
 - **Protocol**: OpenAI-compatible chat completion stream (`/v1/chat/completions`, `stream: true`).
-- **Telemetry Parsing**: The client stream accumulator dynamically detects thinking tags (`<think>`, `reasoning_content`) and renders collapsible deliberation sections with real-time token tracking.
+- **Reasoning Dispatch Specification**:
+  - `Reasoning Default`: Parameter omitted; ZenMux automatically applies default intensity (`medium`).
+  - `Reasoning Effort Levels` (`minimal`, `low`, `medium`, `high`): Dispatched via `reasoning_effort: "<level>"`.
+  - `Reasoning Off`: Dispatched via ZenMux canonical control schema `reasoning: { enabled: false }` (decoupling from non-standard effort enums).
+  - `Edge Self-Healing Resiliency`: Edge proxies intercept upstream HTTP 400/422 rejections (e.g. models where reasoning cannot be disabled or unsupported parameter fields), prune conflicting fields, and retry in-flight.
+- **Dynamic Session Title Synthesis**:
+  - Edge gateway (`/api/title`) leverages first-turn context, filtering images/files and instructing a fast, free LLM under tight constraints (4-10 English words / 4-12 Chinese characters) with heuristic fallback.
+- **Telemetry Parsing**: The client stream accumulator dynamically detects reasoning attributes (`reasoning`, `reasoning_content`) and renders collapsible deliberation sections with real-time token tracking.
 - **Token Accounting**: Captures prompt, completion, and cumulative session token usage at the conclusion of every stream turn.
 
 ### 4.2 Acoustic Speech Transcription & Dual Voice Paradigms (ASR & Silero ONNX VAD)

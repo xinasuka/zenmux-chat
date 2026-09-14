@@ -122,9 +122,36 @@ export async function onRequestPost(context) {
       return json({ error: '上游标题生成接口请求超时或连接中断', detail: String(netErr && netErr.message) }, 504);
     }
 
+    if (upstreamRes.status === 400 || upstreamRes.status === 422) {
+      const detail = await upstreamRes.text().catch(() => '');
+      let modified = false;
+      if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
+        delete upstreamPayload.reasoning;
+        modified = true;
+      }
+      if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
+        delete upstreamPayload.temperature;
+        modified = true;
+      }
+      if (modified) {
+        try {
+          upstreamRes = await fetch(UPSTREAM, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'ZenMux-Chat-Title/2.22 (contact@zenmux.ai)',
+            },
+            body: JSON.stringify(upstreamPayload),
+          });
+        } catch (_) {}
+      }
+    }
+
     if (!upstreamRes.ok) {
       const errText = await upstreamRes.text().catch(() => '');
-      return json({ error: `上游返回异常 HTTP ${upstreamRes.status}`, detail: errText }, 502);
+      // 容错降级：返回 200 + title: null，客户端静默保留启发式标题，杜绝控制台出现网络错误告警
+      return json({ title: null, error: `上游返回 HTTP ${upstreamRes.status}`, detail: errText.slice(0, 500) }, 200);
     }
 
     const resJson = await upstreamRes.json().catch(() => null);

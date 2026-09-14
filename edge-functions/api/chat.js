@@ -69,16 +69,16 @@ export async function onRequestPost(context) {
       return json({ error: '连接上游失败', detail: String(e && e.message) }, 502);
     }
 
-    // 边缘自愈重试：若上游因模型不支持特定参数（如 temperature / reasoning_effort / stream_options）返回 400，自动剔除并就地重试
-    if (upstream.status === 400) {
+    // 边缘自愈重试：若上游因模型不支持特定参数（如 temperature / reasoning_effort / reasoning / stream_options）返回 400 或 422，自动剔除并就地重试
+    if (upstream.status === 400 || upstream.status === 422) {
       const detail = await upstream.text().catch(() => '');
       let modified = false;
 
-      if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      if (/temperature/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
         delete payload.temperature;
         modified = true;
       }
-      if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields)/i.test(detail)) {
+      if (/reasoning/i.test(detail) && /(?:deprecated|unsupported|not supported|invalid|disallowed|extra fields|cannot be disabled|unrecognized)/i.test(detail)) {
         delete payload.reasoning;
         delete payload.reasoning_effort;
         modified = true;

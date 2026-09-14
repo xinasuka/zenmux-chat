@@ -1,7 +1,7 @@
 // js/app.js
 // Main entrypoint and orchestrator for ZenMux Chat.
 
-import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc, hasImageGen, isFree } from './state.js';
+import { el, state, LS, uid, formatSize, getHostname, APP_VERSION, esc, hasImageGen, isFree, hasReasoning } from './state.js';
 import { ZenMuxDB } from './db.js';
 import { initTheme, applyTheme, syncThemePillsUI } from './theme.js';
 import { MemoryStore, MAX_MEMORY_ITEMS } from './memory.js';
@@ -149,7 +149,7 @@ export function hasVision(m) {
   return /gpt-4o|claude-3|gemini|vl|vision|qwen.*vl|yi-vl|pixtral|llava|glm-4v/i.test(id);
 }
 
-export { hasImageGen, isFree };
+export { hasImageGen, isFree, hasReasoning };
 
 export function fillModels(list) {
   if (!el.model) return;
@@ -209,7 +209,7 @@ export function fillModels(list) {
       o.value = m.id;
       let label = m.display_name || m.id;
       if (hasVision(m)) label += ' ·' + t('models.vision');
-      if (m.capabilities && m.capabilities.reasoning) label += ' ·' + t('models.reasoning');
+      if (hasReasoning(m)) label += ' ·' + t('models.reasoning');
       if (isFree(m)) label += ' ·' + t('models.free');
       o.textContent = label;
       og.appendChild(o);
@@ -266,7 +266,7 @@ function createModelPickerItem(m, isImage = false) {
       pill.textContent = t('models.vision');
       badges.appendChild(pill);
     }
-    if (m.capabilities && m.capabilities.reasoning) {
+    if (hasReasoning(m)) {
       const pill = document.createElement('span');
       pill.className = 'model-pill model-pill-reasoning';
       pill.textContent = t('models.reasoning');
@@ -469,7 +469,7 @@ export function filterModelPicker(query) {
 export function syncEffort() {
   if (!el.effort) return;
   const m = state.modelMeta[state.model];
-  const can = !!(m && m.capabilities && m.capabilities.reasoning);
+  const can = hasReasoning(m || { id: state.model });
   const unknown = !m;
   el.effort.disabled = !can && !unknown;
   el.effort.title = can
