@@ -60,6 +60,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 4. Configure the following **Environment Variables**:
    - `ADMIN_TOKEN`: Master secret password for accessing the `/admin.html` console to generate and manage user tokens.
    - `ZENMUX_API_KEY`: Your API Key from [ZenMux](https://zenmux.ai).
+   - `HERENOW_API_KEY` *(Optional)*: Your API Key from [here.now](https://here.now) for publishing one-click shareable conversation snapshot web pages.
    - `ANYSEARCH_API_KEY` *(Optional)*: Your API Key from AnySearch for real-time web search.
    - `FIRECRAWL_API_KEY` *(Optional)*: Your API Key from [Firecrawl](https://firecrawl.dev) for deep React/SPA webpage extraction.
    - `FINNHUB_API_KEY` *(Optional)*: Your API Key from [Finnhub.io](https://finnhub.io) for US/global stock quotes.
@@ -128,6 +129,7 @@ git clone https://github.com/xinasuka/zenmux-chat.git
 4. **配置环境变量**：
    - `ADMIN_TOKEN`：管理员主控密码（用于登录 `/admin.html` 生成和管理用户口令）。
    - `ZENMUX_API_KEY`：[ZenMux.ai](https://zenmux.ai) 平台的 API Key。
+   - `HERENOW_API_KEY`（可选）：[here.now](https://here.now) 平台的 API Key，用于开启一键发布对话快照在线分享网页。
    - `ANYSEARCH_API_KEY`（可选）：联网检索服务的 API Key。
    - `FIRECRAWL_API_KEY`（可选）：[Firecrawl](https://firecrawl.dev) 深度网页抓取服务的 API Key。
    - `FINNHUB_API_KEY`（可选）：[Finnhub.io](https://finnhub.io) 美股与股票行情 API Key。
