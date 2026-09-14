@@ -5,8 +5,10 @@
 import { state, el, esc, formatSize } from './state.js';
 import { renderMd } from './markdown.js';
 import { t } from './i18n.js';
-import { toast } from './ui.js';
 import { ZenMuxDB } from './db.js';
+
+// Embedded authentic ZenChat 48x48 brand icon data URL
+const ZENCHAT_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAN7klEQVR42s2Ze3BU133HP+ece/chaXfR+4UAIWSZ8DJ2wTYpxnbsdpLYBtrg1O5jaJLizng86XTyVzvTTqYzif9x09at28TutIM9YzuxaR40Ia4HYxKDHUMgPMxDCEsgIQn0XK32de89v/6hXbGIl8Akk9/M2d3ZO/ec7++c3/N7FNcWAwQAWmvWrFlTefDgweWpVGolsARoA5qAKqAcCAMasEAWmASGgT6gCzhcWVl5YO3atYe3b98+Ya29bJ0bFXWNZxqwHR0dsdOnT6/3PG8jcDfQrJSioaGB5uZmGhsbqampIZFIEI1GMcYQBAHpdJqxsTGGhobo7++nr6+PwcHB4tw9wN5oNPrGunXrtu/YsSNXovgtEQ3guu5XgG5AFi5cKE899ZS89tprcuLECT+dTvsiEoiILYwrSfFZMDk56R85ciTYunWrbN68WVpaWgQQ4JgxZlPpurcEvFLqm4CsWLFCtm3b5mezWX8mUGut+L4vnudddfi+L9Zepp+dmJjwt27d6re1tQkgWuuvlpjTJwNfVVW1WCkla9eu9ScnJ4PiqkVAQRBcCdQ1xVorQRBMz1GUoaEhf8mSJVYplamtrW2YhWlfDnimT/i+HxMRmpqapKysrPgfhZOZHjfkbIV3tNaIyPR81dXVqrq62opIRGsduVEFrqaU0VpvB2Tz5s1Bd3e3V7D3aZlpOr7vXzJmmlIQBJedytGjR4MNGzYIIMaYl26FCRW1V0C5UupFwJaXl8umTZtk69attquryxMRT0T8mUpdT3K5nHz00Ufy4osvyiOPPCKu6wqQVEp9owDcAE5hmNk4tbrG/wIQj8dXJZPJLwGfBea7rktrayvt7e0sXLiQlpYW6urqiMfjU2HUMVgbkM5kSI6PMzg4yNneXrpOnaKzs5Pu7m58LxDAQ/PTqpr48/8x+Ps7Ab5o3ggQkKmPUnEKeCwznqhZnIRVSvHQQw+V7927d2UqlVoDLC0ksDpgPhC/iZO2wGgJhmFgoBC2T5iQOVwxxzmSHMqfFrlEIVOqiJqlT6hiplRKoY2msja2dnxg8o898dYD9QDhspCK1UaIN5QRr48Sq4kSnRMiUuHihDXKmTpYa4XAs3jZgNyER3o8z+RQluT5DMmBNBMXsvi5ACAHHAd2hcvNj+752u++++7X3/VLE+1svX0q1ddTrof1FuvbvwAWh8odmpdWMW9lDU1LKqmeH6O8OkyozMW4FyNV0SRESqMSoBA1vYcigW8lnwkkdSHLcM+E6js8as4cGOLckRHyaR/giHb0t22zfYkesoCZ7QlYHO7B5zvAssbFldyxYYG0r623iaYKbVytbGAJ8pbAt0ggl4CdfagFbRTa0ZiQxhgtvhfI2Lm07dzdrw/+T7ceODEGcAj4MrBPzWbnHYfVvs874Qq37Pe+ttxf9sh8HYoY7WUC/HyASHFHFUp98lJAZOqjOK8TNrgRh3zGs7/6Qbf9v3887OTTftJxeNhcN0r9PUp28V03YhY+/k9rvBWPLnBzybzysgXgWk2NWwS+eBJKXZzXBoKX8RFBtd3boGvbYv6xt/uiQcBd+jpRyDZub4yI0D6nudwuWlPvJPvToBTa3DrAszUtRBgfSNN+X5MTbygLxMqnrqWAALp/f39aabV/uCelf/W/Z7xEUxlag/UFsfIbUUCsYH1BG02isYyD3+/2xvomjdLqfTOrROfyC/HkCyffOTfHywV+05JKKa+KKK2Vsr5gL3HaT3Yy0/ZvmTbRUNQhUuFKZiJvd73wkbz9rcOOWDmLy+Ozj0JT3de/Aw/H66Ms+/w8Oh5olrr2uIpUuAAEviXwBOtbxN5YJFJqCqx2NMbVGEcBSG7Ss4OdSTn+dq9z+MdnmTifAfgp8JdAt5rFCehCNMoDhKLmsXwm2AKsBeK1bXHmLq+meWkVtW1x4g1RookQbtTBGAVaXZItZUb2nKocRGxgxctZyYzlGT83qc6fSpq+IyP0Hhpm6PQEgAe8E4qaF/KZ4AfFzVVXAV1M13ZmCa2U4sEHH6z64MAHD06OTv6R7/ufBaLFdyMxl4qaKLHaKBXVEcrmhInEQrgRg3YLmTgQ/HyAl/UvZuKRHKmhLKmhLLmUV8TSDxwA3q6oCu2YHM0fK5zqxTLnCrs93cQvX768trOzc/nk5OSdwHKgHZgHzClOAEQAfbH8uyHJA6eBC0CmUA91oTleFnOPtSyJd558f2SiJFhcUtaU1kLTrEBLS0tTX1/femvtY8BqoCoUCjFv3jza2tpoa2tj/vz5NDY2Ul1dPd3Mu6473ax4Xp5MNksymWRkZJj+/n56enro6uqiq6uLnjNnyKazUqh19oajzncf2njP6z9+7b3RYgKb4YO61CKulG2prKycB/wrMAJIR0eHPP300/Lmm28GH3/88cwe4Mb6yRLxPE+6urpk27Zt8swzz8jixYuLzf048O14PN5WwOXOujMzxnwBGALk8ccfl507d3r+VON6CdBiTzuzCwuC4LJxpc7sSl2Z7/vBrl27/CeeeEKUUgIMa62fnDVLEQqFNgDS2toqu3fv9kpBf5Im/nrNfVG50kd79uzxFi1aJICEQqH1s2oxlVJdiURCTp486ZeCvlWAZ6OQ7/uSz+dFROT06dNeVVWVVUodXrdunXM9M9Ii0lhbWxu0t7cb3/dRSmGMuWHW4ebrnKn1jDF4nkdra6upr6+3IlKfSqVCV0gdl9n/64A8++yzuaL5FO33130Kxd0v5Ymee+65bIGleGW2LEW1UmpP0YGPHj16iR9Yay9j2W6G1ColtjzPmzmHPX78uPfkk09aQJRS+4Cakrh/XSk3xjwP5BzHkfXr18urr74aDAwMFEOnvZ4zXolSvI7z24GBAf/1118PNm7cKKFQSIC8MebfgNhsCS5VSqFUVlYuHR0d3QJsBObGYjFWrFjB6tWrWblyJR0dHcydO5eqqirC4fDs020+z8jICL29vZw4cYIDBw7w4YcfcvDgQZLJZLFk+GEikfjO+Pj4L2dSO7PhhabLCKUUq1atih85cmRtOp1+uJCNFwAJIByPVZiamhpqamqoqqokFotTVl6O47gopfGDgFwuTyo1STI5zujoKMPDQ4yMjJBJT1ICakTB9rqa2PcGLiR/Yoy29tL+4qpc0LV4oSIzlpuqhxSOMbTNb17Z3TewMZPJbQI6rne8CnAUaD3NPmAFfKuYutMQChcgfYU6aBDo1Jr9jVWx/b0Xkqe0VlJSUjiFUkeupUDJbYwiUW7WjE74jwEPFEAnYuUuC5pi3DYvQfu8BAubYjTXllFbGSVREaIi6hAJGRxHY1Rh+6wl71tyuYBU1mM8lefCWJb+Cxl6BlKc6k3SeSbJx30TjCRzAH6BC3qnrMxs//J9re8+v+NU7mo3OZcUc/fMnRvdP3juTz3PfgVYFQkbVi+p5YHfaeTTK+r5VOscmmvLIOpeZGSsQCBgbeGwiyyaXFxCFRvbQgWv9dT7CsGKkAtkdCQjx7rH1J7DF8zOD/vZe2iQsYk8wAmt9cu1tdEXBwcnzxdMXUqZOQ3YaMhsyOSDbwK333FbNX/2aLtsvH9esGBeXBNyFIFV5APEswRWkOnCXE1jnP6+gnVNk1vTXczUD4VCa4V2NYQMOFoIrJzvT9mf7O3V//3DTr1rXz/AQNjR/5Dz7QslC4gCcLT+O9/ary9squAbX13tb/rMAq3LQ5qsj835BFamKMUC3fFradwFrExtjFYKEzIQdcC3duf7ffZv/vkXzgdHhzBGvRIE8udF5zauq7f4gX3u/rsag7df+jyr7mw0ZHzlZzywU5NprdA3calxw9RJYS2lFBIIQcZHPKvaFlXqzes7pL9/wtt/fHilMapMhLcAo5TibGUs3HTse39AXWOFzifzuK7mt0l83+KEDUopu/yL2+TwqdFcQ0PFgoGB1AUtQmV1IkxdXbn2Uh6O89sFHsBxNPmMDxUh1doU00BZEHjxQuur3uo8m9T/+cYxz60vn9I4sDdFzt5yvwCCQAgCIdxYwc939/hvfdCntFK/vP9CrhvQJhLh50HAIz/6WW+d6wX+vXc24MbDSvmWwC8SrL85GrHozNYKjlHoWBjtaHnlzeP+k3/7rpvO+hPGYdMRS18prdKsFP8lwsPLFlXyV3+y1P7hg62SqIlqBEXWx3oBgZVp5k2pqRB6s4pJIZ5OAZ76rZXCuBrCDjha8smc3bHnLN965ajZtb8f4LDj8CXfZ1/pBcf0FX/Y1Ztznv1rYFljbRmf+3QLj97XYu9dWmfr6ssVIaMRUQQCnoXAFmhFuZi/rlF/FXNGMdrgKHD01FBKCKxNDmdk30cX1Pb3es323WfpPDMOcMZx9AsNDfZfenvJlGZkNSMjy5Ytd7kvv3zwc5lM8ATwGaAmXhFi2aJK7ry9mjtuq+b2+Qk7v7FCaudECEWMImQKqNSVydHp7QasFTyLn/FlJJnn7PmUOtGT1Ic6R9h/fIhDnaOcH8kApID3XFe/urwl8f39p0fHZ1CdVy3mpu/C7l4cqzp0avLudD64D1gF3A40ACYSNtQkItRURqiZE6YqFiZR4VIecQmHDI4zRSn6gZDzAtIZn2TaYySZY2gsx9BYluHxHKn0NAt3HjgF7AsZ87P5jaG9XX3ZPnsxmpjZ3lKqEjojKE0yD6xsTRw8dXbhyERwm7W2HVgIzC3cVlYCFQWa0S1pBW2B18wWdnWsAPYc0KM1J+eUOyfm1decPvzx4AVroaQM1SVs4RVt8/8B2aZ0rjTMcg0AAAAASUVORK5CYII=';
 
 /**
  * Extracts structured prompt-response dyads (turns) from a conversation.
@@ -251,38 +253,34 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     const rawInteractionText = `User: ${d.userText}\n\nAssistant: ${d.asstText}`;
 
     return `
-      <article class="turn-container" id="${d.id}" data-raw="${esc(rawInteractionText)}">
-        <div class="turn-header">
-          <span class="turn-badge">${lang === 'en' ? `Turn #${d.turnIndex}` : `第 ${d.turnIndex} 轮交互`}</span>
-          ${metricsHtml}
-        </div>
-
-        <!-- User Bubble -->
-        <div class="msg-row user-row">
-          <div class="avatar user-avatar">${lang === 'en' ? 'Me' : '我'}</div>
-          <div class="bubble-body">
+      <article class="thread-turn" id="${d.id}" data-raw="${esc(rawInteractionText)}">
+        <!-- User Row (Right-aligned bubble, no avatar) -->
+        <div class="user-row">
+          <div class="user-bubble">
             ${userImgsHtml}
             ${userFilesHtml}
             <div class="msg-text">${renderMd(d.userText)}</div>
           </div>
         </div>
 
-        <!-- Assistant Bubble -->
-        <div class="msg-row asst-row">
-          <div class="avatar asst-avatar">AI</div>
-          <div class="bubble-body">
+        <!-- Assistant Row (Left-aligned, no avatar) -->
+        <div class="asst-row">
+          <div class="asst-bubble">
             ${reasoningHtml}
             ${sourcesHtml}
             ${asstContentHtml}
-          </div>
-        </div>
 
-        <!-- Turn Action Footer -->
-        <div class="turn-footer">
-          <button class="turn-copy-btn" onclick="copyDyad('${d.id}')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>${lang === 'en' ? 'Copy Interaction' : '复制本轮对话'}</span>
-          </button>
+            <!-- Assistant Footer: Metrics and SVG-only Copy Button -->
+            <div class="asst-footer">
+              <div class="asst-metrics">${metricsHtml}</div>
+              <button class="turn-copy-btn" onclick="copyDyad('${d.id}', this)" title="${lang === 'en' ? 'Copy interaction' : '复制本轮对话'}" aria-label="${lang === 'en' ? 'Copy interaction' : '复制本轮对话'}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </article>
     `;
@@ -293,33 +291,33 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>${esc(title)} · ZenMux Chat</title>
-  <meta name="description" content="Exported conversation snapshot from ZenMux Chat">
+  <title>${esc(title)} · ZenChat</title>
+  <meta name="description" content="Shared Conversation from ZenChat">
   <style>
     :root {
-      --bg: #090a0f;
-      --bg-surface: #11131a;
+      --bg: #0b0c10;
+      --bg-surface: #12131a;
       --bg-card: rgba(255, 255, 255, 0.035);
-      --bg-bubble-user: rgba(255, 255, 255, 0.07);
-      --bg-bubble-asst: transparent;
+      --bg-bubble-user: rgba(56, 189, 248, 0.12);
+      --bubble-user-border: rgba(56, 189, 248, 0.28);
       --fg: #f1f5f9;
       --fg-dim: #94a3b8;
       --fg-subtle: #64748b;
-      --line: rgba(255, 255, 255, 0.09);
+      --line: rgba(255, 255, 255, 0.08);
       --primary: #38bdf8;
       --primary-dim: rgba(56, 189, 248, 0.15);
       --primary-border: rgba(56, 189, 248, 0.35);
       --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
       --mono: "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, monospace;
-      --radius: 12px;
+      --radius: 14px;
     }
 
     [data-theme="light"] {
       --bg: #f8fafc;
       --bg-surface: #ffffff;
       --bg-card: #f1f5f9;
-      --bg-bubble-user: #e2e8f0;
-      --bg-bubble-asst: transparent;
+      --bg-bubble-user: #e0f2fe;
+      --bubble-user-border: rgba(2, 132, 199, 0.22);
       --fg: #0f172a;
       --fg-dim: #475569;
       --fg-subtle: #94a3b8;
@@ -347,126 +345,145 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
 
     /* Header */
     .zenmux-header {
-      padding: 24px 28px;
+      padding: 22px 24px;
       background: var(--bg-surface);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      margin-bottom: 28px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      margin-bottom: 32px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     }
     .zenmux-brand-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .brand-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 8px;
+      font-size: 13px;
       font-weight: 600;
+      color: var(--fg);
+    }
+    .brand-logo {
+      border-radius: 6px;
+      display: block;
+    }
+    .brand-title {
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--fg);
+    }
+    .brand-sep {
+      color: var(--fg-subtle);
+      font-size: 11px;
+    }
+    .brand-sub {
+      font-size: 12px;
+      font-weight: 500;
       color: var(--primary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
     .brand-actions {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .theme-toggle-btn, .header-copy-btn {
+    .header-icon-btn {
       background: var(--bg-card);
       border: 1px solid var(--line);
       color: var(--fg-dim);
-      padding: 5px 11px;
-      font-size: 12px;
-      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
       transition: all 0.15s ease;
     }
-    .theme-toggle-btn:hover, .header-copy-btn:hover {
+    .header-icon-btn:hover {
       color: var(--fg);
       border-color: var(--primary);
+      background: var(--primary-dim);
     }
     .zenmux-title {
       font-size: 21px;
       font-weight: 700;
       letter-spacing: -0.01em;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       color: var(--fg);
+      word-break: break-word;
     }
-    .zenmux-meta {
-      font-size: 12.5px;
+    .zenmux-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
       color: var(--fg-subtle);
     }
-
-    /* Turn Container */
-    .turn-container {
-      background: var(--bg-surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 24px;
-      position: relative;
+    .zenmux-time {
+      color: var(--fg-subtle);
     }
-    .turn-header {
-      display: flex;
+    .zenmux-disclaimer {
+      display: inline-flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
+      gap: 5px;
+      color: var(--fg-subtle);
+      background: var(--bg-card);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      font-size: 11.5px;
+    }
+
+    /* Thread Turns */
+    .zenmux-thread {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .thread-turn {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 24px;
       border-bottom: 1px solid var(--line);
     }
-    .turn-badge {
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--primary);
-      background: var(--primary-dim);
-      border: 1px solid var(--primary-border);
-      padding: 2px 9px;
-      border-radius: 20px;
-    }
-    .turn-meta-tag {
-      font-size: 11.5px;
-      color: var(--fg-subtle);
+    .thread-turn:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
     }
 
-    /* Message Rows */
-    .msg-row {
+    /* User Row */
+    .user-row {
       display: flex;
-      gap: 14px;
-      margin-bottom: 20px;
+      justify-content: flex-end;
+      width: 100%;
     }
-    .msg-row:last-of-type {
-      margin-bottom: 12px;
+    .user-bubble {
+      max-width: min(85%, 680px);
+      background: var(--bg-bubble-user);
+      border: 1px solid var(--bubble-user-border);
+      border-radius: 18px 18px 4px 18px;
+      padding: 12px 18px;
+      color: var(--fg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      flex-shrink: 0;
+
+    /* Assistant Row */
+    .asst-row {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11.5px;
-      font-weight: 700;
+      justify-content: flex-start;
+      width: 100%;
     }
-    .user-avatar {
-      background: var(--primary);
-      color: #fff;
-    }
-    .asst-avatar {
-      background: var(--bg-card);
-      border: 1px solid var(--line);
-      color: var(--primary);
-    }
-    .bubble-body {
-      flex: 1;
-      min-width: 0;
+    .asst-bubble {
+      width: 100%;
+      max-width: 100%;
+      background: transparent;
+      padding: 2px 2px 8px;
+      color: var(--fg);
     }
 
     /* Typography & Markdown */
@@ -639,26 +656,33 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       flex-shrink: 0;
     }
 
-    /* Turn Footer */
-    .turn-footer {
+    /* Assistant Footer */
+    .asst-footer {
       display: flex;
-      justify-content: flex-end;
-      padding-top: 14px;
-      border-top: 1px solid var(--line);
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       margin-top: 14px;
+      padding-top: 8px;
+    }
+    .asst-metrics {
+      font-size: 11px;
+      color: var(--fg-subtle);
+      font-variant-numeric: tabular-nums;
     }
     .turn-copy-btn {
       background: transparent;
       border: 1px solid var(--line);
       color: var(--fg-dim);
-      padding: 4px 10px;
+      width: 28px;
+      height: 28px;
       border-radius: 6px;
-      font-size: 11.5px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
       transition: all 0.15s ease;
+      margin-left: auto;
     }
     .turn-copy-btn:hover {
       color: var(--primary);
@@ -684,16 +708,12 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
 
-    /* Footer badge */
-    .zenmux-footer-badge {
-      text-align: center;
-      margin-top: 40px;
-      font-size: 12px;
-      color: var(--fg-subtle);
-    }
-    .zenmux-footer-badge a {
-      color: var(--primary);
-      text-decoration: none;
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { padding: 16px 12px 60px; }
+      .zenmux-header { padding: 16px 18px; margin-bottom: 20px; }
+      .user-bubble { max-width: 92%; padding: 10px 14px; }
+      .zenmux-title { font-size: 18px; }
     }
   </style>
 </head>
@@ -702,31 +722,53 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
     <header class="zenmux-header">
       <div class="zenmux-brand-row">
         <div class="brand-badge">
-          <span>ZenMux Chat</span>
-          <span>·</span>
-          <span>Snapshot</span>
+          <img src="${ZENCHAT_ICON_DATA_URL}" width="22" height="22" class="brand-logo" alt="ZenChat">
+          <span class="brand-title">ZenChat</span>
+          <span class="brand-sep">·</span>
+          <span class="brand-sub">${lang === 'en' ? 'Shared Conversation' : '共享对话'}</span>
         </div>
         <div class="brand-actions">
-          <button class="header-copy-btn" onclick="copyAll()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span id="copy-all-lbl">${lang === 'en' ? 'Copy All' : '复制全文'}</span>
+          <button class="header-icon-btn" onclick="copyAll(this)" title="${lang === 'en' ? 'Copy All' : '复制全文'}" aria-label="${lang === 'en' ? 'Copy All' : '复制全文'}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
           </button>
-          <button class="theme-toggle-btn" onclick="toggleTheme()">
-            <span id="theme-lbl">Theme</span>
+          <button class="header-icon-btn" onclick="toggleTheme()" title="${lang === 'en' ? 'Toggle Theme' : '切换主题'}" aria-label="${lang === 'en' ? 'Toggle Theme' : '切换主题'}">
+            <svg class="sun-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="moon-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
           </button>
         </div>
       </div>
       <h1 class="zenmux-title">${esc(title)}</h1>
-      <div class="zenmux-meta">${lang === 'en' ? `Archived snapshot · ${createdAt} · ${dyads.length} interactions` : `归档快照 · ${createdAt} · 共 ${dyads.length} 轮交互`}</div>
+      <div class="zenmux-meta-row">
+        <span class="zenmux-time">${createdAt}</span>
+        <div class="zenmux-disclaimer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>${lang === 'en' ? 'This shared conversation is generated by AI, for reference only.' : '此共享对话由 AI 生成，仅供参考。'}</span>
+        </div>
+      </div>
     </header>
 
     <main class="zenmux-thread">
       ${turnsHtml}
     </main>
-
-    <footer class="zenmux-footer-badge">
-      ${lang === 'en' ? 'Generated by <a href="https://zenmux.ai" target="_blank">ZenMux Chat</a> · Hosted on <a href="https://here.now" target="_blank">here.now</a>' : '由 <a href="https://zenmux.ai" target="_blank">ZenMux Chat</a> 归档并生成 · 托管于 <a href="https://here.now" target="_blank">here.now</a>'}
-    </footer>
   </div>
 
   <div id="lightbox" onclick="closeLightbox()">
@@ -734,31 +776,42 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
   </div>
 
   <script>
-    function copyDyad(cardId) {
+    function copyDyad(cardId, btn) {
       const card = document.getElementById(cardId);
       if (!card) return;
       const raw = card.getAttribute('data-raw') || card.innerText;
       navigator.clipboard.writeText(raw).then(() => {
-        const btn = card.querySelector('.turn-copy-btn span');
         if (btn) {
-          const old = btn.textContent;
-          btn.textContent = '${lang === 'en' ? 'Copied!' : '已复制！'}';
-          setTimeout(() => { btn.textContent = old; }, 2000);
+          const origHtml = btn.innerHTML;
+          btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
         }
       });
     }
 
-    function copyAll() {
-      const cards = document.querySelectorAll('.turn-container');
+    function copyAll(btn) {
+      const cards = document.querySelectorAll('.thread-turn');
       const allText = Array.from(cards).map(c => c.getAttribute('data-raw')).join('\\n\\n---\\n\\n');
       navigator.clipboard.writeText(allText).then(() => {
-        const lbl = document.getElementById('copy-all-lbl');
-        if (lbl) {
-          const old = lbl.textContent;
-          lbl.textContent = '${lang === 'en' ? 'All Copied!' : '已全部复制！'}';
-          setTimeout(() => { lbl.textContent = old; }, 2000);
+        if (btn) {
+          const origHtml = btn.innerHTML;
+          btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
         }
       });
+    }
+
+    function updateThemeIcons(th) {
+      const sun = document.querySelector('.sun-icon');
+      const moon = document.querySelector('.moon-icon');
+      if (!sun || !moon) return;
+      if (th === 'light') {
+        sun.style.display = 'none';
+        moon.style.display = 'block';
+      } else {
+        sun.style.display = 'block';
+        moon.style.display = 'none';
+      }
     }
 
     function toggleTheme() {
@@ -766,6 +819,7 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
       const next = cur === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('zm.snap.theme', next);
+      updateThemeIcons(next);
     }
 
     function openLightbox(src) {
@@ -781,7 +835,10 @@ export async function compileStandaloneHtml({ title, dyads, options = {} }) {
 
     (function init() {
       const saved = localStorage.getItem('zm.snap.theme');
-      if (saved) document.documentElement.setAttribute('data-theme', saved);
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        updateThemeIcons(saved);
+      }
     })();
   </script>
 </body>
