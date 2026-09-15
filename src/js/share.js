@@ -1408,12 +1408,10 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
-          <span>${isRetrieved ? (t('share.alreadySharedBadge') || '已有分享链接') : (t('share.publishSuccess') || '分享链接已就绪')}</span>
+          <span>${t('share.publishSuccess') || '分享链接已就绪'}</span>
         </div>
         <span class="share-drawer-status-pill ${statusInfo.type}">${statusInfo.text}</span>
       </div>
-
-      ${isRetrieved ? `<div class="share-drawer-cached-hint">${t('share.retrievedNotice') || '检测到此会话此前已发布过在线快照。若需应用最新排版与内容，请点击「更新内容」。'}</div>` : ''}
 
       <div class="share-drawer-url-box">
         <a class="share-drawer-link-anchor" href="${siteUrl}" target="_blank" rel="noopener noreferrer">
@@ -1431,7 +1429,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         </button>
         <button type="button" class="share-drawer-edit-btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          <span>${t('share.updateSnapshot') || '更新内容'}</span>
+          <span>${t('share.updateSnapshot') || '重新选择'}</span>
         </button>
       </div>
     `;
