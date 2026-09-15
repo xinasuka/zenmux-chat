@@ -1179,9 +1179,10 @@ export async function invokeNativeShare({ title, url }) {
   // 1. Capacitor Native Android / iOS Plugin
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
     try {
+      // By omitting 'text', Capacitor assigns pure URL to Intent.EXTRA_TEXT and title to Intent.EXTRA_SUBJECT.
+      // This enables WeChat and other messengers to parse the URL as a webpage and render the rich card!
       await window.Capacitor.Plugins.Share.share({
         title: shareTitle,
-        text: shareTitle,
         url,
         dialogTitle: shareDialogTitle,
       });
@@ -1199,7 +1200,6 @@ export async function invokeNativeShare({ title, url }) {
     try {
       await navigator.share({
         title: shareTitle,
-        text: shareTitle,
         url,
       });
       return true;
