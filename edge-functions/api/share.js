@@ -117,10 +117,10 @@ export async function onRequestPost(context) {
       }
 
       // Stage Publish Manifest with here.now control plane
-      const displayName = title ? `ZenMux - ${String(title).trim().slice(0, 70)}` : 'ZenMux Chat Session';
+      const displayName = title ? `${String(title).trim().slice(0, 70)} · ZenChat` : 'ZenChat Shared Conversation';
       const publishPayload = {
         displayName,
-        displayDescription: 'Exported conversational snapshot from ZenMux Chat',
+        displayDescription: 'Shared Conversation from ZenChat',
         ttlSeconds,
         files: [
           {

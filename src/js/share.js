@@ -334,6 +334,13 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>${esc(title)} · ZenChat</title>
   <meta name="description" content="Shared Conversation from ZenChat">
+  <meta property="og:title" content="${esc(title)} · ZenChat">
+  <meta property="og:description" content="Shared Conversation from ZenChat">
+  <meta property="og:site_name" content="ZenChat">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="${esc(title)} · ZenChat">
+  <meta name="twitter:description" content="Shared Conversation from ZenChat">
   <meta name="zenchat:app-origin" content="${esc(appOrigin)}">
   <style>
     :root {
@@ -1536,7 +1543,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
 
       try {
         const html = await compileStandaloneHtml({
-          title: (conv && conv.title) || 'ZenMux Chat Session',
+          title: (conv && conv.title) || 'ZenChat Conversation',
           dyads: targetDyads,
           conversation: conv,
           options: {
@@ -1548,7 +1555,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         });
 
         const result = await publishSessionShare({
-          title: (conv && conv.title) || 'ZenMux Chat Session',
+          title: (conv && conv.title) || 'ZenChat Conversation',
           html,
           ttlDays,
           slug: slugToUse,
@@ -1581,7 +1588,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
           history.unshift({
             slug: result.slug,
             url: result.siteUrl,
-            title: (conv && conv.title) || 'ZenMux Chat Session',
+            title: (conv && conv.title) || 'ZenChat Conversation',
             createdAt: result.createdAt || new Date().toISOString(),
             expiresAt: resolvedExpiresAt,
             turnsCount: targetDyads.length,
