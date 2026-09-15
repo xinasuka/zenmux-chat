@@ -338,9 +338,16 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
   <meta property="og:description" content="Shared Conversation from ZenChat">
   <meta property="og:site_name" content="ZenChat">
   <meta property="og:type" content="article">
+  <meta property="og:image" content="${esc(appOrigin)}/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="${esc(title)} · ZenChat">
   <meta name="twitter:description" content="Shared Conversation from ZenChat">
+  <meta name="twitter:image" content="${esc(appOrigin)}/icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="${esc(appOrigin)}/icon-192.png">
+  <link rel="icon" type="image/x-icon" href="${esc(appOrigin)}/favicon.ico">
+  <link rel="apple-touch-icon" sizes="512x512" href="${esc(appOrigin)}/icon-512.png">
   <meta name="zenchat:app-origin" content="${esc(appOrigin)}">
   <style>
     :root {
@@ -869,6 +876,10 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
       <line x1="12" y1="8" x2="12.01" y2="8"></line>
     </symbol>
   </svg>
+
+  <div style="position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden;" aria-hidden="true">
+    <img src="${esc(appOrigin)}/icon-512.png" width="300" height="300" alt="ZenChat">
+  </div>
 
   <div class="zenmux-doc">
     <header class="zenmux-header">
