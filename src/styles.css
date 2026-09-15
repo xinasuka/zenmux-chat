@@ -2660,6 +2660,11 @@
     cursor: pointer;
     transition: all .15s ease;
   }
+  .share-drawer-copy-btn:active, .share-drawer-native-btn:active, .share-drawer-edit-btn:active {
+    transform: scale(.97);
+  }
+
+  /* Default Desktop styling (where native share button is absent): 复制 is primary */
   .share-drawer-copy-btn {
     background: var(--accent);
     color: #fff;
@@ -2670,25 +2675,48 @@
     opacity: .95;
     box-shadow: 0 3px 10px var(--accent-glow);
   }
-  .share-drawer-native-btn {
-    background: var(--accent-glow);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-  }
-  .share-drawer-native-btn:hover {
+
+  /* When Mobile Native Share is present: 分享 is the prominent primary hero action */
+  .share-drawer-actions.has-native-share .share-drawer-native-btn,
+  .share-drawer-actions:has(.share-drawer-native-btn) .share-drawer-native-btn {
     background: var(--accent);
     color: #fff;
-    box-shadow: 0 3px 10px var(--accent-glow);
+    border: none;
+    box-shadow: 0 2px 8px var(--accent-glow);
+    font-weight: 600;
   }
-  .share-drawer-edit-btn {
+  .share-drawer-actions.has-native-share .share-drawer-native-btn:hover,
+  .share-drawer-actions:has(.share-drawer-native-btn) .share-drawer-native-btn:hover {
+    opacity: .95;
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+
+  /* On mobile with native share: 复制 gracefully becomes a clean secondary card button */
+  .share-drawer-actions.has-native-share .share-drawer-copy-btn,
+  .share-drawer-actions:has(.share-drawer-native-btn) .share-drawer-copy-btn {
     background: var(--card-item-bg);
     color: var(--fg);
-    border: 1px solid var(--card-border);
+    border: 1px solid var(--line);
+    box-shadow: none;
+    font-weight: 500;
+  }
+  .share-drawer-actions.has-native-share .share-drawer-copy-btn:hover,
+  .share-drawer-actions:has(.share-drawer-native-btn) .share-drawer-copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  /* 重选 is always a clean, neutral tertiary action */
+  .share-drawer-edit-btn {
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--line-soft);
   }
   .share-drawer-edit-btn:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: var(--accent-glow);
+    color: var(--fg);
+    border-color: var(--line);
+    background: rgba(255, 255, 255, .04);
   }
 
   /* ---------- Settings Modal ---------- */
