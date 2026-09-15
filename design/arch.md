@@ -211,6 +211,15 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 - **Single Source of Truth (`js/plugins.js`)**: Encapsulates all tool calling schemas, system instruction injections, CoT reasoning tags, and UI source card renderers.
 - **Generic Execution Pipeline (`js/chat.js`)**: Completely decoupled from specific plugin implementations, delegating schema aggregation and tool response injection to `PluginRegistry`.
 
+### 4.6 Serverless Conversation Snapshot & Web Hosting Architecture
+- **Distributed 3-Phase Publishing Pipeline**:
+  - **Phase 1 (Prepare / `/api/share`)**: V8 edge worker issues authenticated REST requests to `api.here.now`, reserving an isolated subdomain slug (`{slug}.here.now`) and acquiring presigned Cloudflare R2 upload URLs.
+  - **Phase 2 (Direct Client Ingestion)**: Client browser streams pre-rendered standalone HTML and metadata JSON directly into presigned R2 storage, bypassing intermediary server bandwidth.
+  - **Phase 3 (Finalize / `/api/share`)**: Edge worker issues activation manifest to here.now to publish the deployment with configurable TTL expiration (1, 7, 30, 90 days, or permanent).
+- **Social Graph & Dynamic Unfurl Engine**:
+  - Standalone snapshot embeds standard OpenGraph (`og:title`, `og:description`, `og:image`) and Twitter Card (`summary_large_image`) meta tags pointing deterministically to `https://here.now/og/{slug}.jpg`.
+  - Social platform crawlers (Twitter/X, Telegram, Discord, WeChat) automatically fetch and render rich cards with real-time rendered previews.
+
 ---
 
 ## 5. Universal Client Runtime
@@ -238,7 +247,7 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
   - Compile web bundle: `npm run build`
   - Synchronize web assets into Android project: `npx cap sync android`
   - Compile native debug APK: `cd android && ./gradlew assembleDebug`
-- **Native Privileges**: Access to hardware audio microphones for ASR transcription and native background audio playback.
+- **Native Privileges**: Access to hardware audio microphones for ASR transcription, haptics, native background audio playback, and OS share sheets.
 
 ### 5.4 Zero-Reload Bilingual Internationalization (`js/i18n.js`)
 - **Micro-Engine Architecture**: Zero-dependency, sub-10KB reactive localization engine supporting real-time runtime toggling between Simplified Chinese (`zh-CN`) and English (`en-US`).
@@ -246,7 +255,15 @@ ZenMux acts as the universal intelligence plane, normalizing diverse upstream AP
 - **Strict Tool Contract Invariance**: Programmatic LLM tool calling schemas (`PluginRegistry.getAll()`) remain strictly 100% English to preserve model reasoning reliability, while UI indicators and citations adapt dynamically via `languagechange` events.
 - **Symmetric Key Parity Gate**: Enforces 100% parity across all 293 keys validated by `scratch/test_i18n.js`.
 
----
+### 5.5 Native OS Share Sheet & Dynamic Action Hierarchy (`js/share.js`)
+- **Platform-Adaptive Invocation**:
+  - **Android Container (Capacitor)**: Bridges to `@capacitor/share`, launching Android `Intent.ACTION_SEND` via `Intent.createChooser`.
+  - **Mobile PWA / Browser**: Invokes W3C Web Share API (`navigator.share`).
+  - **Desktop Fallback**: Gracefully degrades to asynchronous clipboard copy (`navigator.clipboard.writeText`).
+- **Intent Protocol Normalization**: Deliberately omits mixed plain-text prefixes, allocating the pure URL exclusively to `Intent.EXTRA_TEXT` and the session title to `Intent.EXTRA_SUBJECT`. This protocol triggers external messenger link scrapers (e.g. WeChat, Telegram, WhatsApp) to identify the incoming stream as a webpage entity, unfurling rich card layouts rather than falling back to plain-text message bubbles.
+- **Responsive Three-Tier Visual Hierarchy**:
+  - **Mobile / Android / PWA**: Highlights **「分享」 (Share)** as the primary hero CTA with solid accent fill and glow, formats **「复制」 (Copy)** as a secondary outlined card control, and presents **「重选」 (Reselect)** as a tertiary ghost action.
+  - **Desktop (PC / Mac)**: Dynamically suppresses the redundant **「分享」** button, promoting **「复制」** to the primary accent action.
 
 ## 6. GitOps, Semantic Versioning & CI/CD Pipeline
 
