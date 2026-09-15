@@ -1142,6 +1142,86 @@ export async function publishSessionShare({ title, html, ttlDays, slug }) {
 }
 
 /**
+ * Detects whether the current client environment supports Native OS Sharing (Android App / Mobile PWA / Mobile Browser).
+ * Automatically returns false for desktop PC/Mac browsers where native OS share sheets are unavailable or awkward.
+ */
+export function canNativeShare() {
+  if (typeof window === 'undefined') return false;
+
+  // 1. Capacitor Native Android / iOS App
+  if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+    return true;
+  }
+
+  // 2. Standalone PWA installed on device
+  const isPwa = window.matchMedia('(display-mode: standalone)').matches || (window.navigator && window.navigator.standalone === true);
+  if (isPwa && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    return true;
+  }
+
+  // 3. Mobile / Tablet device with Web Share API (Android Chrome, iOS Safari)
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+    (window.matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0);
+  if (isMobile && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Invokes the Native OS Share Sheet across Android Capacitor App and Mobile PWA.
+ */
+export async function invokeNativeShare({ title, url }) {
+  const shareTitle = title ? `${title} · ZenChat` : 'ZenChat Conversation';
+  const shareDialogTitle = t('share.nativeShareDialogTitle') || '分享此对话至';
+
+  // 1. Capacitor Native Android / iOS Plugin
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+    try {
+      await window.Capacitor.Plugins.Share.share({
+        title: shareTitle,
+        text: shareTitle,
+        url,
+        dialogTitle: shareDialogTitle,
+      });
+      return true;
+    } catch (err) {
+      if (err && err.message && err.message.toLowerCase().includes('canceled')) {
+        return false;
+      }
+      console.warn('Capacitor Share failed, falling back to Web Share:', err);
+    }
+  }
+
+  // 2. Standard Web Share API (Mobile Chrome / Safari / PWA)
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: shareTitle,
+        text: shareTitle,
+        url,
+      });
+      return true;
+    } catch (err) {
+      if (err && (err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('canceled')))) {
+        return false;
+      }
+      console.warn('Web Share API failed, falling back to clipboard copy:', err);
+    }
+  }
+
+  // 3. Graceful fallback: copy to clipboard
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(url);
+    toast(t('share.copied') || '已复制分享链接到剪贴板', 'success');
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Global active share state management
  */
 let globalActiveDrawer = null;
@@ -1414,7 +1494,9 @@ export function createShareDrawer(msg, msgIndex, onClose) {
 
     const statusInfo = getShareStatusInfo(expiresAt);
 
-    resCard.innerHTML = `
+      const showNativeShare = canNativeShare();
+
+      resCard.innerHTML = `
       <div class="share-drawer-ready-row">
         <div class="share-drawer-ready-badge">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1437,11 +1519,19 @@ export function createShareDrawer(msg, msgIndex, onClose) {
       <div class="share-drawer-actions">
         <button type="button" class="share-drawer-copy-btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          <span class="copy-btn-text">${t('share.copyLink') || '复制链接'}</span>
+          <span class="copy-btn-text">${t('share.copyLink') || '复制'}</span>
         </button>
+        ${showNativeShare ? `
+        <button type="button" class="share-drawer-native-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <span>${t('share.nativeShare') || '分享'}</span>
+        </button>` : ''}
         <button type="button" class="share-drawer-edit-btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          <span>${t('share.updateSnapshot') || '重新选择'}</span>
+          <span>${t('share.updateSnapshot') || '重选'}</span>
         </button>
       </div>
     `;
@@ -1453,12 +1543,24 @@ export function createShareDrawer(msg, msgIndex, onClose) {
         navigator.clipboard.writeText(siteUrl).then(() => {
           toast(t('share.copied') || '已复制分享链接到剪贴板', 'success');
           copyText.textContent = t('common.copied') || '已复制';
-          setTimeout(() => { copyText.textContent = t('share.copyLink') || '复制链接'; }, 2000);
+          setTimeout(() => { copyText.textContent = t('share.copyLink') || '复制'; }, 2000);
         }).catch(() => {
           toast(t('common.copyFailed') || '复制失败，请手动选取', 'error');
         });
       }
     });
+
+    if (showNativeShare) {
+      const nativeBtn = resCard.querySelector('.share-drawer-native-btn');
+      if (nativeBtn) {
+        nativeBtn.addEventListener('click', () => {
+          invokeNativeShare({
+            title: (conv && conv.title) || 'ZenChat Conversation',
+            url: siteUrl,
+          });
+        });
+      }
+    }
 
     resCard.querySelector('.share-drawer-edit-btn').addEventListener('click', () => {
       renderConfigView(true);

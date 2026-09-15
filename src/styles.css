@@ -2649,7 +2649,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .share-drawer-copy-btn, .share-drawer-edit-btn {
+  .share-drawer-copy-btn, .share-drawer-native-btn, .share-drawer-edit-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -2668,6 +2668,16 @@
   }
   .share-drawer-copy-btn:hover {
     opacity: .95;
+    box-shadow: 0 3px 10px var(--accent-glow);
+  }
+  .share-drawer-native-btn {
+    background: var(--accent-glow);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .share-drawer-native-btn:hover {
+    background: var(--accent);
+    color: #fff;
     box-shadow: 0 3px 10px var(--accent-glow);
   }
   .share-drawer-edit-btn {
