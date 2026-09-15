@@ -150,7 +150,7 @@ export function resolveAppOrigin() {
 /**
  * Compiles selected dyads into a self-contained, beautifully styled HTML snapshot document.
  */
-export async function compileStandaloneHtml({ title, dyads, conversation = null, options = {} }) {
+export async function compileStandaloneHtml({ title, dyads, conversation = null, options = {}, slug = undefined }) {
   const {
     includeReasoning = true,
     includeMetrics = true,
@@ -164,6 +164,10 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
   });
 
   const appOrigin = resolveAppOrigin();
+  const targetSlug = typeof slug === 'string' && slug.trim().length > 0 ? slug.trim() : null;
+  const ogImageUrl = targetSlug
+    ? `https://here.now/og/${encodeURIComponent(targetSlug)}.jpg`
+    : (slug === null ? `${appOrigin}/icon-512.png` : '__ZENCHAT_OG_IMAGE_URL__');
 
   // Extract messages corresponding to selected dyads for lossless IndexedDB clone
   const snapshotMessages = [];
@@ -338,13 +342,13 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
   <meta property="og:description" content="Shared Conversation from ZenChat">
   <meta property="og:site_name" content="ZenChat">
   <meta property="og:type" content="article">
-  <meta property="og:image" content="${esc(appOrigin)}/icon-512.png">
-  <meta property="og:image:width" content="512">
-  <meta property="og:image:height" content="512">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="${esc(ogImageUrl)}">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="720">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${esc(title)} · ZenChat">
   <meta name="twitter:description" content="Shared Conversation from ZenChat">
-  <meta name="twitter:image" content="${esc(appOrigin)}/icon-512.png">
+  <meta name="twitter:image" content="${esc(ogImageUrl)}">
   <link rel="icon" type="image/png" sizes="192x192" href="${esc(appOrigin)}/icon-192.png">
   <link rel="icon" type="image/x-icon" href="${esc(appOrigin)}/favicon.ico">
   <link rel="apple-touch-icon" sizes="512x512" href="${esc(appOrigin)}/icon-512.png">
@@ -878,7 +882,7 @@ export async function compileStandaloneHtml({ title, dyads, conversation = null,
   </svg>
 
   <div style="position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden;" aria-hidden="true">
-    <img src="${esc(appOrigin)}/icon-512.png" width="300" height="300" alt="ZenChat">
+    <img src="${esc(ogImageUrl)}" width="1280" height="720" alt="ZenChat Snapshot">
   </div>
 
   <div class="zenmux-doc">
@@ -1087,6 +1091,14 @@ export async function publishSessionShare({ title, html, ttlDays, slug }) {
     throw new Error(prepData.error || prepData.detail || '准备发布快照失败');
   }
 
+  // Resolve assigned slug and ensure og:image is deterministically populated
+  const finalSlug = (prepData.slug || slug || '').trim();
+  const finalOgImageUrl = finalSlug
+    ? `https://here.now/og/${encodeURIComponent(finalSlug)}.jpg`
+    : `${resolveAppOrigin()}/icon-512.png`;
+  const finalHtml = html.replaceAll('__ZENCHAT_OG_IMAGE_URL__', finalOgImageUrl);
+  const finalBytes = encoder.encode(finalHtml);
+
   // Phase 2: Direct Binary Stream to Cloudflare R2 Storage (Presigned URL)
   const putHeaders = new Headers(prepData.uploadHeaders || {});
   if (!putHeaders.has('Content-Type')) {
@@ -1096,7 +1108,7 @@ export async function publishSessionShare({ title, html, ttlDays, slug }) {
   const putRes = await fetch(prepData.uploadUrl, {
     method: 'PUT',
     headers: putHeaders,
-    body: htmlBytes,
+    body: finalBytes,
   });
 
   if (!putRes.ok) {
@@ -1563,6 +1575,7 @@ export function createShareDrawer(msg, msgIndex, onClose) {
             theme: state.theme || 'dark',
             lang: state.lang || 'zh',
           },
+          slug: slugToUse || undefined,
         });
 
         const result = await publishSessionShare({
